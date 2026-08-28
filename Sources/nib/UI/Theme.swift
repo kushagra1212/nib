@@ -7,7 +7,9 @@ import AppKit
 /// paddings, radii and button styles.
 enum Theme {
     enum Radius {
-        static let window: CGFloat = 12
+        /// Generous, because a small radius on a translucent panel reads as a
+        /// cut-out rather than as a floating surface.
+        static let window: CGFloat = 14
         static let control: CGFloat = 7
         static let pill: CGFloat = 9
     }
@@ -84,20 +86,69 @@ enum Theme {
     }
 
     /// Builds the blurred, rounded backdrop every surface sits on.
+    ///
+    /// `hudWindow` is the material Apple names for floating heads-up windows,
+    /// which is what these are, and it is considerably more translucent than
+    /// `popover` -- which read as a solid dark slab sitting on the text rather
+    /// than something hovering over it.
     static func makeBackground() -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .popover
+        let view = GlassBackground()
+        view.material = .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active
+        // Emphasis darkens the material to mark a focused window. These float
+        // above someone else's text and should stay light.
+        view.isEmphasized = false
         view.wantsLayer = true
         view.layer?.cornerRadius = Radius.window
         view.layer?.cornerCurve = .continuous
-        view.layer?.borderWidth = 1
-        view.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.6).cgColor
         view.layer?.masksToBounds = true
         return view
     }
+}
 
+/// The backdrop, with the two edges that make a translucent surface read as
+/// glass rather than as a hole.
+///
+/// A single flat border looks drawn on. Real material has a bright rim along
+/// the top, where light catches the edge, and a darker one below it.
+final class GlassBackground: NSVisualEffectView {
+    private let rim = CAShapeLayer()
+
+    override func layout() {
+        super.layout()
+        guard let layer else { return }
+
+        if rim.superlayer == nil {
+            rim.fillColor = nil
+            rim.lineWidth = 1
+            layer.addSublayer(rim)
+        }
+        let inset = bounds.insetBy(dx: 0.5, dy: 0.5)
+        rim.frame = bounds
+        rim.path = CGPath(roundedRect: inset,
+                          cornerWidth: Theme.Radius.window,
+                          cornerHeight: Theme.Radius.window,
+                          transform: nil)
+        refreshRim()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshRim()
+    }
+
+    private func refreshRim() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            rim.strokeColor = dark
+                ? NSColor(white: 1, alpha: 0.16).cgColor
+                : NSColor(white: 0, alpha: 0.10).cgColor
+        }
+    }
+}
+
+extension Theme {
     /// Fades and lifts a window into place.
     static func present(_ window: NSWindow, at target: NSRect) {
         window.setFrame(
