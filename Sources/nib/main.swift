@@ -126,9 +126,107 @@ func runAXProbe(delay: Int) -> Int32 {
     return 0
 }
 
+/// Directories that may hold GGUF models, most specific first.
+///
+/// The current directory is deliberately not among them: an app launched from
+/// Finder has a working directory of "/", so anything relative silently fails.
+func modelSearchPaths() -> [URL] {
+    var paths: [URL] = []
+    if let resources = Bundle.main.resourceURL {
+        paths.append(resources.appendingPathComponent("models"))
+    }
+    paths.append(
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/nib/models")
+    )
+    // Development checkout: walk up from the executable to the repo root.
+    var dir = URL(fileURLWithPath: CommandLine.arguments[0])
+        .resolvingSymlinksInPath().deletingLastPathComponent()
+    for _ in 0..<6 {
+        paths.append(dir.appendingPathComponent("models"))
+        dir = dir.deletingLastPathComponent()
+    }
+    return paths
+}
+
+/// Locates llama-server, checking the bundle before known build locations.
+func locateLlamaServer() -> URL? {
+    let fm = FileManager.default
+    var candidates: [URL] = []
+    if let resources = Bundle.main.resourceURL {
+        candidates.append(resources.appendingPathComponent("llama-server"))
+    }
+    candidates.append(URL(fileURLWithPath:
+        "/Users/apple/code/per/llama.cpp/build/bin/llama-server"))
+    candidates.append(URL(fileURLWithPath: "/opt/homebrew/bin/llama-server"))
+    candidates.append(URL(fileURLWithPath: "/usr/local/bin/llama-server"))
+
+    return candidates.first { fm.isExecutableFile(atPath: $0.path) }
+}
+
+/// Builds a rewrite config, or nil if either the server or a model is missing.
+func rewriteConfig(modelName: String?) -> RewriteEngine.Config? {
+    guard let server = locateLlamaServer() else { return nil }
+    let fm = FileManager.default
+
+    // An explicit absolute path wins over any search.
+    if let modelName, modelName.contains("/") {
+        return RewriteEngine.Config(serverBinary: server,
+                                    modelPath: URL(fileURLWithPath: modelName))
+    }
+
+    for dir in modelSearchPaths() {
+        guard let entries = try? fm.contentsOfDirectory(atPath: dir.path) else { continue }
+        let models = entries.filter { $0.hasSuffix(".gguf") }.sorted()
+        guard !models.isEmpty else { continue }
+
+        if let modelName {
+            guard models.contains(modelName) else { continue }
+            return RewriteEngine.Config(serverBinary: server,
+                                        modelPath: dir.appendingPathComponent(modelName))
+        }
+        return RewriteEngine.Config(serverBinary: server,
+                                    modelPath: dir.appendingPathComponent(models[0]))
+    }
+    return nil
+}
+
+func runRewriteCLI(text: String, modelName: String?) async -> Int32 {
+    guard let config = rewriteConfig(modelName: modelName) else {
+        FileHandle.standardError.write(Data("no .gguf model in ./models\n".utf8))
+        return 1
+    }
+    print("model: \(config.modelPath.lastPathComponent)")
+
+    let engine = RewriteEngine(config: config)
+    defer { Task { await engine.shutdown() } }
+    let clock = ContinuousClock()
+
+    for mode in RewriteMode.allCases {
+        do {
+            var out = ""
+            let elapsed = try await clock.measure {
+                out = try await engine.rewrite(text, mode: mode)
+            }
+            print("\n[\(mode.rawValue)] \(elapsed)")
+            print("  \(out)")
+        } catch {
+            print("\n[\(mode.rawValue)] failed: \(error)")
+            return 1
+        }
+    }
+    return 0
+}
+
 // MARK: - Entry point
 
 let args = Array(CommandLine.arguments.dropFirst())
+
+if args.first == "--rewrite" {
+    let text = args.count > 1 ? args[1] : "Their is many erors in this sentance, and it are very long and wordy in a way that could of been much more shorter."
+    let model = args.count > 2 ? args[2] : nil
+    exit(await runRewriteCLI(text: text, modelName: model))
+}
 
 if args.first == "--ax-probe" {
     let delay = args.count > 1 ? Int(args[1]) ?? 5 : 5

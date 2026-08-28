@@ -5,6 +5,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkey = HotkeyMonitor()
     private let panel = SuggestionPanel()
     private var engine: HarperEngine?
+    /// Nil when no GGUF model is installed; rewrite then reports that instead
+    /// of failing silently.
+    private var rewriter: RewriteEngine?
     /// Held between opening the panel and applying, so the result goes back to
     /// the field it came from.
     private var target: TextTarget?
@@ -20,6 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Warm the engine now so the first hotkey press is not a cold start.
         Task { try? await engine?.start() }
+
+        // The model is loaded lazily on first rewrite, not here: it is hundreds
+        // of megabytes and most sessions never ask for a rewrite.
+        if let config = rewriteConfig(modelName: nil) {
+            rewriter = RewriteEngine(config: config)
+        }
 
         let combo = hotkey.start { [weak self] in self?.trigger() }
         updateStatusTitle(combo: combo)
@@ -86,6 +95,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             requestFixes: { [weak self] suggestions in
                 guard let engine = self?.engine else { return suggestions }
                 return await engine.withReplacements(suggestions)
+            },
+            onRewrite: { [weak self] text, mode in
+                guard let rewriter = self?.rewriter else {
+                    throw RewriteError.modelMissing("no .gguf model found")
+                }
+                return try await rewriter.rewrite(text, mode: mode)
             }
         )
 
