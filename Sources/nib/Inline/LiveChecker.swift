@@ -133,6 +133,18 @@ final class LiveChecker {
         out.append("  has bounds:   "
                    + (list.contains(kAXBoundsForRangeParameterizedAttribute as String)
                       ? "yes" : "NO"))
+
+        // Chromium reports text geometry to VoiceOver through text markers
+        // rather than character ranges. If those attributes are here, the
+        // empty rectangle from AXBoundsForRange is not the end of the story.
+        let markers = list.filter { $0.contains("Marker") }
+        out.append("  marker attrs: \(markers.isEmpty ? "none" : markers.joined(separator: ", "))")
+        if let rect = element.markerBounds() {
+            out.append("  marker bounds:\(Self.brief(rect))"
+                       + (AXElement.isDrawable(rect) ? "  ← DRAWABLE" : "  ← not drawable"))
+        } else {
+            out.append("  marker bounds:no answer")
+        }
         return out.joined(separator: "\n")
     }
 
