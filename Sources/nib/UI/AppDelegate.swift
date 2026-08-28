@@ -51,7 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startLiveWhenTrusted() {
         guard let engine else { return }
         if AXAccess.isTrusted {
-            if live == nil { live = LiveChecker(engine: engine) }
+            if live == nil {
+                live = LiveChecker(engine: engine, model: modelChecker())
+            }
             live?.start()
             liveMenuItem?.state = .on
             return
@@ -119,6 +121,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AXAccess.openSettings()
     }
 
+    /// The model-backed second pass, or nil when no GGUF model is installed.
+    private func modelChecker() -> ModelChecker? {
+        guard let rewriter else { return nil }
+        return ModelChecker(rewriter: rewriter)
+    }
+
     /// Turns inline underlines on or off.
     ///
     /// Off by default. It polls the focused element and lints on every pause in
@@ -135,7 +143,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             live?.stop()
             liveMenuItem?.state = .off
         } else {
-            if live == nil { live = LiveChecker(engine: engine) }
+            if live == nil {
+                live = LiveChecker(engine: engine, model: modelChecker())
+            }
             live?.start()
             liveMenuItem?.state = .on
         }

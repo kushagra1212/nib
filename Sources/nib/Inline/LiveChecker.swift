@@ -8,6 +8,9 @@ final class LiveChecker {
     private let watcher = AXWatcher()
     private let overlay = InlineOverlay()
     private let engine: HarperEngine
+    /// Optional second pass. Harper reads words; this reads sentences.
+    private let model: ModelChecker?
+    private var modelTask: Task<Void, Never>?
 
     private var element: AXElement?
     private var text = ""
@@ -24,8 +27,9 @@ final class LiveChecker {
 
     private(set) var isRunning = false
 
-    init(engine: HarperEngine) {
+    init(engine: HarperEngine, model: ModelChecker? = nil) {
         self.engine = engine
+        self.model = model
 
         watcher.onFocusChanged = { [weak self] element, text in
             self?.focusChanged(element, text)
@@ -59,6 +63,7 @@ final class LiveChecker {
         isRunning = false
         watcher.stop()
         lintTask?.cancel()
+        modelTask?.cancel()
         overlay.hide()
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         mouseMonitor = nil
@@ -107,6 +112,29 @@ final class LiveChecker {
             guard !Task.isCancelled, self.text == snapshot else { return }
 
             self.suggestions = filled
+            self.redraw()
+            self.scheduleModelPass(for: snapshot)
+        }
+    }
+
+    /// Second pass: the model rereads the whole text and its edits supersede
+    /// harper's.
+    ///
+    /// Harper is two orders of magnitude faster, so it goes first and its marks
+    /// appear immediately. The model then reruns on a longer pause with the
+    /// context harper lacks, which is what stops `NSString` being "corrected"
+    /// to `Nesting`. If the model returns nothing usable, harper's marks stand.
+    private func scheduleModelPass(for snapshot: String) {
+        guard let model else { return }
+        modelTask?.cancel()
+        modelTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            guard !Task.isCancelled, let self, self.text == snapshot else { return }
+
+            let found = await model.check(snapshot)
+            guard !Task.isCancelled, self.text == snapshot, !found.isEmpty else { return }
+
+            self.suggestions = SuggestionFilter.apply(found, in: snapshot)
             self.redraw()
         }
     }
