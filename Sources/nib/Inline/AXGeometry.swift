@@ -56,6 +56,11 @@ enum AXGeometry {
     /// Splits a range that reports a multi-line box in half and recurses, which
     /// costs a handful of AX calls per wrapped range rather than one per
     /// character.
+    /// Longest range to measure character by character when the whole-range
+    /// query fails. A word or short phrase is worth the extra calls; a
+    /// paragraph is not.
+    private static let maxPerCharacterLength = 120
+
     static func lineRects(
         for range: NSRange, in element: AXElement, depth: Int = 0
     ) -> [CGRect] {
@@ -64,7 +69,14 @@ enum AXGeometry {
         let cfRange = CFRange(location: range.location, length: range.length)
         guard let axRect = element.bounds(forRange: cfRange),
               axRect.width > 0, axRect.height > 0
-        else { return [] }
+        else {
+            // Some apps answer only for a single character. Slack is one:
+            // asking for one character works, asking for a five-character word
+            // returns nothing, so every mark was silently dropped. Measuring
+            // each character and joining the results gets the same rects at
+            // the cost of a few more calls.
+            return depth == 0 ? perCharacterRects(for: range, in: element) : []
+        }
 
         if axRect.height <= maxLineHeight {
             return [toCocoa(axRect)]
@@ -78,6 +90,26 @@ enum AXGeometry {
 
         return merge(lineRects(for: left, in: element, depth: depth + 1)
                      + lineRects(for: right, in: element, depth: depth + 1))
+    }
+
+    /// Measures each character separately and joins the results per line.
+    ///
+    /// The fallback for apps that only answer single-character range queries.
+    /// Characters that report nothing are skipped rather than guessed at, so a
+    /// partially answering app still gets marks under the parts it knows.
+    static func perCharacterRects(for range: NSRange, in element: AXElement) -> [CGRect] {
+        guard range.length <= maxPerCharacterLength else { return [] }
+
+        var found: [CGRect] = []
+        for offset in 0..<range.length {
+            let single = CFRange(location: range.location + offset, length: 1)
+            guard let rect = element.bounds(forRange: single),
+                  rect.width > 0, rect.height > 0,
+                  rect.height < maxLineHeight * 2
+            else { continue }
+            found.append(toCocoa(rect))
+        }
+        return merge(found)
     }
 
     /// Joins rects that sit on the same line into one, so a split range does
