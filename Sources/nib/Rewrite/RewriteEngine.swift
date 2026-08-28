@@ -13,14 +13,23 @@ enum RewriteMode: String, CaseIterable {
     var instruction: String {
         switch self {
         case .fixGrammar:
-            return "Correct the grammar, spelling, and punctuation of the text below. "
+            return "Correct the grammar, spelling, and punctuation of the user's text. "
                 + "Keep the meaning and wording as close to the original as possible."
         case .clearer:
-            return "Rewrite the text below to be clearer and easier to read. "
+            return "Rewrite the user's text to be clearer and easier to read. "
                 + "Keep the same meaning and roughly the same length."
         case .shorter:
-            return "Rewrite the text below to be shorter, keeping every important point."
+            return "Rewrite the user's text to be shorter, keeping every important point."
         }
+    }
+
+    /// Constant per mode, so the server can reuse the cached prefix rather
+    /// than reprocessing the instruction on every request.
+    var systemPrompt: String {
+        instruction
+            + " Reply with only the rewritten text."
+            + " Do not explain, comment, add quotes, or think out loud."
+            + " Leave code, identifiers, acronyms and proper nouns exactly as written."
     }
 }
 
@@ -54,9 +63,13 @@ actor RewriteEngine {
         var idleTimeout: TimeInterval = 300
         var contextSize = 2048
         var maxTokens = 512
-        /// Low but not zero: deterministic enough to trust, not so rigid that
-        /// it repeats the input verbatim when it has nothing to change.
-        var temperature = 0.3
+        /// Greedy. Correcting a sentence has a right answer, so sampling adds
+        /// latency and variance in exchange for nothing. It also makes the
+        /// cache useful: the same input now yields the same output.
+        var temperature = 0.0
+        /// Half the performance cores, so a rewrite does not compete with
+        /// whatever the user is actually doing.
+        var threads = max(2, ProcessInfo.processInfo.activeProcessorCount / 2)
     }
 
     private let config: Config
@@ -76,25 +89,28 @@ actor RewriteEngine {
         let port = try await ensureRunning()
         scheduleIdleShutdown()
 
-        let prompt = """
-        \(mode.instruction)
-        Reply with only the rewritten text. Do not explain, comment, or add quotes.
-
-        Text:
-        \(text)
-        """
-
         var request = URLRequest(
             url: URL(string: "http://127.0.0.1:\(port)/v1/chat/completions")!
         )
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 120
+
+        // The instruction is a system message so it stays byte-identical
+        // between calls, which is what lets the server reuse the cached
+        // prefix and only process the sentence itself.
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "messages": [["role": "user", "content": prompt]],
+            "messages": [
+                ["role": "system", "content": mode.systemPrompt],
+                ["role": "user", "content": text],
+            ],
             "temperature": config.temperature,
-            "max_tokens": config.maxTokens,
+            "top_k": 1,
+            "max_tokens": Self.tokenBudget(for: text, limit: config.maxTokens),
             "stream": false,
+            // Belt and braces alongside the server flag: some templates only
+            // honour thinking control passed per request.
+            "chat_template_kwargs": ["enable_thinking": false],
         ])
 
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -105,6 +121,17 @@ actor RewriteEngine {
         else { throw RewriteError.badResponse }
 
         return Self.clean(content)
+    }
+
+    /// Caps generation to a little more than the input.
+    ///
+    /// A correction is about as long as what it corrects, so a flat 512-token
+    /// ceiling only ever mattered when the model had started rambling -- and
+    /// then it made us wait for the rambling. Roughly four characters per
+    /// token, with headroom for a longer rewrite.
+    static func tokenBudget(for text: String, limit: Int) -> Int {
+        let estimated = text.count / 4
+        return min(limit, max(64, Int(Double(estimated) * 1.8) + 32))
     }
 
     /// Strips the scaffolding small models add despite being told not to.
@@ -168,6 +195,34 @@ actor RewriteEngine {
             "--host", "127.0.0.1",
             "--ctx-size", String(config.contextSize),
             "--log-disable",
+
+            // Offload everything to the GPU. 'auto' is already the default in
+            // recent builds, but being explicit means an older llama.cpp does
+            // not quietly run this on the CPU.
+            "--n-gpu-layers", "99",
+            "--flash-attn", "on",
+
+            // Qwen3 is a reasoning model: left alone it emits a <think> block
+            // before the answer, and the budget is unrestricted by default.
+            // The block was being generated in full and then thrown away by
+            // clean(), so every rewrite paid for hundreds of tokens nobody
+            // ever saw. This is the single largest cost in the whole path.
+            "--reasoning", "off",
+            "--reasoning-budget", "0",
+
+            // Reuse the cached prefix across calls. The instruction is a
+            // constant system message, so only the user's sentence needs
+            // processing on each request.
+            "--cache-reuse", "128",
+
+            // One slot: the app never issues concurrent rewrites, and each
+            // extra slot reserves its own KV cache.
+            "--parallel", "1",
+
+            // Leave cores for the user. The default takes every performance
+            // core, which is exactly the wrong trade for something running
+            // behind whatever they are actually doing.
+            "--threads", String(config.threads),
         ]
         proc.standardOutput = FileHandle.nullDevice
         proc.standardError = FileHandle.nullDevice
