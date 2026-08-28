@@ -34,6 +34,7 @@ enum AXProbe {
 
     /// Explains why no text element could be reached, rather than just failing.
     static func diagnoseNoFocus() -> String {
+        ChromiumAccessibility.enableForFrontmost()
         guard let running = NSWorkspace.shared.frontmostApplication else {
             return "No frontmost application at all."
         }
@@ -60,6 +61,7 @@ enum AXProbe {
     }
 
     static func probeFocused() -> Report? {
+        ChromiumAccessibility.enableForFrontmost()
         guard let element = AXElement.focused else { return nil }
 
         let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
