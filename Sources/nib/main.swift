@@ -247,6 +247,57 @@ func runRewriteCLI(text: String, modelName: String?) async -> Int32 {
 
 let args = Array(CommandLine.arguments.dropFirst())
 
+/// Times the rewrite path: model load, first call, then warm calls.
+func runModelBench(modelName: String?, iterations: Int) async -> Int32 {
+    guard let config = rewriteConfig(modelName: modelName) else {
+        FileHandle.standardError.write(Data("no .gguf model found\n".utf8))
+        return 1
+    }
+    let sample = "Their is many erors in this sentance, and it are very long "
+        + "and wordy in a way that could of been much more shorter."
+
+    print("model:  \(config.modelPath.lastPathComponent)")
+    print("threads: \(config.threads)  ctx: \(config.contextSize)")
+    print("token budget for this input: "
+          + "\(RewriteEngine.tokenBudget(for: sample, limit: config.maxTokens))")
+
+    let engine = RewriteEngine(config: config)
+    defer { Task { await engine.shutdown() } }
+    let clock = ContinuousClock()
+
+    do {
+        var first = ""
+        let cold = try await clock.measure {
+            first = try await engine.rewrite(sample, mode: .fixGrammar)
+        }
+        print("\ncold (spawn + load + generate): \(cold)")
+        print("  \(first)")
+
+        var timings: [Duration] = []
+        for index in 0..<iterations {
+            // Vary the text so the response cache does not answer for us.
+            let varied = sample + String(repeating: " ", count: index)
+            timings.append(try await clock.measure {
+                _ = try await engine.rewrite(varied, mode: .fixGrammar)
+            })
+        }
+        let sorted = timings.sorted()
+        let total = timings.reduce(Duration.zero, +)
+        print("\nwarm x\(iterations): min \(sorted.first!), "
+              + "median \(sorted[sorted.count / 2]), max \(sorted.last!), "
+              + "mean \(total / iterations)")
+        return 0
+    } catch {
+        FileHandle.standardError.write(Data("bench failed: \(error)\n".utf8))
+        return 1
+    }
+}
+
+if args.first == "--model-bench" {
+    let model = args.count > 1 ? args[1] : nil
+    exit(await runModelBench(modelName: model, iterations: 5))
+}
+
 if args.first == "--rewrite" {
     let text = args.count > 1 ? args[1] : "Their is many erors in this sentance, and it are very long and wordy in a way that could of been much more shorter."
     let model = args.count > 2 ? args[2] : nil
