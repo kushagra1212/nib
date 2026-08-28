@@ -27,6 +27,8 @@ final class AXWatcher {
     private(set) var current: AXElement?
     private var lastText = ""
     private var lastFrame: CGRect = .zero
+    /// Where the sentinel range sat last time, to detect scrolling.
+    private var lastSentinelRect: CGRect?
 
     /// Text fields worth underlining. Buttons and labels report values too.
     private static let editableRoles: Set<String> = [
@@ -88,11 +90,34 @@ final class AXWatcher {
     /// skip its cross-process call entirely.
     var needsGeometry: (() -> Bool)?
 
+    /// A range the owner is currently drawing, used to detect text movement.
+    var sentinelRange: (() -> NSRange?)?
+
     private func pollGeometry() {
         guard let current, needsGeometry?() ?? true else { return }
+
+        var moved = false
+
         let frame = AXGeometry.frame(of: current) ?? .zero
-        guard frame != lastFrame else { return }
-        lastFrame = frame
+        if frame != lastFrame {
+            lastFrame = frame
+            moved = true
+        }
+
+        // Scrolling inside a field moves the TEXT but not the field, so the
+        // frame is unchanged and marks silently drift out of alignment.
+        // Sampling where one marked range actually sits catches that, and
+        // catches reflow from a window resize too.
+        if let range = sentinelRange?(), range.length > 0 {
+            let rect = current.bounds(forRange: CFRange(location: range.location,
+                                                        length: range.length))
+            if rect != lastSentinelRect {
+                lastSentinelRect = rect
+                moved = true
+            }
+        }
+
+        guard moved else { return }
         onGeometryChanged?()
     }
 
