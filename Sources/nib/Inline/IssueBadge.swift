@@ -9,6 +9,8 @@ import AppKit
 /// found and points at the way to see it.
 final class IssueBadge: NSPanel {
     var onOpen: (() -> Void)?
+    /// Hovering the badge is the substitute for hovering an underline.
+    var onHover: ((Bool) -> Void)?
 
     private let body = BadgeBody()
     private let label = NSTextField(labelWithString: "")
@@ -42,6 +44,9 @@ final class IssueBadge: NSPanel {
         body.onClick = { [weak self] in
             self?.onOpen?()
             self?.dismiss()
+        }
+        body.onHover = { [weak self] inside in
+            self?.onHover?(inside)
         }
         contentView = body
 
@@ -107,6 +112,7 @@ final class IssueBadge: NSPanel {
 /// the mouse responder chain are `NSView` API.
 private final class BadgeBody: NSVisualEffectView {
     var onClick: (() -> Void)?
+    var onHover: ((Bool) -> Void)?
 
     private var tracking: NSTrackingArea?
     private var hovering = false { didSet { refresh() } }
@@ -124,11 +130,13 @@ private final class BadgeBody: NSVisualEffectView {
     override func mouseEntered(with event: NSEvent) {
         hovering = true
         NSCursor.pointingHand.set()
+        onHover?(true)
     }
 
     override func mouseExited(with event: NSEvent) {
         hovering = false
         NSCursor.arrow.set()
+        onHover?(false)
     }
 
     override func mouseDown(with event: NSEvent) {
