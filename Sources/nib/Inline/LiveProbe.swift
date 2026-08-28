@@ -66,8 +66,12 @@ enum LiveProbe {
                 + "-- this app cannot show inline underlines"
         }
 
-        let visible = marks.filter { frame.intersects($0.rect) }
-        let first = marks[0].rect
+        let visible = marks.filter { mark in
+            mark.rects.contains { frame.intersects($0) }
+        }
+        guard let first = marks[0].rects.first else {
+            return "\(app) [\(role)]: bounds resolved but no line rects"
+        }
         return "\(app) [\(role)]: \(found.count) issues, \(marks.count) with bounds, "
             + "\(visible.count) inside frame | field \(short(frame)) "
             + "first mark \(short(first))"

@@ -26,29 +26,76 @@ enum AXGeometry {
                height: rect.height)
     }
 
+    /// Tallest a single line of text is assumed to be.
+    ///
+    /// A reported box taller than this covers more than one line, because AX
+    /// returns one bounding box for a range that wraps.
+    private static let maxLineHeight: CGFloat = 40
+
     /// Screen rects for each suggestion, in Cocoa coordinates.
     ///
-    /// Ranges that report no bounds are dropped rather than guessed at: a
-    /// squiggle in the wrong place is worse than no squiggle.
+    /// A suggestion can produce SEVERAL rects, one per line it covers. That
+    /// matters for clarity suggestions, which span whole sentences and
+    /// therefore wrap constantly: an earlier version asked for one box per
+    /// range and discarded anything too tall, which silently threw away every
+    /// wrapped sentence and left clarity marks invisible.
     static func rects(
         for suggestions: [Suggestion], in element: AXElement
-    ) -> [(suggestion: Suggestion, rect: CGRect)] {
-        var out: [(Suggestion, CGRect)] = []
+    ) -> [(suggestion: Suggestion, rects: [CGRect])] {
+        var out: [(Suggestion, [CGRect])] = []
         for suggestion in suggestions {
-            let cfRange = CFRange(location: suggestion.range.location,
-                                  length: suggestion.range.length)
-            guard let axRect = element.bounds(forRange: cfRange),
-                  axRect.width > 0, axRect.height > 0
-            else { continue }
-
-            // A range that wraps across lines comes back as one tall box
-            // covering the span. Underlining that whole block is wrong, so
-            // skip it; the panel still offers the fix.
-            guard axRect.height < 60 else { continue }
-
-            out.append((suggestion, toCocoa(axRect)))
+            let lines = lineRects(for: suggestion.range, in: element)
+            guard !lines.isEmpty else { continue }
+            out.append((suggestion, lines))
         }
         return out
+    }
+
+    /// One rect per line the range covers.
+    ///
+    /// Splits a range that reports a multi-line box in half and recurses, which
+    /// costs a handful of AX calls per wrapped range rather than one per
+    /// character.
+    static func lineRects(
+        for range: NSRange, in element: AXElement, depth: Int = 0
+    ) -> [CGRect] {
+        guard range.length > 0, depth < 8 else { return [] }
+
+        let cfRange = CFRange(location: range.location, length: range.length)
+        guard let axRect = element.bounds(forRange: cfRange),
+              axRect.width > 0, axRect.height > 0
+        else { return [] }
+
+        if axRect.height <= maxLineHeight {
+            return [toCocoa(axRect)]
+        }
+
+        // Spans more than one line: split and let each half resolve itself.
+        let half = range.length / 2
+        guard half > 0 else { return [] }
+        let left = NSRange(location: range.location, length: half)
+        let right = NSRange(location: range.location + half, length: range.length - half)
+
+        return merge(lineRects(for: left, in: element, depth: depth + 1)
+                     + lineRects(for: right, in: element, depth: depth + 1))
+    }
+
+    /// Joins rects that sit on the same line into one, so a split range does
+    /// not draw as several abutting underlines with seams between them.
+    private static func merge(_ rects: [CGRect]) -> [CGRect] {
+        guard rects.count > 1 else { return rects }
+        var byLine: [CGFloat: CGRect] = [:]
+
+        for rect in rects {
+            // Round the baseline so sub-pixel differences do not split a line.
+            let key = (rect.origin.y * 2).rounded() / 2
+            if let existing = byLine[key] {
+                byLine[key] = existing.union(rect)
+            } else {
+                byLine[key] = rect
+            }
+        }
+        return byLine.values.sorted { $0.origin.y > $1.origin.y }
     }
 
     /// Screen rect of the whole text field, in Cocoa coordinates.

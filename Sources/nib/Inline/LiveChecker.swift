@@ -18,6 +18,7 @@ final class LiveChecker {
     /// Suggestions the user waved away, cleared when focus moves elsewhere.
     private var dismissed: Set<String> = []
     private var lintTask: Task<Void, Never>?
+    private var redrawPending = false
     private var mouseMonitor: Any?
 
     /// Fields longer than this are skipped. Underlining a 10,000-word document
@@ -39,6 +40,11 @@ final class LiveChecker {
         }
         watcher.onGeometryChanged = { [weak self] in
             self?.redraw()
+        }
+        // Nothing on screen means nothing to reposition, so the geometry poll
+        // can skip its cross-process call while the text is clean.
+        watcher.needsGeometry = { [weak self] in
+            !(self?.suggestions.isEmpty ?? true)
         }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
@@ -143,18 +149,35 @@ final class LiveChecker {
             let clarity = await model.clarity(snapshot)
             guard !Task.isCancelled, self.text == snapshot, !clarity.isEmpty else { return }
 
-            // Only mark sentences that hold no error. A red and a blue mark on
-            // the same words is two answers to one question.
+            // Both kinds are kept. Excluding any sentence that contained a
+            // correction meant short text, which is usually a single sentence,
+            // never showed a clarity mark at all.
+            //
+            // Corrections come first so hit-testing prefers them: hovering the
+            // misspelled word offers the spelling fix, hovering elsewhere in
+            // the sentence offers the rewrite.
             let corrections = self.suggestions.filter { $0.kind == .correction }
-            let clean = clarity.filter { sentence in
-                !corrections.contains { NSIntersectionRange($0.range, sentence.range).length > 0 }
-            }
-            self.suggestions = corrections + clean
+            self.suggestions = corrections + clarity
             self.redraw()
         }
     }
 
+    /// Coalesces redraw requests into one per frame.
+    ///
+    /// Geometry is sampled several times a second and each redraw costs one
+    /// cross-process AX call per mark, so a scroll used to fire hundreds of
+    /// them a second on the main thread. Merging every request that lands
+    /// within a frame collapses that back to one pass.
     private func redraw() {
+        guard redrawPending == false else { return }
+        redrawPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 60.0) { [weak self] in
+            self?.redrawPending = false
+            self?.redrawNow()
+        }
+    }
+
+    private func redrawNow() {
         guard let element, !suggestions.isEmpty,
               let frame = AXGeometry.frame(of: element) else {
             overlay.hide()
@@ -164,7 +187,10 @@ final class LiveChecker {
         let marks = AXGeometry.rects(for: live, in: element)
         // Clip to the field: a scrolled-away line still reports bounds, which
         // would paint marks over whatever is above or below the field.
-        let visible = marks.filter { frame.intersects($0.rect) }
+        let visible = marks.compactMap { mark -> (Suggestion, [CGRect])? in
+            let inside = mark.rects.filter { frame.intersects($0) }
+            return inside.isEmpty ? nil : (mark.suggestion, inside)
+        }
         overlay.show(fieldFrame: frame, marks: visible, context: text)
     }
 

@@ -35,6 +35,11 @@ final class FixCard: NSPanel {
         static let corner: CGFloat = 10
         static let removed = NSColor.systemRed
         static let added = NSColor.systemGreen
+        /// Motion is kept under a fifth of a second: perceptible, never a wait.
+        static let appearDuration: TimeInterval = 0.14
+        static let dismissDuration: TimeInterval = 0.10
+        /// How far the card rises as it fades in.
+        static let rise: CGFloat = 6
     }
 
     init() {
@@ -170,8 +175,51 @@ final class FixCard: NSPanel {
             setContentSize(NSSize(width: Style.width, height: ceil(fitting.height)))
         }
 
+        let wasVisible = isVisible
         position(below: anchor)
+
+        if wasVisible {
+            orderFront(nil)
+        } else {
+            appear()
+        }
+    }
+
+    /// Fades and lifts the card into place.
+    ///
+    /// Short and eased-out: long enough to read as motion rather than a flash,
+    /// short enough that it never delays reaching the buttons. The rise is a
+    /// few points only, so the card does not appear to travel.
+    private func appear() {
+        alphaValue = 0
+        var target = frame
+        let lifted = NSRect(x: target.origin.x, y: target.origin.y - Style.rise,
+                            width: target.width, height: target.height)
+        setFrame(lifted, display: false)
         orderFront(nil)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Style.appearDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
+            animator().alphaValue = 1
+            animator().setFrame(target, display: true)
+        }
+        target = frame
+    }
+
+    /// Fades out, then orders out once invisible.
+    func dismiss() {
+        guard isVisible else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Style.dismissDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            guard let self, self.alphaValue < 0.05 else { return }
+            self.orderOut(nil)
+            self.alphaValue = 1
+        }
     }
 
     /// The proposed sentence, shown plainly.
