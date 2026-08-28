@@ -142,62 +142,74 @@ final class LiveChecker {
 
     // MARK: - Applying a fix
 
+    private func apply(_ suggestion: Suggestion, _ replacement: String) {
+        Task { @MainActor [weak self] in
+            await self?.performApply(suggestion, replacement)
+        }
+    }
+
     /// Replaces one flagged range, trying three routes in order of fidelity.
     ///
-    /// `AXUIElementSetAttributeValue` reports success by return code, but some
-    /// apps return success and change nothing, so each route is verified by
-    /// reading the text back rather than trusting the result.
-    private func apply(_ suggestion: Suggestion, _ replacement: String) {
+    /// Each route is confirmed by reading the value back, because
+    /// AXUIElementSetAttributeValue returns success even when an app ignores
+    /// the write. Crucially the read-back POLLS: apps apply AX writes
+    /// asynchronously, and checking immediately saw stale text, declared the
+    /// write a failure, and ran the next route too -- applying the same fix
+    /// twice and leaving a duplicate word at the caret.
+    private func performApply(_ suggestion: Suggestion, _ replacement: String) async {
         guard let element else { return }
         let nsText = text as NSString
         guard NSMaxRange(suggestion.range) <= nsText.length else { return }
 
         let updated = nsText.replacingCharacters(in: suggestion.range, with: replacement)
 
-        // Select the range first. Every route below needs it, and it is also
-        // what makes the change visible if the write itself fails.
-        var cfRange = CFRange(location: suggestion.range.location,
-                              length: suggestion.range.length)
-        let selected: Bool
-        if let axRange = AXValueCreate(.cfRange, &cfRange) {
-            selected = element.set(kAXSelectedTextRangeAttribute, to: axRange)
-        } else {
-            selected = false
-        }
-
         // 1. Replace just the selection. Preferred: the caret stays put.
-        if selected, element.set(kAXSelectedTextAttribute, to: replacement as CFString),
-           didApply(updated, on: element) {
+        if selectRange(suggestion.range, on: element),
+           element.set(kAXSelectedTextAttribute, to: replacement as CFString),
+           await settled(to: updated, on: element) {
             finish(updated)
             return
         }
 
-        // 2. Rewrite the whole value. Works more widely, but moves the caret
-        //    to the end of the field.
+        // 2. Rewrite the whole value. Wider support, but moves the caret to
+        //    the end of the field.
         if element.isSettable(kAXValueAttribute),
            element.set(kAXValueAttribute, to: updated as CFString),
-           didApply(updated, on: element) {
+           await settled(to: updated, on: element) {
             finish(updated)
             return
         }
 
-        // 3. Type over the selection. Electron fields expose their text but
-        //    reject AX writes to it, silently: the range highlights and
-        //    nothing else happens. Synthetic input is what actually lands.
-        guard selected else { return }
-        Keystroke.type(replacement)
-        // The app applies the keystroke asynchronously, so re-read shortly.
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 120_000_000)
-            guard let self, let element = self.element else { return }
-            let now = element.string(for: kAXValueAttribute) ?? ""
-            self.finish(now.isEmpty ? updated : now)
+        // A late-landing write from either route above must not be followed by
+        // a third attempt; that is what produced the duplicate.
+        if await settled(to: updated, on: element, attempts: 2) {
+            finish(updated)
+            return
         }
+
+        // 3. Type over the selection. Electron fields expose their text and
+        //    silently refuse AX writes to it; synthetic input is what lands.
+        guard selectRange(suggestion.range, on: element) else { return }
+        Keystroke.type(replacement)
+        _ = await settled(to: updated, on: element)
+        finish(element.string(for: kAXValueAttribute) ?? updated)
     }
 
-    /// Confirms the field really holds the new text.
-    private func didApply(_ expected: String, on element: AXElement) -> Bool {
-        element.string(for: kAXValueAttribute) == expected
+    private func selectRange(_ range: NSRange, on element: AXElement) -> Bool {
+        var cfRange = CFRange(location: range.location, length: range.length)
+        guard let axRange = AXValueCreate(.cfRange, &cfRange) else { return false }
+        return element.set(kAXSelectedTextRangeAttribute, to: axRange)
+    }
+
+    /// Polls until the field holds `expected`, or the attempts run out.
+    private func settled(
+        to expected: String, on element: AXElement, attempts: Int = 8
+    ) async -> Bool {
+        for _ in 0..<attempts {
+            if element.string(for: kAXValueAttribute) == expected { return true }
+            try? await Task.sleep(nanoseconds: 40_000_000)
+        }
+        return element.string(for: kAXValueAttribute) == expected
     }
 
     private func finish(_ updated: String) {
