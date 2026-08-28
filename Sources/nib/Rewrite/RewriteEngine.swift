@@ -13,8 +13,33 @@ enum RewriteMode: String, CaseIterable {
     var instruction: String {
         switch self {
         case .fixGrammar:
+            // Measured on Qwen3 0.6B against "there is a bug in product
+            // details, it is not exactly a bug but ideally when I click on 2
+            // options, ... does not get close":
+            //
+            //   instruction alone            echoed the input, unchanged
+            //   + example                    fixed the capital, nothing else
+            //   + example + "always output   fixed the capital, split the
+            //     a corrected version"       comma splice, "close" -> "closed"
+            //                                -- and rewrote text that was
+            //                                already correct: "The quick brown
+            //                                fox jumps over the lazy dog"
+            //                                became "There is a quick brown
+            //                                fox that jumps over the lazy dog"
+            //
+            // Damaging correct sentences is the worse failure, so the coercion
+            // is not here. What that leaves is a model that fixes spelling and
+            // little else: it does not correct "it are not" or "I clicks" even
+            // when told plainly. 0.6B is under the bar for grammar. A 1.7B
+            // model is what this prompt is waiting for, and rankModels already
+            // prefers one when installed.
             return "Correct the grammar, spelling, and punctuation of the user's text. "
-                + "Keep the meaning and wording as close to the original as possible."
+                + "Keep the meaning and wording as close to the original as possible. "
+                + "Split run-on sentences and comma splices.\n"
+                + "Example input: we was going to the store and buyed milk, it dont "
+                + "work\n"
+                + "Example output: We were going to the store and bought milk. It "
+                + "doesn't work."
         case .clearer:
             return "Rewrite the user's text to be clearer and easier to read. "
                 + "Keep the same meaning and roughly the same length."
