@@ -20,10 +20,10 @@ final class FixCard: NSPanel {
 
     private let explanation = NSTextField(labelWithString: "")
     private let diff = NSTextField(labelWithString: "")
-    private let acceptButton = NSButton()
-    private let dismissButton = NSButton()
-    private let previousButton = NSButton()
-    private let nextButton = NSButton()
+    private let acceptButton = PillButton()
+    private let dismissButton = PillButton()
+    private let previousButton = PillButton()
+    private let nextButton = PillButton()
     private let counter = NSTextField(labelWithString: "")
 
     private var suggestion: Suggestion?
@@ -58,15 +58,7 @@ final class FixCard: NSPanel {
     override var canBecomeKey: Bool { false }
 
     private func build() {
-        let background = NSVisualEffectView()
-        background.material = .popover
-        background.blendingMode = .behindWindow
-        background.state = .active
-        background.wantsLayer = true
-        background.layer?.cornerRadius = Style.corner
-        background.layer?.borderWidth = 1
-        background.layer?.borderColor = NSColor.separatorColor.cgColor
-        background.layer?.masksToBounds = true
+        let background = Theme.makeBackground()
         contentView = background
 
         explanation.font = .systemFont(ofSize: 12)
@@ -80,21 +72,13 @@ final class FixCard: NSPanel {
         diff.maximumNumberOfLines = 4
         diff.preferredMaxLayoutWidth = Style.width - Style.padding * 2
 
-        acceptButton.title = "Accept"
-        acceptButton.bezelStyle = .rounded
+        acceptButton.configure(title: "Accept", emphasis: .primary,
+                               tint: Style.added, target: self,
+                               action: #selector(accept))
         acceptButton.keyEquivalent = "\r"
-        acceptButton.controlSize = .regular
-        acceptButton.target = self
-        acceptButton.action = #selector(accept)
-        // Filled, so the default action is obvious without reading the labels.
-        acceptButton.bezelColor = Style.added
 
-        dismissButton.title = "Dismiss"
-        dismissButton.isBordered = false
-        dismissButton.contentTintColor = .secondaryLabelColor
-        dismissButton.font = .systemFont(ofSize: 12)
-        dismissButton.target = self
-        dismissButton.action = #selector(dismissTapped)
+        dismissButton.configure(title: "Dismiss", emphasis: .plain,
+                                target: self, action: #selector(dismissTapped))
 
         configureStepper(previousButton, symbol: "chevron.left", action: #selector(stepBack))
         configureStepper(nextButton, symbol: "chevron.right", action: #selector(stepForward))
@@ -129,12 +113,11 @@ final class FixCard: NSPanel {
         ])
     }
 
-    private func configureStepper(_ button: NSButton, symbol: String, action: Selector) {
+    private func configureStepper(_ button: PillButton, symbol: String, action: Selector) {
+        button.configure(title: "", emphasis: .plain, target: self, action: action)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        button.isBordered = false
+        button.imagePosition = .imageOnly
         button.contentTintColor = .secondaryLabelColor
-        button.target = self
-        button.action = action
     }
 
     // MARK: - Content
@@ -169,8 +152,15 @@ final class FixCard: NSPanel {
                     : Self.diffText(suggestion, replacement: replacement, context: context)
                 diff.isHidden = false
                 acceptButton.isHidden = false
-                acceptButton.bezelColor = suggestion.kind == .clarity
-                    ? .systemBlue : Style.added
+                // Accept carries the colour of what it is accepting, so the
+                // card reads as one thing rather than a red mark with a green
+                // button stuck on it.
+                acceptButton.configure(
+                    title: "Accept", emphasis: .primary,
+                    tint: suggestion.kind == .clarity
+                        ? Theme.Colour.clarity : Theme.Colour.accept,
+                    target: self, action: #selector(accept))
+                acceptButton.keyEquivalent = "\r"
             } else {
                 // The message alone carries the point; an empty diff row would
                 // just be a gap.

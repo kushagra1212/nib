@@ -25,6 +25,15 @@ final class PillButton: NSButton {
                      tint: NSColor = Theme.Colour.accept,
                      target: AnyObject?, action: Selector) {
         self.init(frame: .zero)
+        configure(title: title, emphasis: emphasis, tint: tint,
+                  target: target, action: action)
+    }
+
+    /// For buttons held as stored properties, which cannot use the convenience
+    /// initialiser.
+    func configure(title: String, emphasis: Emphasis = .secondary,
+                   tint: NSColor = Theme.Colour.accept,
+                   target: AnyObject?, action: Selector) {
         self.emphasis = emphasis
         self.tint = tint
         self.title = title
