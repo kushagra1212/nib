@@ -31,7 +31,109 @@ enum SuggestionFilter {
 
         // Advisory lints with no replacement are only ever shown as a note.
         guard let replacement = suggestion.replacements.first else { return true }
+
+        // Both guards below ask "did the writer mean this word", which only
+        // makes sense for a word Harper does not know. Its grammar rules fire
+        // on words that are in the dictionary -- their/there, its/it's -- and
+        // those must still be corrected wherever they appear.
+        if isSpellingCheck(suggestion.message) {
+            if isProperNoun(suggestion.range, in: text) { return false }
+            if repeatsDeliberately(token, in: text, replacement: replacement) {
+                return false
+            }
+        }
+
         return isPlausibleCorrection(from: token, to: replacement)
+    }
+
+    /// Whether the lint is "I do not know this word" rather than a grammar rule.
+    static func isSpellingCheck(_ message: String) -> Bool {
+        message.lowercased().contains("spell")
+    }
+
+    // MARK: - Words the writer meant
+
+    /// Whether the flagged word is a name rather than a misspelling.
+    ///
+    /// Harper offered `Kushagra -> Bukhara` and `Rathore -> Rather`: it has no
+    /// name list, so every unfamiliar name becomes the nearest dictionary word.
+    /// Suggesting a different name for someone's name is worse than saying
+    /// nothing, and the message being typed is usually addressed to them.
+    ///
+    /// A capital only means a name away from the start of a sentence, so the
+    /// position is what is tested, not the letter.
+    static func isProperNoun(_ range: NSRange, in text: String) -> Bool {
+        let ns = text as NSString
+        guard range.location >= 0, range.length > 0,
+              NSMaxRange(range) <= ns.length else { return false }
+        guard let first = ns.substring(with: range).first, first.isUppercase else {
+            return false
+        }
+        return !startsSentence(at: range.location, in: ns)
+    }
+
+    private static func startsSentence(at location: Int, in ns: NSString) -> Bool {
+        var index = location - 1
+        while index >= 0 {
+            let character = Character(ns.substring(with: NSRange(location: index, length: 1)))
+            // A line break ends a sentence as surely as a full stop does, and
+            // in chat it is the usual way people end one.
+            if character.isNewline { return true }
+            if character.isWhitespace { index -= 1; continue }
+            return ".!?".contains(character)
+        }
+        return true
+    }
+
+    /// Whether a word is used consistently enough to be deliberate.
+    ///
+    /// `rects` appeared twice in the same message and Harper offered `rests`
+    /// for it. Jargon, product names and abbreviations repeat; a slip of the
+    /// fingers usually does not land the same way twice.
+    ///
+    /// Transpositions are the exception. Swapping two adjacent letters is the
+    /// most common typing error there is, and it does repeat, so `teh` twice
+    /// still gets corrected to `the`.
+    static func repeatsDeliberately(
+        _ token: String,
+        in text: String,
+        replacement: String
+    ) -> Bool {
+        let word = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Below four letters the odds of an unrelated collision are too high,
+        // and short words are where genuine repeated typos live.
+        guard word.count >= 4, !word.contains(where: \.isWhitespace) else { return false }
+        guard !isTransposition(word, replacement) else { return false }
+        return occurrences(of: word, in: text) >= 2
+    }
+
+    /// Counts whole-word matches, case-insensitively.
+    static func occurrences(of word: String, in text: String) -> Int {
+        let target = word.lowercased()
+        return text
+            .split(whereSeparator: { !$0.isLetter && $0 != "'" && $0 != "’" })
+            .reduce(into: 0) { count, candidate in
+                if candidate.lowercased() == target { count += 1 }
+            }
+    }
+
+    /// Whether two words differ only by one pair of swapped adjacent letters.
+    ///
+    /// `teh` to `the` and `adn` to `and` are two edits over three characters,
+    /// which every ratio test rejects. They were being rejected: the two most
+    /// common typos in English produced no fix at all.
+    static func isTransposition(_ a: String, _ b: String) -> Bool {
+        let left = Array(a.lowercased()), right = Array(b.lowercased())
+        guard left.count == right.count, left.count >= 2 else { return false }
+
+        let differing = zip(left, right).enumerated()
+            .filter { $0.element.0 != $0.element.1 }
+            .map(\.offset)
+        guard differing.count == 2 else { return false }
+
+        let (i, j) = (differing[0], differing[1])
+        guard j == i + 1 else { return false }
+        return left[i] == right[j] && left[j] == right[i]
     }
 
     // MARK: - Shape of the flagged token
@@ -130,12 +232,39 @@ enum SuggestionFilter {
         guard !addsWords(from: a, to: b) else { return false }
         guard !inventsPossessive(from: a, to: b) else { return false }
 
-        let distance = editDistance(a, b)
-        if distance <= 1 { return true }
+        // A phrase is judged by words, not by letters. "could of" to "could
+        // have" is four character edits but one word replaced, and any
+        // character threshold loose enough to allow that also allows real
+        // damage on single words.
+        let before = a.split(whereSeparator: \.isWhitespace)
+        let after = b.split(whereSeparator: \.isWhitespace)
+        if before.count > 1 || after.count > 1 {
+            // Splitting or joining a word changes the word count while keeping
+            // the letters: "cannotbe" to "cannot be", "along side" to
+            // "alongside". Compare with the spaces taken out.
+            guard before.count == after.count else {
+                let joinedBefore = before.joined()
+                let joinedAfter = after.joined()
+                return editDistance(joinedBefore, joinedAfter) <= 2
+            }
+            return zip(before, after).filter { $0 != $1 }.count == 1
+        }
 
-        let longest = max(a.count, b.count)
-        guard longest > 0 else { return false }
-        return Double(distance) / Double(longest) <= 0.5
+        // Two edits, flat, rather than a proportion of the word.
+        //
+        // Measured over every correction this app has been asked to make or
+        // refuse, the two groups do not overlap and do not scale with length:
+        //
+        //   keep    their -> there (2)      recieve -> receive (2)
+        //           erors -> errors (1)     accomodate -> accommodate (1)
+        //           teh -> the (2)          seperate -> separate (1)
+        //   refuse  Kushagra -> Bukhara (3) subrole -> sublime (3)
+        //           bugs -> thing (5)       cat -> house (5)
+        //
+        // A ratio gets this wrong at both ends: it rejects "teh" to "the",
+        // two edits over three letters, and accepts "Kushagra" to "Bukhara",
+        // three over eight.
+        return editDistance(a, b) <= 2
     }
 
     /// Whether a replacement pads the phrase out rather than correcting it.
