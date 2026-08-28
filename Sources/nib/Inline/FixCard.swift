@@ -167,9 +167,13 @@ final class FixCard: NSPanel {
                     target: self, action: #selector(accept))
                 acceptButton.keyEquivalent = "\r"
             } else {
-                // The message alone carries the point; an empty diff row would
-                // just be a gap.
-                diff.isHidden = true
+                // No fix to accept, so no Accept button -- and the card has to
+                // say that. A missing button reads as a broken card, and this
+                // state is common: harper flags plenty it cannot fix, and a
+                // word whose every suggested fix was rejected as damage keeps
+                // its mark and arrives here with nothing to offer.
+                diff.attributedStringValue = Self.noFixText()
+                diff.isHidden = false
                 acceptButton.isHidden = true
             }
 
@@ -245,6 +249,18 @@ final class FixCard: NSPanel {
             .font: NSFont.systemFont(ofSize: 12),
         ]))
         return out
+    }
+
+    /// Stands in for the diff when there is no fix to show.
+    ///
+    /// Said plainly, because the alternative is a card with the Accept button
+    /// missing and no reason given, which looks like the card failed rather
+    /// than like nib having nothing to offer.
+    static func noFixText() -> NSAttributedString {
+        NSAttributedString(string: "No suggested fix — flagged only.", attributes: [
+            .foregroundColor: NSColor.tertiaryLabelColor,
+            .font: NSFont.systemFont(ofSize: 13),
+        ])
     }
 
     /// The proposed sentence, shown plainly.
