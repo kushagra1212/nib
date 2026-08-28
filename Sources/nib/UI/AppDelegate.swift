@@ -46,6 +46,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         startLiveWhenTrusted()
     }
 
+    @MainActor
+    private func makeLiveChecker(engine: HarperEngine) -> LiveChecker {
+        let checker = LiveChecker(engine: engine, model: modelChecker())
+        // Fields that report no drawable bounds show a count instead. It opens
+        // the same panel the hotkey does, so the label has to match whichever
+        // combo actually registered.
+        checker.hotkeyLabel = hotkey.active?.label ?? "menu bar"
+        checker.onOpenPanel = { [weak self] in self?.trigger() }
+        return checker
+    }
+
     /// Starts inline underlining, waiting for permission if it is not granted
     /// yet. The user typically approves the prompt seconds after launch.
     @MainActor
@@ -53,7 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let engine else { return }
         if AXAccess.isTrusted {
             if live == nil {
-                live = LiveChecker(engine: engine, model: modelChecker())
+                live = makeLiveChecker(engine: engine)
             }
             live?.start()
             liveMenuItem?.state = .on
@@ -336,7 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             liveMenuItem?.state = .off
         } else {
             if live == nil {
-                live = LiveChecker(engine: engine, model: modelChecker())
+                live = makeLiveChecker(engine: engine)
             }
             live?.start()
             liveMenuItem?.state = .on

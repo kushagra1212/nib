@@ -21,8 +21,11 @@ enum AXProbe {
 
         /// Panel-only, in-place edits, or full inline underlines.
         var verdict: String {
-            if boundsForRange != nil && (valueSettable || selectionSettable) {
+            if boundsForWord && (valueSettable || selectionSettable) {
                 return "inline underlines possible"
+            }
+            if boundsForRange != nil {
+                return "panel only — reports text bounds but not for a word"
             }
             if valueSettable || selectionSettable {
                 return "panel + in-place replace (no inline underlines)"
