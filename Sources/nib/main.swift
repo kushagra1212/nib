@@ -320,6 +320,11 @@ if args.first == "--live-probe" {
 
 if args.first == "--marker-probe" {
     let app = args.count > 1 ? args[1] : "Slack"
+    // Browsers need the focused route: their page content is not reachable by
+    // walking the tree from the application element.
+    if app == "focused" {
+        exit(MarkerProbe.runFocused(delay: args.count > 2 ? Int(args[2]) ?? 6 : 6))
+    }
     exit(MarkerProbe.run(appName: app))
 }
 

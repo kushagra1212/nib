@@ -12,6 +12,34 @@ import ApplicationServices
 /// an empty rectangle, but reports real geometry to VoiceOver through text
 /// markers. If markers answer, every Electron app can be underlined properly.
 enum MarkerProbe {
+    /// Reports on whatever is focused, after a countdown.
+    ///
+    /// Tree-walking does not reach a browser's web content: Chrome builds
+    /// those nodes lazily and a walk from the application element finds only
+    /// the omnibox and tab strip. Focus reaches them, which is why nib itself
+    /// works on pages that this probe could not see.
+    static func runFocused(delay: Int) -> Int32 {
+        guard AXAccess.isTrusted else {
+            print("nib is not trusted for Accessibility.")
+            return 1
+        }
+        print("Click into the text you want measured.")
+        for remaining in stride(from: delay, to: 0, by: -1) {
+            print("  measuring in \(remaining)...")
+            Thread.sleep(forTimeInterval: 1)
+        }
+
+        ChromiumAccessibility.enableForFrontmost()
+        let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+        guard let element = AXElement.focused else {
+            print("app: \(app) -- nothing focused")
+            return 1
+        }
+        print("app: \(app)")
+        report(element, index: 0)
+        return 0
+    }
+
     static func run(appName: String) -> Int32 {
         guard AXAccess.isTrusted else {
             print("nib is not trusted for Accessibility.")
@@ -49,9 +77,18 @@ enum MarkerProbe {
             print("No text areas found. Walked \(visited) elements.")
             return 1
         }
-        print("text elements found: \(found.count) (walked \(visited))\n")
 
-        for (index, element) in found.enumerated() {
+        // Longest first. A browser's tab strip is full of short URL fields
+        // that are not web content, and stopping at the first few found meant
+        // reporting on the omnibox and calling it a verdict about the page.
+        let ranked = found
+            .sorted { ($0.string(for: kAXValueAttribute) ?? "").count
+                      > ($1.string(for: kAXValueAttribute) ?? "").count }
+            .prefix(3)
+        print("text elements found: \(found.count) (walked \(visited)),"
+              + " reporting the \(ranked.count) longest\n")
+
+        for (index, element) in ranked.enumerated() {
             report(element, index: index)
         }
         return 0
@@ -66,7 +103,7 @@ enum MarkerProbe {
         found: inout [AXElement],
         visited: inout Int
     ) {
-        guard depth <= limit, found.count < 8, visited < 20_000 else { return }
+        guard depth <= limit, found.count < 400, visited < 200_000 else { return }
         visited += 1
 
         // Chromium's web content uses AXTextArea and AXTextField, but a
