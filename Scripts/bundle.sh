@@ -15,6 +15,18 @@ if [[ ! -x "$BIN" ]]; then
   echo "no binary at $BIN -- run: swift build -c $CONFIG" >&2
   exit 1
 fi
+
+# Refuse to bundle a binary older than the sources.
+#
+# `swift build` defaults to debug while this script reads release, so building
+# and then bundling silently ships whatever was in .build/release from before.
+# A whole afternoon went into debugging behaviour that was never in the app.
+NEWEST_SOURCE="$(find "$ROOT/Sources" -name '*.swift' -newer "$BIN" -print -quit)"
+if [[ -n "$NEWEST_SOURCE" ]]; then
+  echo "STALE: $BIN predates $(basename "$NEWEST_SOURCE")" >&2
+  echo "  run: swift build -c $CONFIG" >&2
+  exit 1
+fi
 if [[ ! -x "$ROOT/vendor/harper-ls" ]]; then
   echo "harper-ls missing -- run: Scripts/fetch-harper.sh" >&2
   exit 1

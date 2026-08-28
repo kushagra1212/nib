@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var target: TextTarget?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Log.reset()
+        Log.write("launched, trusted=\(AXAccess.isTrusted)")
         setUpStatusItem()
 
         guard let harper = locateHarper() else {
