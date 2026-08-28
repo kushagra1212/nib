@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var rewriter: RewriteEngine?
     private var live: LiveChecker?
     private var liveMenuItem: NSMenuItem?
+    private var loginMenuItem: NSMenuItem?
     private var permissionWatch: Task<Void, Never>?
     /// Held between opening the panel and applying, so the result goes back to
     /// the field it came from.
@@ -139,6 +140,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         modelItem.target = self
         menu.addItem(modelItem)
 
+        let loginItem = NSMenuItem(title: "Start at Login",
+                                   action: #selector(toggleLoginItem), keyEquivalent: "")
+        loginItem.target = self
+        menu.addItem(loginItem)
+        loginMenuItem = loginItem
+
         menu.addItem(withTitle: "Accessibility Settings…",
                      action: #selector(openAccessibility), keyEquivalent: "").target = self
 
@@ -173,6 +180,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             : (AXAccess.isTrusted
                 ? "Underline As I Type — off"
                 : "Underline As I Type — needs permission")
+
+        // Read rather than remembered: this can be switched off in System
+        // Settings without nib being told.
+        switch LoginItem.state {
+        case .on:
+            loginMenuItem?.state = .on
+            loginMenuItem?.title = "Start at Login"
+        case .off:
+            loginMenuItem?.state = .off
+            loginMenuItem?.title = "Start at Login"
+        case .blockedBySystemSettings:
+            loginMenuItem?.state = .off
+            loginMenuItem?.title = "Start at Login — blocked in Settings…"
+        case .unsupported:
+            loginMenuItem?.state = .off
+            loginMenuItem?.title = "Start at Login — unavailable"
+        }
     }
 
     private func updateStatusTitle(combo: HotkeyMonitor.Combo?) {
@@ -330,6 +354,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func modelChecker() -> ModelChecker? {
         guard let rewriter else { return nil }
         return ModelChecker(rewriter: rewriter)
+    }
+
+    @MainActor
+    @objc private func toggleLoginItem() {
+        // Once macOS marks the item as needing approval, only the user can
+        // clear that. Sending them there beats a dialog that says no twice.
+        if LoginItem.state == .blockedBySystemSettings {
+            LoginItem.openSettings()
+            return
+        }
+
+        if let problem = LoginItem.set(!LoginItem.isEnabled) {
+            let alert = NSAlert()
+            alert.messageText = "Could not change Start at Login"
+            alert.informativeText = problem
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
     }
 
     /// Turns inline underlines on or off.
