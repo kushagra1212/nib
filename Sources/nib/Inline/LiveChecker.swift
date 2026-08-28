@@ -33,6 +33,51 @@ final class LiveChecker {
 
     private(set) var isRunning = false
 
+    /// Last outcome of each pipeline stage, for the diagnostic.
+    ///
+    /// Every stage failing looks the same from outside -- no marks -- and the
+    /// stage that fails is not visible from the app, so it is recorded.
+    private var lastLintCount = -1
+    private var lastRectCount = -1
+    private var lastVisibleCount = -1
+    private var lastFieldFrame: CGRect = .zero
+    private var lastNote = "nothing yet"
+
+    /// What the live checker currently sees. Read by the menu diagnostic.
+    func report() -> String {
+        var lines: [String] = []
+        lines.append("running:        \(isRunning ? "yes" : "NO")")
+        lines.append("trusted:        \(AXAccess.isTrusted ? "yes" : "NO")")
+
+        if let element {
+            lines.append("element role:   \(element.role ?? "?")")
+            lines.append("element subrole:\(element.string(for: kAXSubroleAttribute) ?? "none")")
+            let label = FieldEligibility.label(of: element)
+            lines.append("label:          \(label?.prefix(48) ?? "none")")
+            let eligible = FieldEligibility.mayRead(
+                role: element.role,
+                subrole: element.string(for: kAXSubroleAttribute),
+                label: label)
+            lines.append("eligible:       \(eligible ? "yes" : "NO")")
+        } else {
+            lines.append("element:        NONE — watcher is holding no field")
+        }
+
+        lines.append("text length:    \(text.count)")
+        lines.append("suggestions:    \(suggestions.count)"
+                     + " (\(suggestions.filter { $0.kind == .correction }.count) correction,"
+                     + " \(suggestions.filter { $0.kind == .clarity }.count) clarity)")
+        lines.append("lint returned:  \(lastLintCount)")
+        lines.append("rects resolved: \(lastRectCount)")
+        lines.append("rects visible:  \(lastVisibleCount)")
+        lines.append("field frame:    \(Int(lastFieldFrame.origin.x)),"
+                     + "\(Int(lastFieldFrame.origin.y)) "
+                     + "\(Int(lastFieldFrame.width))x\(Int(lastFieldFrame.height))")
+        lines.append("overlay shown:  \(overlay.isVisible ? "yes" : "no")")
+        lines.append("note:           \(lastNote)")
+        return lines.joined(separator: "\n")
+    }
+
     init(engine: HarperEngine, model: ModelChecker? = nil) {
         self.engine = engine
         self.model = model
@@ -145,7 +190,11 @@ final class LiveChecker {
             guard !Task.isCancelled, let self else { return }
             guard self.text == snapshot else { return } // superseded
 
-            guard let found = try? await self.engine.lint(snapshot) else { return }
+            guard let found = try? await self.engine.lint(snapshot) else {
+                self.lastNote = "lint threw or was cancelled"
+                return
+            }
+            self.lastLintCount = found.count
             guard !Task.isCancelled, self.text == snapshot else { return }
 
             // Replacements are needed up front here, unlike the panel: the
@@ -314,16 +363,34 @@ final class LiveChecker {
     }
 
     private func redrawNow() {
-        guard let element, !suggestions.isEmpty,
-              let frame = AXGeometry.frame(of: element) else {
+        guard let element else {
+            lastNote = "no element"
             overlay.hide()
             return
         }
+        guard !suggestions.isEmpty else {
+            lastNote = "no suggestions to draw"
+            overlay.hide()
+            return
+        }
+        guard let frame = AXGeometry.frame(of: element) else {
+            lastNote = "element reports no frame"
+            overlay.hide()
+            return
+        }
+        lastFieldFrame = frame
         let live = suggestions.filter { !dismissed.contains(key(for: $0)) }
         let marks = AXGeometry.rects(for: live, in: element)
         // Clip to the field: a scrolled-away line still reports bounds, which
         // would paint marks over whatever is above or below the field.
+        lastRectCount = marks.reduce(0) { $0 + $1.rects.count }
         let placed = MarkPlacement.place(marks: marks, fieldFrame: frame)
+        lastVisibleCount = placed.reduce(0) { $0 + $1.rects.count }
+        lastNote = placed.isEmpty
+            ? (marks.isEmpty
+                ? "no bounds returned for any range"
+                : "every rect fell outside the field frame")
+            : "drew \(placed.count) marks"
         overlay.show(fieldFrame: frame, marks: placed.map { ($0.suggestion, $0.rects) },
                      context: text)
     }
