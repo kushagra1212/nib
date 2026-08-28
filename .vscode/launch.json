@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:nib}",
+      "name": "Debug nib",
+      "target": "nib",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug nib"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:nib}",
+      "name": "Release nib",
+      "target": "nib",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release nib"
+    }
+  ]
+}
