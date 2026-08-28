@@ -84,9 +84,25 @@ final class InlineOverlay {
         card.orderOut(nil)
     }
 
+    /// Set while the selection bar is up.
+    ///
+    /// A clarity mark usually sits inside whatever the user just selected, so
+    /// hovering it would open the fix card on top of the bar: two panels
+    /// offering different answers about the same words. The selection is the
+    /// more explicit request, so it wins.
+    var isSuppressed = false {
+        didSet {
+            guard isSuppressed, card.isVisible else { return }
+            card.dismiss()
+            card.reset()
+            shownIndex = nil
+            marksView.hovered = nil
+        }
+    }
+
     /// Called from the app's global mouse monitor.
     func mouseMoved(to screenPoint: CGPoint) {
-        guard window.isVisible else { return }
+        guard window.isVisible, !isSuppressed else { return }
 
         // Keep the card up while the pointer is over it, so its buttons are
         // reachable without the card vanishing on the way there.
