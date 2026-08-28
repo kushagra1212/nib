@@ -10,6 +10,8 @@
 	<string>com.kushagra.nib</string>
 	<key>CFBundleExecutable</key>
 	<string>nib</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

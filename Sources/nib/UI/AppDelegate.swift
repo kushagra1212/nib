@@ -102,6 +102,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         liveMenuItem = liveItem
 
         menu.addItem(.separator())
+
+        // AI features are inactive without a model, and silence is the worst
+        // way to communicate that.
+        let modelTitle = rewriteConfig(modelName: nil) == nil
+            ? "Add AI Model…"
+            : "AI Model: installed"
+        let modelItem = NSMenuItem(title: modelTitle,
+                                   action: #selector(showModelHelp), keyEquivalent: "")
+        modelItem.target = self
+        menu.addItem(modelItem)
+
         menu.addItem(withTitle: "Accessibility Settings…",
                      action: #selector(openAccessibility), keyEquivalent: "").target = self
         menu.addItem(.separator())
@@ -119,6 +130,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openAccessibility() {
         AXAccess.openSettings()
+    }
+
+    /// Explains what the AI features need, and opens the folder to put it in.
+    @objc private func showModelHelp() {
+        let folder = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/nib/models")
+
+        if let config = rewriteConfig(modelName: nil) {
+            let alert = NSAlert()
+            alert.messageText = "AI model installed"
+            alert.informativeText = """
+            Using \(config.modelPath.lastPathComponent).
+
+            Fix, Clearer and Shorter are available, and sentences are checked \
+            for clarity as you type.
+            """
+            alert.addButton(withTitle: "Show in Finder")
+            alert.addButton(withTitle: "Done")
+            if alert.runModal() == .alertFirstButtonReturn {
+                NSWorkspace.shared.activateFileViewerSelecting([config.modelPath])
+            }
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "No AI model installed"
+        alert.informativeText = """
+        Grammar checking works without one. The Fix, Clearer and Shorter \
+        buttons, and the blue clarity underlines, need a local model.
+
+        1. brew install llama.cpp
+        2. Put a .gguf model in:
+           ~/Library/Application Support/nib/models
+        3. Restart nib.
+
+        Qwen3 0.6B is the smallest that works well. Anything smaller \
+        describes your text instead of correcting it.
+
+        Nothing is uploaded; the model runs on this machine.
+        """
+        alert.addButton(withTitle: "Open Models Folder")
+        alert.addButton(withTitle: "Copy Download Command")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            try? FileManager.default.createDirectory(
+                at: folder, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(folder)
+        case .alertSecondButtonReturn:
+            let command = """
+            mkdir -p ~/Library/Application\\ Support/nib/models && \
+            curl -L -o ~/Library/Application\\ Support/nib/models/Qwen3-0.6B-Q8_0.gguf \
+            https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
+            """
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+        default:
+            break
+        }
     }
 
     /// The model-backed second pass, or nil when no GGUF model is installed.
@@ -176,7 +247,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onRewrite: { [weak self] text, mode in
                 guard let rewriter = self?.rewriter else {
-                    throw RewriteError.modelMissing("no .gguf model found")
+                    throw RewriteError.modelMissing(
+                        "no model installed -- see Add AI Model in the menu")
                 }
                 return try await rewriter.rewrite(text, mode: mode)
             }
