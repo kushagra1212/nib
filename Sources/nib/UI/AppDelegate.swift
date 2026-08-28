@@ -38,6 +38,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AXAccess.isTrusted {
             AXAccess.requestTrust()
         }
+
+        // Inline underlines are the product; the hotkey panel is the fallback
+        // for fields that cannot show them. Starting this behind a menu toggle
+        // meant the app looked like it did nothing until you found the toggle.
+        startLiveWhenTrusted()
+    }
+
+    /// Starts inline underlining, waiting for permission if it is not granted
+    /// yet. The user typically approves the prompt seconds after launch.
+    @MainActor
+    private func startLiveWhenTrusted() {
+        guard let engine else { return }
+        if AXAccess.isTrusted {
+            if live == nil { live = LiveChecker(engine: engine) }
+            live?.start()
+            liveMenuItem?.state = .on
+            return
+        }
+        Task { @MainActor [weak self] in
+            for _ in 0..<60 { // give up after a minute
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard let self, self.live?.isRunning != true else { return }
+                if AXAccess.isTrusted {
+                    self.startLiveWhenTrusted()
+                    return
+                }
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
