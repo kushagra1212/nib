@@ -130,6 +130,111 @@ struct AXElement {
         return rect
     }
 
+    // MARK: - Text markers
+
+    /// Chromium's answer to "where is this text".
+    ///
+    /// A text marker is an opaque position in a document, with no public
+    /// header and no way to construct one -- they only ever come back from the
+    /// app. Chromium implements these for VoiceOver and answers them properly
+    /// while returning an empty rectangle for the documented
+    /// `AXBoundsForRange`, so this is the only route to a rectangle in Slack,
+    /// ChatGPT, Chrome, and every other Electron app.
+    ///
+    /// Everything here is addressed by attribute name and passes the values
+    /// straight back and forth without inspecting them, so no private symbols
+    /// are needed.
+    private func parameterized(_ attribute: String, _ parameter: AnyObject) -> AnyObject? {
+        var out: AnyObject?
+        let err = AXUIElementCopyParameterizedAttributeValue(
+            raw, attribute as CFString, parameter, &out)
+        return err == .success ? out : nil
+    }
+
+    /// The screen rectangle of the element itself.
+    var frame: CGRect? {
+        // "AXFrame" has no constant in the Swift overlay.
+        guard let out = value(for: "AXFrame"),
+              CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
+        var rect = CGRect.zero
+        guard AXValueGetValue(out as! AXValue, .cgRect, &rect) else { return nil }
+        return rect
+    }
+
+    /// The first marker inside a rectangle. This is how a walk gets started:
+    /// markers cannot be constructed, only asked for.
+    func startMarker(forBounds bounds: CGRect) -> AnyObject? {
+        var rect = bounds
+        guard let value = AXValueCreate(.cgRect, &rect) else { return nil }
+        return parameterized("AXStartTextMarkerForBounds", value)
+    }
+
+    /// The marker at a screen point, which is also how hover hit-testing
+    /// works: pointer position in, position in the text out.
+    func marker(atPosition point: CGPoint) -> AnyObject? {
+        var position = point
+        guard let value = AXValueCreate(.cgPoint, &position) else { return nil }
+        return parameterized("AXTextMarkerForPosition", value)
+    }
+
+    func marker(after marker: AnyObject) -> AnyObject? {
+        parameterized("AXNextTextMarkerForTextMarker", marker)
+    }
+
+    /// Builds a range from two markers. "Unordered" because the attribute
+    /// sorts them itself, so the caller need not know which comes first.
+    func markerRange(from start: AnyObject, to end: AnyObject) -> AnyObject? {
+        parameterized("AXTextMarkerRangeForUnorderedTextMarkers",
+                      [start, end] as CFArray)
+    }
+
+    func bounds(forMarkerRange range: AnyObject) -> CGRect? {
+        guard let out = parameterized("AXBoundsForTextMarkerRange", range),
+              CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
+        var rect = CGRect.zero
+        guard AXValueGetValue(out as! AXValue, .cgRect, &rect) else { return nil }
+        return rect
+    }
+
+    /// The text a marker range covers, so a rectangle can be checked against
+    /// the word it is supposed to be under.
+    func string(forMarkerRange range: AnyObject) -> String? {
+        parameterized("AXStringForTextMarkerRange", range) as? String
+    }
+
+    /// A marker range covering the whole element.
+    func wholeMarkerRange() -> AnyObject? {
+        parameterized("AXTextMarkerRangeForUIElement", raw)
+    }
+
+    /// A marker range for one visual line, addressed by number.
+    ///
+    /// The only range this app hands out that needs no marker to ask for.
+    func markerRange(forLine line: Int) -> AnyObject? {
+        parameterized("AXTextMarkerRangeForLine", line as CFNumber)
+    }
+
+    /// Hops `offset` markers forward from `start`, then `length` further, and
+    /// builds a range between the two positions.
+    ///
+    /// One cross-process call per character. Fine over a line, far too slow
+    /// over a long document, which is why callers walk in ascending order and
+    /// keep the marker they reached.
+    func markerSpan(from start: AnyObject, offset: Int, length: Int) -> AnyObject? {
+        var cursor = start
+        for _ in 0..<offset {
+            guard let next = marker(after: cursor) else { return nil }
+            cursor = next
+        }
+        var end = cursor
+        for _ in 0..<length {
+            guard let next = marker(after: end) else { break }
+            end = next
+        }
+        return markerRange(from: cursor, to: end)
+            ?? TextMarkerBridge.range(from: cursor, to: end)
+    }
+
     /// Asks for the element's whole text as a marker range, then for the
     /// rectangle covering it.
     ///

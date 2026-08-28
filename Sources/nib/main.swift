@@ -318,6 +318,11 @@ if args.first == "--live-probe" {
     exit(status)
 }
 
+if args.first == "--marker-probe" {
+    let app = args.count > 1 ? args[1] : "Slack"
+    exit(MarkerProbe.run(appName: app))
+}
+
 if args.first == "--ax-probe" {
     let delay = args.count > 1 ? Int(args[1]) ?? 5 : 5
     exit(runAXProbe(delay: delay))
