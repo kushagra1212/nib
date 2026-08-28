@@ -100,9 +100,39 @@ func runBench(words: Int, iterations: Int) async -> Int32 {
     }
 }
 
+/// Counts down, then reports what AX exposes for whatever field is focused.
+func runAXProbe(delay: Int) -> Int32 {
+    if !AXAccess.isTrusted {
+        print("Accessibility permission not granted.")
+        AXAccess.requestTrust()
+        print("Approve nib in System Settings > Privacy & Security > Accessibility,")
+        print("then run this again. Opening that pane now.")
+        AXAccess.openSettings()
+        return 1
+    }
+
+    print("Click into a text field in the app you want to test.")
+    for remaining in stride(from: delay, to: 0, by: -1) {
+        print("  probing in \(remaining)...")
+        Thread.sleep(forTimeInterval: 1)
+    }
+
+    guard let report = AXProbe.probeFocused() else {
+        print("No focused element. The frontmost app exposes nothing over AX.")
+        return 1
+    }
+    AXProbe.printReport(report)
+    return 0
+}
+
 // MARK: - Entry point
 
 let args = Array(CommandLine.arguments.dropFirst())
+
+if args.first == "--ax-probe" {
+    let delay = args.count > 1 ? Int(args[1]) ?? 5 : 5
+    exit(runAXProbe(delay: delay))
+}
 
 if args.first == "--bench" {
     let words = args.count > 1 ? Int(args[1]) ?? 2000 : 2000
