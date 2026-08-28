@@ -20,6 +20,15 @@ final class SelectionBar: NSPanel {
     private let proposalView = ProposalView()
     private var modeButtons: [PillButton] = []
     private var proposal: String?
+    private var autoTask: Task<Void, Never>?
+    /// The selected text, used to tell a real suggestion from an echo of the
+    /// input.
+    private var original = ""
+
+    /// Set by the owner before presenting.
+    func prepare(original text: String) {
+        self.original = text
+    }
 
     private enum Metrics {
         static let maxWidth: CGFloat = 440
@@ -126,6 +135,59 @@ final class SelectionBar: NSPanel {
             Theme.present(self, at: target)
             staggerButtons()
         }
+
+        // Offer something without being asked. A bar of three buttons is a
+        // menu; having the suggestion already there is the point.
+        runAutomatically()
+    }
+
+    /// Produces a first suggestion as soon as the bar appears.
+    ///
+    /// Fix runs first because a correction is the higher-confidence answer. If
+    /// the text is already correct that returns the input unchanged, which is
+    /// no use as a suggestion, so Clearer follows and offers a rewrite
+    /// instead. Both are cached, so pressing the matching button afterwards is
+    /// instant.
+    private func runAutomatically() {
+        guard let onRewrite else { return }
+        autoTask?.cancel()
+
+        modeButtons.forEach { $0.isEnabled = false }
+        status.stringValue = "reading"
+        status.textColor = .secondaryLabelColor
+        status.isHidden = false
+        dots.start()
+        resize()
+
+        autoTask = Task { @MainActor [weak self] in
+            defer {
+                self?.modeButtons.forEach { $0.isEnabled = true }
+                self?.dots.stop()
+            }
+            for mode in [RewriteMode.fixGrammar, .clearer] {
+                guard !Task.isCancelled, let self else { return }
+                guard let result = try? await onRewrite(mode), !result.isEmpty else { continue }
+                guard !Task.isCancelled else { return }
+                // Unchanged text is not a suggestion; try the next mode.
+                guard result.trimmingCharacters(in: .whitespacesAndNewlines)
+                        != self.original.trimmingCharacters(in: .whitespacesAndNewlines)
+                else { continue }
+
+                self.present(proposal: result)
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self?.show(status: "looks good", tint: Theme.Colour.accept)
+        }
+    }
+
+    private func present(proposal text: String) {
+        proposal = text
+        proposalView.text = text
+        proposalView.isHidden = false
+        status.isHidden = true
+        resize()
+        revealPreview()
     }
 
     /// Fades the actions in one after another, so the bar assembles rather
@@ -145,12 +207,14 @@ final class SelectionBar: NSPanel {
     }
 
     func dismiss() {
+        autoTask?.cancel()
         guard isVisible else { return }
         dots.stop()
         Theme.dismiss(self)
     }
 
     private func reset() {
+        autoTask?.cancel()
         proposal = nil
         proposalView.isHidden = true
         proposalView.text = ""
@@ -172,6 +236,7 @@ final class SelectionBar: NSPanel {
     @objc private func runMode(_ sender: NSButton) {
         guard let onRewrite, sender.tag < RewriteMode.allCases.count else { return }
         let mode = RewriteMode.allCases[sender.tag]
+        autoTask?.cancel()
 
         modeButtons.forEach { $0.isEnabled = false }
         proposalView.isHidden = true
@@ -191,12 +256,7 @@ final class SelectionBar: NSPanel {
                     self.show(status: "nothing to change", tint: .secondaryLabelColor)
                     return
                 }
-                self.proposal = result
-                self.proposalView.text = result
-                self.proposalView.isHidden = false
-                self.status.isHidden = true
-                self.resize()
-                self.revealPreview()
+                self.present(proposal: result)
             } catch {
                 self.show(status: "needs a model", tint: .systemOrange)
             }
