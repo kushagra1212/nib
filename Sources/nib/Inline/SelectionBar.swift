@@ -68,7 +68,8 @@ final class SelectionBar: NSPanel {
         modeRow.spacing = Theme.Space.tight
         for (index, mode) in RewriteMode.allCases.enumerated() {
             let button = PillButton(title: mode.shortTitle, emphasis: .secondary,
-                                    target: self, action: #selector(runMode(_:)))
+                                    icon: mode.icon, target: self,
+                                    action: #selector(runMode(_:)))
             button.tag = index
             modeButtons.append(button)
             modeRow.addArrangedSubview(button)
