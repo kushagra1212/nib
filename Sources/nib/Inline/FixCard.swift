@@ -151,8 +151,14 @@ final class FixCard: NSPanel {
             self.suggestion = suggestion
             self.replacement = replacement
             explanation.stringValue = suggestion.message
-            diff.attributedStringValue = Self.diffText(
-                suggestion, replacement: replacement, context: context)
+            // A clarity suggestion replaces a whole sentence, so a word-level
+            // diff with surrounding context would repeat most of it twice.
+            // Show the rewritten sentence on its own instead.
+            diff.attributedStringValue = suggestion.kind == .clarity
+                ? Self.clarityText(replacement)
+                : Self.diffText(suggestion, replacement: replacement, context: context)
+            acceptButton.bezelColor = suggestion.kind == .clarity
+                ? .systemBlue : Style.added
 
             counter.stringValue = total > 1 ? "\(index + 1) of \(total)" : ""
             previousButton.isHidden = total <= 1
@@ -166,6 +172,14 @@ final class FixCard: NSPanel {
 
         position(below: anchor)
         orderFront(nil)
+    }
+
+    /// The proposed sentence, shown plainly.
+    static func clarityText(_ replacement: String) -> NSAttributedString {
+        NSAttributedString(string: replacement, attributes: [
+            .foregroundColor: NSColor.labelColor,
+            .font: NSFont.systemFont(ofSize: 14),
+        ])
     }
 
     /// Builds "old new" with the old struck through and the new in bold green,

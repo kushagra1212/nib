@@ -20,6 +20,8 @@ final class SquiggleView: NSView {
         static let underlineHeight: CGFloat = 2
         static let dropBelow: CGFloat = 1
         static let highlightAlpha: CGFloat = 0.10
+        /// Lighter: a clarity mark covers a whole sentence.
+        static let clarityHighlightAlpha: CGFloat = 0.06
         static let hoverHighlightAlpha: CGFloat = 0.20
         static let highlightCorner: CGFloat = 2
         static let highlightInset: CGFloat = -1
@@ -32,19 +34,29 @@ final class SquiggleView: NSView {
 
         for mark in marks {
             let isHovered = mark.suggestion.id == hovered
-            let tint = NSColor.systemRed
+            // Errors read as red; clarity is advice, not a mistake, so it gets
+            // a calmer blue. Marking both the same way turns taste into an
+            // error report.
+            let tint: NSColor = mark.suggestion.kind == .correction
+                ? .systemRed
+                : .systemBlue
 
             let highlight = mark.rect.insetBy(dx: Style.highlightInset,
                                               dy: Style.highlightInset)
             let path = NSBezierPath(roundedRect: highlight,
                                     xRadius: Style.highlightCorner,
                                     yRadius: Style.highlightCorner)
+            // A clarity mark spans a whole sentence, so its tint is lighter;
+            // at sentence width the error tint would read as a highlighter.
+            let baseAlpha = mark.suggestion.kind == .correction
+                ? Style.highlightAlpha
+                : Style.clarityHighlightAlpha
             tint.withAlphaComponent(
-                isHovered ? Style.hoverHighlightAlpha : Style.highlightAlpha
+                isHovered ? Style.hoverHighlightAlpha : baseAlpha
             ).setFill()
             path.fill()
 
-            context.setFillColor(tint.withAlphaComponent(isHovered ? 1.0 : 0.75).cgColor)
+            context.setFillColor(tint.withAlphaComponent(isHovered ? 1.0 : 0.7).cgColor)
             context.fill(CGRect(x: mark.rect.minX,
                                 y: mark.rect.minY - Style.dropBelow,
                                 width: mark.rect.width,

@@ -132,9 +132,24 @@ final class LiveChecker {
             guard !Task.isCancelled, let self, self.text == snapshot else { return }
 
             let found = await model.check(snapshot)
-            guard !Task.isCancelled, self.text == snapshot, !found.isEmpty else { return }
+            guard !Task.isCancelled, self.text == snapshot else { return }
+            if !found.isEmpty {
+                self.suggestions = SuggestionFilter.apply(found, in: snapshot)
+                self.redraw()
+            }
 
-            self.suggestions = SuggestionFilter.apply(found, in: snapshot)
+            // Clarity last: it is the slowest and the least urgent, so
+            // corrections are already on screen by the time it lands.
+            let clarity = await model.clarity(snapshot)
+            guard !Task.isCancelled, self.text == snapshot, !clarity.isEmpty else { return }
+
+            // Only mark sentences that hold no error. A red and a blue mark on
+            // the same words is two answers to one question.
+            let corrections = self.suggestions.filter { $0.kind == .correction }
+            let clean = clarity.filter { sentence in
+                !corrections.contains { NSIntersectionRange($0.range, sentence.range).length > 0 }
+            }
+            self.suggestions = corrections + clean
             self.redraw()
         }
     }

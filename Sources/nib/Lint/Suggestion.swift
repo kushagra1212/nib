@@ -1,8 +1,21 @@
 import Foundation
 
 /// One problem harper found, resolved to offsets in the original Swift string.
+/// What kind of change a suggestion proposes, which decides how it is drawn.
+///
+/// Kept apart because they warrant different confidence. A misspelling is
+/// wrong; a wordy sentence is a matter of taste, and marking both the same way
+/// would make the advice feel like an error report.
+enum SuggestionKind: Equatable {
+    /// A definite mistake: spelling, agreement, a missing word.
+    case correction
+    /// The sentence works but could read better.
+    case clarity
+}
+
 struct Suggestion: Identifiable, Equatable {
     let id: UUID
+    let kind: SuggestionKind
     /// Range within the linted text, in UTF-16 offsets (what NSTextView uses).
     let range: NSRange
     /// Harper's description, e.g. "Did you mean `there`?".
@@ -11,8 +24,10 @@ struct Suggestion: Identifiable, Equatable {
     /// has been called for this suggestion, and for advisory-only lints.
     let replacements: [String]
 
-    init(id: UUID = UUID(), range: NSRange, message: String, replacements: [String]) {
+    init(id: UUID = UUID(), kind: SuggestionKind = .correction,
+         range: NSRange, message: String, replacements: [String]) {
         self.id = id
+        self.kind = kind
         self.range = range
         self.message = message
         self.replacements = replacements
