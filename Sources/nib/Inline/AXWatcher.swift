@@ -37,7 +37,9 @@ final class AXWatcher {
 
     func start() {
         stop()
-        focusTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) {
+        // Clicking into a field should feel immediate, and this poll is one
+        // cheap attribute read.
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) {
             [weak self] _ in self?.pollFocus()
         }
         // A field can move without its text changing: window drag, scroll,
