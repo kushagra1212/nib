@@ -239,12 +239,7 @@ final class FixCard: NSPanel {
         _ message: String, source: SuggestionSource
     ) -> NSAttributedString {
         let out = NSMutableAttributedString()
-        if source == .model {
-            out.append(NSAttributedString(string: "AI  ", attributes: [
-                .foregroundColor: Theme.Colour.rewrite,
-                .font: NSFont.systemFont(ofSize: 10, weight: .bold),
-            ]))
-        }
+        if source == .model { out.append(Theme.aiTag()) }
         out.append(NSAttributedString(string: message, attributes: [
             .foregroundColor: NSColor.secondaryLabelColor,
             .font: NSFont.systemFont(ofSize: 12),

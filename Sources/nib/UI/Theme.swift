@@ -85,6 +85,18 @@ enum Theme {
         static let title = NSFont.systemFont(ofSize: 11, weight: .semibold)
     }
 
+    /// The mark that says a model wrote what follows.
+    ///
+    /// Two letters and a space rather than a pill or a row of its own: it has
+    /// to sit inside a card small enough to float over someone's text, and it
+    /// is a note about provenance, not a heading.
+    static func aiTag() -> NSAttributedString {
+        NSAttributedString(string: "AI  ", attributes: [
+            .foregroundColor: Colour.rewrite,
+            .font: NSFont.systemFont(ofSize: 10, weight: .bold),
+        ])
+    }
+
     /// Builds the blurred, rounded backdrop every surface sits on.
     ///
     /// `hudWindow` is the material Apple names for floating heads-up windows,

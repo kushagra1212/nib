@@ -15,7 +15,16 @@ final class ProposalView: NSView {
 
     var text: String = "" {
         didSet {
-            label.stringValue = text
+            // Everything shown here was written by the model, so it is tagged
+            // like the model's inline suggestions are. Accepting a rewrite
+            // replaces a whole sentence, which is a bigger thing to agree to
+            // than a spelling fix, and the reader should know what wrote it.
+            let out = NSMutableAttributedString(attributedString: Theme.aiTag())
+            out.append(NSAttributedString(string: text, attributes: [
+                .foregroundColor: NSColor.labelColor,
+                .font: Theme.Font.body,
+            ]))
+            label.attributedStringValue = out
             invalidateIntrinsicContentSize()
         }
     }

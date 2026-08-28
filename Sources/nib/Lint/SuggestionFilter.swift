@@ -62,9 +62,9 @@ enum SuggestionFilter {
         // ranks them by its own lights: judging only the first threw away good
         // second choices, and "optioaa -> optical | optimal" is exactly that
         // shape.
-        let usable = suggestion.replacements.filter {
+        let usable = rank(suggestion.replacements.filter {
             isPlausibleCorrection(from: token, to: $0)
-        }
+        }, for: token)
         if usable.isEmpty {
             // Nothing worth offering. Whether to still mark the word depends
             // on what kind of lint it was.
@@ -253,6 +253,28 @@ enum SuggestionFilter {
         return before.filter { $0 == "`" }.count % 2 == 1
     }
 
+    /// Orders surviving replacements so the most likely one is offered first.
+    ///
+    /// Harper ranks by its own scoring, which put `wheat her` ahead of
+    /// `weather` for "wheather". Splitting a word into two is occasionally
+    /// right -- "cannotbe" really is "cannot be" -- but it is a strange thing
+    /// to do to a single misspelled word, and a one-word fix that is one or
+    /// two letters away is nearly always what was meant.
+    ///
+    /// Stable within each group, so harper's own ordering still decides
+    /// between equals.
+    static func rank(_ replacements: [String], for original: String) -> [String] {
+        let originalWords = original.split(whereSeparator: \.isWhitespace).count
+        func score(_ replacement: String) -> Int {
+            let words = replacement.split(whereSeparator: \.isWhitespace).count
+            // Same shape as what was typed, then everything else.
+            return words == originalWords ? 0 : 1
+        }
+        return replacements.enumerated()
+            .sorted { (score($0.element), $0.offset) < (score($1.element), $1.offset) }
+            .map(\.element)
+    }
+
     // MARK: - Shape of the replacement
 
     /// Whether a replacement is close enough to be a correction rather than a
@@ -261,9 +283,16 @@ enum SuggestionFilter {
     /// Short words need an absolute allowance: "a" to "an" is one edit out of
     /// one character, which any ratio would reject, and it is a real fix.
     static func isPlausibleCorrection(from original: String, to replacement: String) -> Bool {
+        // Nothing to do only when the strings match exactly.
+        if original == replacement { return false }
+
         let a = original.lowercased()
         let b = replacement.lowercased()
-        if a == b { return false }
+        // A change of capitals and nothing else is a real correction:
+        // "chatgpt" to "ChatGPT", "i" to "I". Comparing lowercased made these
+        // look identical and threw them away, which left harper's junk second
+        // choice as the only survivor -- "chatgpt" was offered "catgut".
+        if a == b { return true }
 
         guard !addsWords(from: a, to: b) else { return false }
         guard !inventsPossessive(from: a, to: b) else { return false }

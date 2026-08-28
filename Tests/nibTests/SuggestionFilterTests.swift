@@ -205,10 +205,20 @@ final class SuggestionFilterTests: XCTestCase {
         XCTAssertFalse(SuggestionFilter.looksLikeCode("try"))
     }
 
+    /// Only an exact match is "nothing to do".
+    ///
+    /// Case-only changes used to be rejected here, on the grounds that some
+    /// other rule would deal with them. Nothing did, and the cost was not a
+    /// missing fix but a wrong one: harper offers `ChatGPT` and `catgut` for
+    /// "chatgpt", the correct answer was discarded as a non-change, and the
+    /// junk alternative was the only thing left to show.
     func testIdenticalIsRejected() {
         XCTAssertFalse(SuggestionFilter.isPlausibleCorrection(from: "word", to: "word"))
-        XCTAssertFalse(SuggestionFilter.isPlausibleCorrection(from: "Word", to: "word"),
-                       "case-only changes are handled by other linters")
+    }
+
+    func testCaseOnlyChangeIsACorrection() {
+        XCTAssertTrue(SuggestionFilter.isPlausibleCorrection(from: "Word", to: "word"))
+        XCTAssertTrue(SuggestionFilter.isPlausibleCorrection(from: "chatgpt", to: "ChatGPT"))
     }
 
     func testEditDistance() {
