@@ -65,12 +65,27 @@ final class SuggestionPanel: NSPanel {
         background.layer?.masksToBounds = true
         contentView = background
 
+        // An NSTextView built in code, rather than loaded from a nib, starts
+        // with a zero max size and a zero-width text container. Without these
+        // it lays out nothing and the field renders blank.
+        let contentWidth = Metrics.width - Metrics.padding * 2
+        textView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: Metrics.minTextHeight)
+        textView.minSize = NSSize(width: 0, height: 0)
+        let unbounded = CGFloat.greatestFiniteMagnitude
+        textView.maxSize = NSSize(width: unbounded, height: unbounded)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.containerSize = NSSize(width: contentWidth,
+                                                       height: unbounded)
+        textView.textContainer?.widthTracksTextView = true
+
         textView.isRichText = false
         textView.font = .systemFont(ofSize: 13)
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .labelColor
         textView.drawsBackground = false
-        textView.textContainerInset = NSSize(width: 4, height: 4)
-        textView.isVerticallyResizable = true
-        textView.textContainer?.widthTracksTextView = true
+        textView.textContainerInset = NSSize(width: 2, height: 2)
 
         textScroll.documentView = textView
         textScroll.drawsBackground = false
@@ -229,9 +244,13 @@ final class SuggestionPanel: NSPanel {
     private func resize() {
         layoutIfNeeded()
 
-        let measured = textView.layoutManager?.usedRect(
-            for: textView.textContainer!).height ?? Metrics.minTextHeight
-        textHeight.constant = min(max(measured + 12, Metrics.minTextHeight),
+        // usedRect is only valid after layout has actually run for the glyphs.
+        var measured = Metrics.minTextHeight
+        if let manager = textView.layoutManager, let container = textView.textContainer {
+            manager.ensureLayout(for: container)
+            measured = manager.usedRect(for: container).height
+        }
+        textHeight.constant = min(max(measured + 8, Metrics.minTextHeight),
                                   Metrics.maxTextHeight)
         textScroll.hasVerticalScroller = measured + 12 > Metrics.maxTextHeight
 

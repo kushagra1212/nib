@@ -253,6 +253,20 @@ if args.first == "--rewrite" {
     exit(await runRewriteCLI(text: text, modelName: model))
 }
 
+if args.first == "--live-probe" {
+    let seconds = args.count > 1 ? Int(args[1]) ?? 20 : 20
+    guard let harper = locateHarper() else {
+        FileHandle.standardError.write(Data("harper-ls not found\n".utf8))
+        exit(1)
+    }
+    let engine = HarperEngine(executable: harper)
+    let status = await MainActor.run { () -> Task<Int32, Never> in
+        Task { await LiveProbe.run(seconds: seconds, engine: engine) }
+    }.value
+    engine.stop()
+    exit(status)
+}
+
 if args.first == "--ax-probe" {
     let delay = args.count > 1 ? Int(args[1]) ?? 5 : 5
     exit(runAXProbe(delay: delay))
