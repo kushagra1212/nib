@@ -82,6 +82,44 @@ actor ModelChecker {
         return 1 - Double(distance) / Double(longest)
     }
 
+    /// Clarity suggestions: one per sentence that could read better.
+    ///
+    /// Separate from `check` because it asks a different question and produces
+    /// a different kind of mark. A sentence is rewritten as a whole, so the
+    /// suggestion covers the whole sentence rather than a word.
+    func clarity(_ text: String, limit: Int = 4) async -> [Suggestion] {
+        let sentences = SentenceSplitter.sentences(in: text)
+        guard !sentences.isEmpty else { return [] }
+
+        var out: [Suggestion] = []
+        for sentence in sentences.prefix(limit) {
+            guard let rewritten = await rewrite(sentence.text, mode: .clearer) else { continue }
+            guard rewritten != sentence.text else { continue }
+            // A clarity rewrite may restructure, so the tighter inline gate
+            // does not apply; it only has to remain about the same sentence.
+            guard characterSimilarity(sentence.text.lowercased(),
+                                      rewritten.lowercased()) >= 0.35 else { continue }
+            // Ignore changes too small to be worth interrupting for.
+            guard characterSimilarity(sentence.text.lowercased(),
+                                      rewritten.lowercased()) <= 0.97 else { continue }
+
+            out.append(Suggestion(kind: .clarity,
+                                  range: sentence.range,
+                                  message: "This could read more clearly",
+                                  replacements: [rewritten]))
+        }
+        return out
+    }
+
+    private func rewrite(_ text: String, mode: RewriteMode) async -> String? {
+        let key = "\(mode.rawValue)|\(text)"
+        if let hit = cache[key] { return hit }
+        guard let result = try? await rewriter.rewrite(text, mode: mode),
+              !result.isEmpty else { return nil }
+        remember(key, result)
+        return result
+    }
+
     private func remember(_ input: String, _ output: String) {
         cache[input] = output
         cacheOrder.append(input)
