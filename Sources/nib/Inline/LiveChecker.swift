@@ -7,7 +7,14 @@ import AppKit
 final class LiveChecker {
     private let watcher = AXWatcher()
     private let overlay = InlineOverlay()
+    private let badge = IssueBadge()
     private let selectionBar = SelectionBar()
+
+    /// Shown in the badge for fields that cannot be underlined. Set by the app
+    /// delegate once it knows which combo actually registered.
+    var hotkeyLabel = "⌥Space"
+    /// Called when the badge is clicked -- same action as the hotkey.
+    var onOpenPanel: (() -> Void)?
     /// The selection the bar is currently offering to rewrite.
     private var selectionRange: NSRange?
     private var selectionTask: Task<Void, Never>?
@@ -145,6 +152,9 @@ final class LiveChecker {
         watcher.sentinelRange = { [weak self] in
             self?.suggestions.first?.range
         }
+        badge.onOpen = { [weak self] in
+            self?.onOpenPanel?()
+        }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
         }
@@ -185,7 +195,7 @@ final class LiveChecker {
         selectionTask?.cancel()
         selectionBar.dismiss()
         overlay.isSuppressed = false
-        overlay.hide()
+        hideMarks()
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
         mouseMonitor = nil
@@ -199,7 +209,7 @@ final class LiveChecker {
         self.text = text
         suggestions = []
         dismissed.removeAll()
-        overlay.hide()
+        hideMarks()
         guard element != nil else { return }
         scheduleLint()
     }
@@ -208,7 +218,7 @@ final class LiveChecker {
         self.text = text
         // Squiggles from the previous text are now in the wrong places, and
         // the selection the bar was offering to rewrite no longer exists.
-        overlay.hide()
+        hideMarks()
         selectionBar.dismiss()
         overlay.isSuppressed = false
         selectionTask?.cancel()
@@ -406,17 +416,17 @@ final class LiveChecker {
     private func redrawNow() {
         guard let element else {
             lastNote = "no element"
-            overlay.hide()
+            hideMarks()
             return
         }
         guard !suggestions.isEmpty else {
             lastNote = "no suggestions to draw"
-            overlay.hide()
+            hideMarks()
             return
         }
         guard let frame = AXGeometry.frame(of: element) else {
             lastNote = "element reports no frame"
-            overlay.hide()
+            hideMarks()
             return
         }
         lastFieldFrame = frame
@@ -432,8 +442,24 @@ final class LiveChecker {
                 ? "no bounds returned for any range"
                 : "every rect fell outside the field frame")
             : "drew \(placed.count) marks"
+
+        // Nothing placeable but plenty found. Slack and other Chromium apps
+        // answer the bounds attribute with an empty rectangle, so there is
+        // nowhere to draw and never will be. Say so rather than look broken.
+        if placed.isEmpty {
+            overlay.hide()
+            badge.show(count: live.count, hint: hotkeyLabel, near: frame)
+            return
+        }
+        badge.dismiss()
         overlay.show(fieldFrame: frame, marks: placed.map { ($0.suggestion, $0.rects) },
                      context: text)
+    }
+
+    /// Clears both ways of showing suggestions.
+    private func hideMarks() {
+        overlay.hide()
+        badge.dismiss()
     }
 
     /// Hides one suggestion until its text changes.
@@ -482,7 +508,7 @@ final class LiveChecker {
         if !EditPlanner.isValid(edit, in: current) {
             guard let moved = EditPlanner.relocate(edit, in: current) else {
                 // The flagged text is gone; nothing sensible left to replace.
-                overlay.hide()
+                hideMarks()
                 scheduleLint()
                 return
             }
@@ -554,7 +580,7 @@ final class LiveChecker {
 
     private func finish(_ updated: String) {
         text = updated
-        overlay.hide()
+        hideMarks()
         scheduleLint()
     }
 }

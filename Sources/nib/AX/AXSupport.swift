@@ -114,6 +114,27 @@ struct AXElement {
               CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
         var rect = CGRect.zero
         guard AXValueGetValue(out as! AXValue, .cgRect, &rect) else { return nil }
+        guard AXElement.isDrawable(rect) else { return nil }
         return rect
+    }
+
+    /// Whether a reported rectangle is somewhere a mark could actually go.
+    ///
+    /// Chromium answers the bounds attribute for text it has not laid out and
+    /// returns a zero-sized rectangle -- Slack returns `0,982 0x0` for every
+    /// range in the message box. Counting that as a real answer is what let the
+    /// probe call Slack fully capable while every mark was dropped further
+    /// down, and cost five rounds of looking in the wrong place.
+    static func isDrawable(_ rect: CGRect) -> Bool {
+        // `isNull` and `isInfinite` are checked by name rather than by
+        // measuring: CGRect.infinite is built from CGFloat.greatestFiniteMagnitude,
+        // so every component of it passes an `isFinite` test.
+        guard !rect.isNull, !rect.isInfinite, !rect.isEmpty else { return false }
+        // `rect.size` rather than `rect.width`, which standardises a negative
+        // width into a positive one and hides the bad answer.
+        guard rect.size.width > 0, rect.size.height > 0 else { return false }
+        guard rect.size.width.isFinite, rect.size.height.isFinite else { return false }
+        guard rect.origin.x.isFinite, rect.origin.y.isFinite else { return false }
+        return true
     }
 }
