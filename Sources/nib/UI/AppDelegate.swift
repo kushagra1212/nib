@@ -161,7 +161,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onApply: { [weak self] edited in self?.writeBack(edited) },
             requestFixes: { [weak self] suggestions in
                 guard let engine = self?.engine else { return suggestions }
-                return await engine.withReplacements(suggestions)
+                return await engine.withReplacements(
+                    suggestions, in: grabbed.selectedText)
             },
             onRewrite: { [weak self] text, mode in
                 guard let rewriter = self?.rewriter else {

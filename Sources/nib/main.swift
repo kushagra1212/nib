@@ -48,7 +48,7 @@ func runLintCLI(_ text: String) async -> Int32 {
         }
         print("\(suggestions.count) suggestion(s) in \(elapsed):")
         // Replacements are fetched only for what gets shown.
-        let shown = await engine.withReplacements(Array(suggestions.prefix(20)))
+        let shown = await engine.withReplacements(Array(suggestions.prefix(20)), in: text)
         for s in shown {
             let excerpt = s.excerpt(in: text) ?? "?"
             let fixes = s.replacements.isEmpty

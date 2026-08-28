@@ -166,7 +166,10 @@ final class HarperEngine {
         }
 
         lock.withLock { diagnosticIndex = index }
-        return suggestions
+        // Harper matches against a word list, so it "corrects" acronyms, type
+        // names and product names into nonsense. Filtered before anything is
+        // shown; see SuggestionFilter.
+        return SuggestionFilter.apply(suggestions, in: text)
     }
 
     /// Fetches replacement text for one suggestion from the last lint.
@@ -193,16 +196,21 @@ final class HarperEngine {
         }
     }
 
-    /// Fills in replacements for a slice of suggestions, for a panel that is
-    /// about to display them.
-    func withReplacements(_ suggestions: [Suggestion]) async -> [Suggestion] {
+    /// Fills in replacements for a slice of suggestions, for a panel or card
+    /// that is about to display them.
+    ///
+    /// `text` is needed to re-run the filter: the plausibility half compares a
+    /// replacement against the word it would replace, and replacements are not
+    /// known when `lint` first filters. Skipping this pass let "bugs" to
+    /// "thing" through, since only the shape checks had run.
+    func withReplacements(_ suggestions: [Suggestion], in text: String) async -> [Suggestion] {
         var out: [Suggestion] = []
         for suggestion in suggestions {
             let fixes = await replacements(for: suggestion)
             out.append(Suggestion(id: suggestion.id, range: suggestion.range,
                                   message: suggestion.message, replacements: fixes))
         }
-        return out
+        return SuggestionFilter.apply(out, in: text)
     }
 
     // MARK: - Waiter plumbing

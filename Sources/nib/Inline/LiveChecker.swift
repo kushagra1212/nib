@@ -103,7 +103,7 @@ final class LiveChecker {
             // Replacements are needed up front here, unlike the panel: the
             // hover card must offer a fix the instant the pointer arrives.
             let capped = Array(found.prefix(40))
-            let filled = await self.engine.withReplacements(capped)
+            let filled = await self.engine.withReplacements(capped, in: snapshot)
             guard !Task.isCancelled, self.text == snapshot else { return }
 
             self.suggestions = filled
