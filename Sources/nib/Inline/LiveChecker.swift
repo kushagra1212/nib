@@ -168,6 +168,7 @@ final class LiveChecker {
         // fields cannot offer. Same card, same buttons, same stepping.
         badge.onHover = { [weak self] inside in
             guard let self else { return }
+            Log.write("badge hover=\(inside) suggestions=\(self.badgeSuggestions.count)")
             guard inside else {
                 self.overlay.scheduleDetachedHide()
                 return
@@ -178,6 +179,7 @@ final class LiveChecker {
                 context: self.text,
                 below: CGPoint(x: frame.minX, y: frame.minY),
                 keepAlive: frame)
+            Log.write("detached card visible=\(self.overlay.isCardVisible)")
         }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
@@ -188,6 +190,8 @@ final class LiveChecker {
     }
 
     func start() {
+        Log.write("live checker start requested, trusted=\(AXAccess.isTrusted) "
+                  + "alreadyRunning=\(isRunning) hotkey=\(hotkeyLabel)")
         guard !isRunning, AXAccess.isTrusted else { return }
         isRunning = true
         watcher.start()
@@ -212,6 +216,7 @@ final class LiveChecker {
     }
 
     func stop() {
+        Log.write("live checker stopping")
         isRunning = false
         watcher.stop()
         lintTask?.cancel()
@@ -229,6 +234,9 @@ final class LiveChecker {
     // MARK: - Reacting to the field
 
     private func focusChanged(_ element: AXElement?, _ text: String) {
+        Log.write("focus -> \(element?.role ?? "none") "
+                  + "app=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "?") "
+                  + "len=\(text.count)")
         self.element = element
         self.text = text
         suggestions = []
@@ -474,6 +482,9 @@ final class LiveChecker {
             overlay.hide()
             badgeSuggestions = live
             badge.show(count: live.count, hint: hotkeyLabel, near: frame)
+            Log.write("badge show count=\(live.count) field=\(Self.brief(frame)) "
+                      + "badgeFrame=\(Self.brief(badge.frame)) "
+                      + "visible=\(badge.isVisible)")
             return
         }
         badgeSuggestions = []
@@ -484,9 +495,15 @@ final class LiveChecker {
 
     /// Clears both ways of showing suggestions.
     private func hideMarks() {
+        if badge.isVisible { Log.write("badge hide") }
         overlay.hide()
         badgeSuggestions = []
         badge.dismiss()
+    }
+
+    private static func brief(_ rect: CGRect) -> String {
+        "\(Int(rect.origin.x)),\(Int(rect.origin.y)) "
+            + "\(Int(rect.size.width))x\(Int(rect.size.height))"
     }
 
     /// Hides one suggestion until its text changes.

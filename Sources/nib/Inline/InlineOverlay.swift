@@ -57,6 +57,8 @@ final class InlineOverlay {
     }
 
     var isVisible: Bool { window.isVisible }
+    /// The fix card, which outlives the overlay window in detached mode.
+    var isCardVisible: Bool { card.isVisible }
 
     func show(
         fieldFrame: CGRect,
