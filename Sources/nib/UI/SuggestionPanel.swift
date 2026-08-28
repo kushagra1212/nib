@@ -14,6 +14,11 @@ final class SuggestionPanel: NSPanel {
     private var suggestions: [Suggestion] = []
     private var onApply: ((String) -> Void)?
     private var onRequestFixes: (([Suggestion]) async -> [Suggestion])?
+    private var onRewrite: ((String, RewriteMode) async throws -> String)?
+    private var rewriteButtons: [NSButton] = []
+    private let undoButton = NSButton()
+    /// Text before the last rewrite, so it can be undone in one click.
+    private var textBeforeRewrite: String?
 
     var currentText: String { textView.string }
 
@@ -78,6 +83,30 @@ final class SuggestionPanel: NSPanel {
         cancel.bezelStyle = .rounded
         cancel.keyEquivalent = "\u{1b}" // Esc
 
+        // AI rewrite actions, one per mode.
+        let rewriteRow = NSStackView()
+        rewriteRow.orientation = .horizontal
+        rewriteRow.spacing = 6
+        for (index, mode) in RewriteMode.allCases.enumerated() {
+            let button = NSButton(title: mode.rawValue, target: self,
+                                  action: #selector(rewriteTapped(_:)))
+            button.bezelStyle = .rounded
+            button.font = .systemFont(ofSize: 11)
+            button.tag = index
+            rewriteButtons.append(button)
+            rewriteRow.addArrangedSubview(button)
+        }
+        undoButton.title = "Undo"
+        undoButton.bezelStyle = .rounded
+        undoButton.font = .systemFont(ofSize: 11)
+        undoButton.keyEquivalent = "z"
+        undoButton.keyEquivalentModifierMask = .command
+        undoButton.target = self
+        undoButton.action = #selector(undoRewrite)
+        undoButton.isHidden = true
+        rewriteRow.addArrangedSubview(undoButton)
+        rewriteRow.addArrangedSubview(NSView())
+
         let buttons = NSStackView(views: [statusLabel, NSView(), cancel, applyButton])
         buttons.orientation = .horizontal
         buttons.spacing = 8
@@ -88,7 +117,7 @@ final class SuggestionPanel: NSPanel {
         split.addArrangedSubview(scroll)
         split.addArrangedSubview(listScroll)
 
-        let root = NSStackView(views: [split, buttons])
+        let root = NSStackView(views: [split, rewriteRow, buttons])
         root.orientation = .vertical
         root.spacing = 8
         root.edgeInsets = NSEdgeInsets(top: 28, left: 12, bottom: 12, right: 12)
@@ -110,10 +139,13 @@ final class SuggestionPanel: NSPanel {
         text: String,
         near point: NSPoint?,
         onApply: @escaping (String) -> Void,
-        requestFixes: @escaping ([Suggestion]) async -> [Suggestion]
+        requestFixes: @escaping ([Suggestion]) async -> [Suggestion],
+        onRewrite: @escaping (String, RewriteMode) async throws -> String
     ) {
         self.onApply = onApply
         self.onRequestFixes = requestFixes
+        self.onRewrite = onRewrite
+        self.textBeforeRewrite = nil
         textView.string = text
         suggestions = []
         renderList()
@@ -224,6 +256,50 @@ final class SuggestionPanel: NSPanel {
         renderList()
         statusLabel.stringValue = suggestions.isEmpty
             ? "all fixed" : "\(suggestions.count) left"
+    }
+
+    @objc private func rewriteTapped(_ sender: NSButton) {
+        guard let onRewrite, sender.tag < RewriteMode.allCases.count else { return }
+        let mode = RewriteMode.allCases[sender.tag]
+        let input = textView.string
+        guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        setRewriteEnabled(false)
+        statusLabel.stringValue = "\(mode.rawValue.lowercased())…"
+
+        Task { @MainActor in
+            defer { self.setRewriteEnabled(true) }
+            do {
+                let result = try await onRewrite(input, mode)
+                guard !result.isEmpty else {
+                    self.statusLabel.stringValue = "model returned nothing"
+                    return
+                }
+                // Keep the original recoverable: a small model can make text
+                // worse, and retyping it by hand is not an acceptable undo.
+                self.textBeforeRewrite = input
+                self.textView.string = result
+                self.undoButton.isHidden = false
+                self.suggestions = []
+                self.renderList()
+                self.statusLabel.stringValue = "rewritten — ⌘Z to undo"
+            } catch {
+                self.statusLabel.stringValue = "rewrite failed: \(error)"
+            }
+        }
+    }
+
+    private func setRewriteEnabled(_ enabled: Bool) {
+        rewriteButtons.forEach { $0.isEnabled = enabled }
+    }
+
+    /// Restores the text as it was before the last rewrite.
+    @objc private func undoRewrite() {
+        guard let previous = textBeforeRewrite else { return }
+        textView.string = previous
+        textBeforeRewrite = nil
+        undoButton.isHidden = true
+        statusLabel.stringValue = "reverted"
     }
 
     @objc private func applyTapped() {
