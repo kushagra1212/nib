@@ -127,12 +127,44 @@ enum SuggestionFilter {
         let b = replacement.lowercased()
         if a == b { return false }
 
+        guard !addsWords(from: a, to: b) else { return false }
+        guard !inventsPossessive(from: a, to: b) else { return false }
+
         let distance = editDistance(a, b)
         if distance <= 1 { return true }
 
         let longest = max(a.count, b.count)
         guard longest > 0 else { return false }
         return Double(distance) / Double(longest) <= 0.5
+    }
+
+    /// Whether a replacement pads the phrase out rather than correcting it.
+    ///
+    /// Harper's grammar rules sometimes expand a phrase into something longer
+    /// and wrong -- "both needing" became "both pieces of needing". Shrinking
+    /// is fine, since joining a split word is a real fix, but a correction
+    /// should not bring new words with it.
+    static func addsWords(from original: String, to replacement: String) -> Bool {
+        let before = original.split(whereSeparator: \.isWhitespace).count
+        let after = replacement.split(whereSeparator: \.isWhitespace).count
+        return after > before + 1
+    }
+
+    /// Whether a replacement turns a word into a possessive or contraction it
+    /// never resembled.
+    ///
+    /// "Frontmost" became "Front's". Adding an apostrophe is a real fix when
+    /// the letters are otherwise unchanged -- "its" to "it's" -- so the test
+    /// is whether the letters survive, not whether an apostrophe appeared.
+    static func inventsPossessive(from original: String, to replacement: String) -> Bool {
+        let hadApostrophe = original.contains { $0 == "'" || $0 == "’" }
+        let hasApostrophe = replacement.contains { $0 == "'" || $0 == "’" }
+        guard !hadApostrophe, hasApostrophe else { return false }
+
+        let strip: (String) -> String = { text in
+            String(text.filter { $0 != "'" && $0 != "’" })
+        }
+        return strip(original) != strip(replacement)
     }
 
     /// Levenshtein distance, two rows rather than a full matrix.
