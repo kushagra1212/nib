@@ -114,7 +114,8 @@ final class SuggestionPanel: NSPanel {
         rewriteRow.spacing = Theme.Space.tight
         for (index, mode) in RewriteMode.allCases.enumerated() {
             let button = PillButton(title: mode.shortTitle, emphasis: .secondary,
-                                    target: self, action: #selector(rewriteTapped(_:)))
+                                    icon: mode.icon, target: self,
+                                    action: #selector(rewriteTapped(_:)))
             button.tag = index
             rewriteButtons.append(button)
             rewriteRow.addArrangedSubview(button)
@@ -409,6 +410,15 @@ extension RewriteMode {
         case .fixGrammar: return "Fix"
         case .clearer: return "Clearer"
         case .shorter: return "Shorter"
+        }
+    }
+
+    /// Icon carrying the action, so the row reads before the labels do.
+    var icon: String {
+        switch self {
+        case .fixGrammar: return "checkmark"
+        case .clearer: return "wand.and.rays"
+        case .shorter: return "arrow.down.right.and.arrow.up.left"
         }
     }
 }
