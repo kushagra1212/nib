@@ -52,10 +52,22 @@ struct PositionMapper {
     }
 
     /// UTF-16 offset for an LSP position, clamped into the text.
+    ///
+    /// The character is clamped to the END OF ITS OWN LINE, not merely to the
+    /// end of the text. Clamping only against the total length let an
+    /// out-of-range character on an early line resolve to an offset on a later
+    /// line, which marks the wrong row rather than failing.
     func offset(line: Int, character: Int) -> Int {
         guard line >= 0 else { return 0 }
         guard line < lineStarts.count else { return utf16Length }
-        return min(lineStarts[line] + max(0, character), utf16Length)
+
+        let start = lineStarts[line]
+        // Line ends just before the next line's start, which is the newline
+        // itself; the last line runs to the end of the text.
+        let end = line + 1 < lineStarts.count
+            ? max(start, lineStarts[line + 1] - 1)
+            : utf16Length
+        return min(start + max(0, character), end)
     }
 
     /// NSRange for an LSP range, or nil if it inverts or falls outside the text.

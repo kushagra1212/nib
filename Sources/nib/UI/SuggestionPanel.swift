@@ -344,22 +344,17 @@ final class SuggestionPanel: NSPanel {
               let replacement = sender.identifier?.rawValue,
               let storage = textView.textStorage else { return }
         let suggestion = suggestions[sender.tag]
-        guard NSMaxRange(suggestion.range) <= storage.length else { return }
+        let edit = TextEdit(range: suggestion.range, replacement: replacement,
+                            expected: suggestion.excerpt(in: textView.string) ?? "")
+        guard let updated = EditPlanner.apply(edit, to: textView.string) else { return }
 
         storage.replaceCharacters(in: suggestion.range, with: replacement)
 
-        // Every later suggestion shifts by the length delta; stale ranges would
-        // corrupt the next edit.
-        let delta = (replacement as NSString).length - suggestion.range.length
-        suggestions = suggestions.enumerated().compactMap { offset, other in
-            if offset == sender.tag { return nil }
-            guard other.range.location > suggestion.range.location else { return other }
-            return Suggestion(id: other.id,
-                              range: NSRange(location: other.range.location + delta,
-                                             length: other.range.length),
-                              message: other.message,
-                              replacements: other.replacements)
-        }
+        // Reanchoring lives in EditPlanner so it is covered by tests. Doing it
+        // inline here previously shifted overlapping ranges instead of
+        // discarding them, which corrupted the next edit.
+        suggestions = EditPlanner.pruneOutOfBounds(
+            EditPlanner.reanchor(suggestions, after: edit), in: updated)
         decorate()
         renderRows()
         statusLabel.stringValue = suggestions.isEmpty

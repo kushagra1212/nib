@@ -158,10 +158,29 @@ final class LiveChecker {
     /// twice and leaving a duplicate word at the caret.
     private func performApply(_ suggestion: Suggestion, _ replacement: String) async {
         guard let element else { return }
-        let nsText = text as NSString
-        guard NSMaxRange(suggestion.range) <= nsText.length else { return }
 
-        let updated = nsText.replacingCharacters(in: suggestion.range, with: replacement)
+        // Re-read rather than trusting the cached copy. Between the lint and
+        // the click the user may have typed, which moves every offset; writing
+        // a range computed against stale text overwrites the wrong span.
+        let current = element.string(for: kAXValueAttribute) ?? text
+        text = current
+
+        var edit = TextEdit(range: suggestion.range,
+                            replacement: replacement,
+                            expected: suggestion.excerpt(in: current) ?? "")
+        if !EditPlanner.isValid(edit, in: current) {
+            guard let moved = EditPlanner.relocate(edit, in: current) else {
+                // The flagged text is gone; nothing sensible left to replace.
+                overlay.hide()
+                scheduleLint()
+                return
+            }
+            edit = moved
+        }
+        guard let updated = EditPlanner.apply(edit, to: current) else { return }
+        let suggestion = Suggestion(id: suggestion.id, range: edit.range,
+                                    message: suggestion.message,
+                                    replacements: suggestion.replacements)
 
         // 1. Replace just the selection. Preferred: the caret stays put.
         if selectRange(suggestion.range, on: element),
