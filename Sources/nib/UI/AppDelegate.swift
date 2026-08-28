@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var live: LiveChecker?
     private var liveMenuItem: NSMenuItem?
     private var loginMenuItem: NSMenuItem?
+    private var statusMenuItem: NSMenuItem?
     private var permissionWatch: Task<Void, Never>?
     /// Held between opening the panel and applying, so the result goes back to
     /// the field it came from.
@@ -117,6 +118,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.button?.font = .systemFont(ofSize: 12, weight: .medium)
 
         let menu = NSMenu()
+
+        // One line saying whether nib is actually working, before the things
+        // you can do to it. Every other item describes a single part, and
+        // reading four of them to work out "is it on" is a poor way to ask a
+        // simple question.
+        let status = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        status.isEnabled = false
+        menu.addItem(status)
+        statusMenuItem = status
+        menu.addItem(.separator())
+
         menu.addItem(withTitle: "Check Selection", action: #selector(trigger), keyEquivalent: "")
             .target = self
 
@@ -173,6 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Refreshes the menu each time it opens, so its state is current rather
     /// than whatever was true at launch.
     func menuWillOpen(_ menu: NSMenu) {
+        refreshStatusLine()
+
         let running = live?.isRunning == true
         liveMenuItem?.state = running ? .on : .off
         liveMenuItem?.title = running
@@ -197,6 +211,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             loginMenuItem?.state = .off
             loginMenuItem?.title = "Start at Login — unavailable"
         }
+    }
+
+    /// The one line at the top: what is working, or what is stopping it.
+    ///
+    /// Ordered by what blocks what. Without Accessibility nib cannot read a
+    /// single character, so nothing below it matters and nothing else is
+    /// mentioned until it is granted.
+    @MainActor
+    private func refreshStatusLine() {
+        guard let item = statusMenuItem else { return }
+
+        guard AXAccess.isTrusted else {
+            item.attributedTitle = Self.statusText(
+                "Not working — needs Accessibility permission", tint: .systemRed)
+            return
+        }
+        guard live?.isRunning == true else {
+            item.attributedTitle = Self.statusText(
+                "Underlines off — turn on below", tint: .systemOrange)
+            return
+        }
+
+        guard let rewriter else {
+            item.attributedTitle = Self.statusText(
+                "Working — no AI model", tint: .systemGreen)
+            return
+        }
+
+        // "installed" is about a file on disk. "ready" is about a server that
+        // answered. They are different claims, and the AI item below only ever
+        // makes the weaker one.
+        //
+        // The engine is an actor, so its state cannot be read while building a
+        // menu. The line is written twice: the certain part now, the rest a
+        // moment later, while the menu is still open.
+        item.attributedTitle = Self.statusText(
+            "Working — AI model installed", tint: .systemGreen)
+        Task { @MainActor in
+            let loaded = await rewriter.isLoaded
+            item.attributedTitle = Self.statusText(
+                loaded ? "Working — AI ready" : "Working — AI loads on first use",
+                tint: .systemGreen)
+        }
+    }
+
+    private static func statusText(_ text: String, tint: NSColor) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .foregroundColor: tint,
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+        ])
     }
 
     private func updateStatusTitle(combo: HotkeyMonitor.Combo?) {
