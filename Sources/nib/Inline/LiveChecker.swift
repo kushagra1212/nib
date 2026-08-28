@@ -81,6 +81,7 @@ final class LiveChecker {
                      + "\(Int(lastFieldFrame.origin.y)) "
                      + "\(Int(lastFieldFrame.width))x\(Int(lastFieldFrame.height))")
         lines.append("overlay shown:  \(overlay.isVisible ? "yes" : "no")")
+        lines.append("badge shown:    \(badge.isVisible ? "yes" : "no")")
         lines.append("note:           \(lastNote)")
 
         // The live path holds an element captured when focus changed; the
@@ -107,12 +108,17 @@ final class LiveChecker {
             } ?? CFRange(location: 0, length: 1)),
         ]
         for (label, range) in probes {
-            if let rect = element.bounds(forRange: range) {
-                out.append("\(label)\(Int(rect.origin.x)),\(Int(rect.origin.y)) "
-                           + "\(Int(rect.width))x\(Int(rect.height))")
-            } else {
-                out.append("\(label)nil")
+            // The raw answer, not the filtered one. An app that declines to
+            // answer and an app that answers 0x0 both come back nil once the
+            // drawable check has run, and those need different fixes.
+            guard let rect = element.rawBounds(forRange: range) else {
+                out.append("\(label)no answer")
+                continue
             }
+            let size = "\(Int(rect.origin.x)),\(Int(rect.origin.y)) "
+                + "\(Int(rect.size.width))x\(Int(rect.size.height))"
+            out.append("\(label)\(size)"
+                       + (AXElement.isDrawable(rect) ? "" : "  ← not drawable"))
         }
         // Whether the attribute is advertised at all, which is a different
         // question from whether it answers.

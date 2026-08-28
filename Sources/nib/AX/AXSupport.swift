@@ -101,6 +101,19 @@ struct AXElement {
     /// views implement it; most Electron and browser text fields do not, which
     /// is why drawing squiggles over the real text cannot work everywhere.
     func bounds(forRange range: CFRange) -> CGRect? {
+        guard let rect = rawBounds(forRange: range) else { return nil }
+        guard AXElement.isDrawable(rect) else { return nil }
+        return rect
+    }
+
+    /// The rectangle exactly as the app reported it, degenerate or not.
+    ///
+    /// Only the diagnostic uses this. Everything else wants `bounds(forRange:)`,
+    /// which rejects rectangles that cannot be drawn on. Keeping the unfiltered
+    /// answer reachable is what makes "nil" legible in a bug report: an app that
+    /// declines to answer and an app that answers `0x0` look identical
+    /// otherwise, and telling them apart took five rounds once already.
+    func rawBounds(forRange range: CFRange) -> CGRect? {
         var input = range
         guard let axRange = AXValueCreate(.cfRange, &input) else { return nil }
         var out: AnyObject?
@@ -114,7 +127,6 @@ struct AXElement {
               CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
         var rect = CGRect.zero
         guard AXValueGetValue(out as! AXValue, .cgRect, &rect) else { return nil }
-        guard AXElement.isDrawable(rect) else { return nil }
         return rect
     }
 
