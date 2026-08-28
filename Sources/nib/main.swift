@@ -164,6 +164,31 @@ func locateLlamaServer() -> URL? {
     return candidates.first { fm.isExecutableFile(atPath: $0.path) }
 }
 
+/// Ranks installed models best-first.
+///
+/// Measured on "Their is many erors in this sentance, and it are very long and
+/// wordy in a way that could of been much more shorter":
+///
+///   Qwen3 0.6B    fixed every error in all three modes.
+///   Gemma 3 270M  fixed only the misspellings in grammar mode, and for
+///                 "clearer" and "shorter" it described the sentence
+///                 ("The sentence is too long and wordy.") instead of
+///                 rewriting it.
+///
+/// 0.6B is the floor for this task. Anything smaller answers the wrong
+/// question, so a 270M model is only used when nothing better is installed.
+func rankModels(_ names: [String]) -> [String] {
+    func score(_ name: String) -> Int {
+        let lower = name.lowercased()
+        if lower.contains("qwen3-1.7b") { return 0 }
+        if lower.contains("qwen3-0.6b") { return 1 }
+        if lower.contains("llama-3.2-3b") { return 1 }
+        if lower.contains("270m") { return 9 } // verified inadequate
+        return 5
+    }
+    return names.sorted { (score($0), $0) < (score($1), $1) }
+}
+
 /// Builds a rewrite config, or nil if either the server or a model is missing.
 func rewriteConfig(modelName: String?) -> RewriteEngine.Config? {
     guard let server = locateLlamaServer() else { return nil }
@@ -177,7 +202,7 @@ func rewriteConfig(modelName: String?) -> RewriteEngine.Config? {
 
     for dir in modelSearchPaths() {
         guard let entries = try? fm.contentsOfDirectory(atPath: dir.path) else { continue }
-        let models = entries.filter { $0.hasSuffix(".gguf") }.sorted()
+        let models = rankModels(entries.filter { $0.hasSuffix(".gguf") })
         guard !models.isEmpty else { continue }
 
         if let modelName {
