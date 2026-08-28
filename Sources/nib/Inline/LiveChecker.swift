@@ -17,6 +17,8 @@ final class LiveChecker {
     var onOpenPanel: (() -> Void)?
     /// What the badge is counting, so hovering it can offer the same fixes.
     private var badgeSuggestions: [Suggestion] = []
+    private var badgeHoverPoll: Timer?
+    private var isPointerOnBadge = false
     /// The selection the bar is currently offering to rewrite.
     private var selectionRange: NSRange?
     private var selectionTask: Task<Void, Never>?
@@ -163,23 +165,6 @@ final class LiveChecker {
         badge.onOpen = { [weak self] in
             self?.overlay.hideDetached()
             self?.onOpenPanel?()
-        }
-        // Hovering the badge stands in for hovering an underline, which these
-        // fields cannot offer. Same card, same buttons, same stepping.
-        badge.onHover = { [weak self] inside in
-            guard let self else { return }
-            Log.write("badge hover=\(inside) suggestions=\(self.badgeSuggestions.count)")
-            guard inside else {
-                self.overlay.scheduleDetachedHide()
-                return
-            }
-            let frame = self.badge.frame
-            self.overlay.showDetached(
-                self.badgeSuggestions,
-                context: self.text,
-                below: CGPoint(x: frame.minX, y: frame.minY),
-                keepAlive: frame)
-            Log.write("detached card visible=\(self.overlay.isCardVisible)")
         }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
@@ -482,6 +467,7 @@ final class LiveChecker {
             overlay.hide()
             badgeSuggestions = live
             badge.show(count: live.count, hint: hotkeyLabel, near: frame)
+            startBadgeHoverPoll()
             Log.write("badge show count=\(live.count) field=\(Self.brief(frame)) "
                       + "badgeFrame=\(Self.brief(badge.frame)) "
                       + "visible=\(badge.isVisible)")
@@ -499,6 +485,64 @@ final class LiveChecker {
         overlay.hide()
         badgeSuggestions = []
         badge.dismiss()
+        stopBadgeHoverPoll()
+    }
+
+    // MARK: - Hovering the badge
+
+    /// Watches the pointer while the badge is up.
+    ///
+    /// A tracking area on the badge never fired: it is a non-activating panel
+    /// belonging to a background accessory app, so macOS does not deliver it
+    /// mouse-moved events, and neither monitor sees the pointer once it is over
+    /// nib's own window. `NSEvent.mouseLocation` answers regardless of who the
+    /// events were delivered to, so the position is read rather than awaited.
+    private func startBadgeHoverPoll() {
+        guard badgeHoverPoll == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkBadgeHover() }
+        }
+        // Common mode, or the poll stops while a menu or scroll is tracking.
+        RunLoop.main.add(timer, forMode: .common)
+        badgeHoverPoll = timer
+    }
+
+    private func stopBadgeHoverPoll() {
+        badgeHoverPoll?.invalidate()
+        badgeHoverPoll = nil
+        isPointerOnBadge = false
+    }
+
+    private func checkBadgeHover() {
+        guard badge.isVisible, !badgeSuggestions.isEmpty else {
+            stopBadgeHoverPoll()
+            return
+        }
+        let point = NSEvent.mouseLocation
+        // A little slack around the badge, which is only 15 points tall.
+        let inside = badge.frame.insetBy(dx: -6, dy: -6).contains(point)
+
+        badge.setHovered(inside)
+
+        if inside, !isPointerOnBadge {
+            isPointerOnBadge = true
+            let frame = badge.frame
+            Log.write("badge hover=true suggestions=\(badgeSuggestions.count)")
+            overlay.showDetached(badgeSuggestions, context: text,
+                                 below: CGPoint(x: frame.minX, y: frame.minY),
+                                 keepAlive: frame)
+            Log.write("detached card visible=\(overlay.isCardVisible)")
+        } else if !inside, isPointerOnBadge {
+            isPointerOnBadge = false
+            Log.write("badge hover=false")
+            overlay.scheduleDetachedHide()
+        }
+
+        // The card is nib's own window too, so the same delivery problem
+        // applies to keeping it open while the pointer travels to its buttons.
+        if overlay.isCardVisible {
+            overlay.mouseMoved(to: point)
+        }
     }
 
     private static func brief(_ rect: CGRect) -> String {

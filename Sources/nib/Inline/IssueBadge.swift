@@ -9,10 +9,8 @@ import AppKit
 /// found and points at the way to see it.
 final class IssueBadge: NSPanel {
     var onOpen: (() -> Void)?
-    /// Hovering the badge is the substitute for hovering an underline.
-    var onHover: ((Bool) -> Void)?
 
-    private let body = BadgeBody()
+    fileprivate let body = BadgeBody()
     private let label = NSTextField(labelWithString: "")
     private let glyph = NSImageView()
 
@@ -45,9 +43,6 @@ final class IssueBadge: NSPanel {
             self?.onOpen?()
             self?.dismiss()
         }
-        body.onHover = { [weak self] inside in
-            self?.onHover?(inside)
-        }
         contentView = body
 
         let symbol = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
@@ -63,7 +58,9 @@ final class IssueBadge: NSPanel {
         row.orientation = .horizontal
         row.spacing = 5
         row.alignment = .centerY
-        row.edgeInsets = NSEdgeInsets(top: 4, left: 9, bottom: 4, right: 10)
+        // Roomy enough vertically to be an easy hover target: the first
+        // version came out 15 points tall, which is a hard thing to land on.
+        row.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 11)
         row.translatesAutoresizingMaskIntoConstraints = false
         body.addSubview(row)
 
@@ -75,7 +72,7 @@ final class IssueBadge: NSPanel {
         ])
     }
 
-    /// Shows the badge at the trailing edge of the field.
+    /// Shows the badge just above the field it is counting for.
     func show(count: Int, hint: String, near fieldFrame: CGRect) {
         guard count > 0, fieldFrame.width > 0, fieldFrame.height > 0 else {
             dismiss()
@@ -86,11 +83,22 @@ final class IssueBadge: NSPanel {
         body.layoutSubtreeIfNeeded()
         let size = body.fittingSize
 
-        // Just inside the field's trailing edge, clear of the text itself.
-        var origin = CGPoint(x: fieldFrame.maxX - size.width - 8,
-                             y: fieldFrame.minY + 6)
+        // Just above the field, aligned with where its text begins.
+        //
+        // The trailing edge is the obvious spot and the wrong one: that is
+        // where apps keep their send and attach buttons, so the badge landed
+        // on top of Slack's and read as part of Slack rather than as a note
+        // about the text. Above the leading edge sits next to the words it is
+        // counting and covers nothing the field owns.
+        var origin = CGPoint(x: fieldFrame.minX + 4,
+                             y: fieldFrame.maxY + 4)
         if let screen = NSScreen.screens.first(where: { $0.frame.intersects(fieldFrame) }) {
             let visible = screen.visibleFrame
+            // No room above -- a field at the top of the window -- so sit
+            // under it rather than be clamped back on top of the text.
+            if origin.y + size.height > visible.maxY - 4 {
+                origin.y = fieldFrame.minY - size.height - 4
+            }
             origin.x = min(max(origin.x, visible.minX + 4), visible.maxX - size.width - 4)
             origin.y = min(max(origin.y, visible.minY + 4), visible.maxY - size.height - 4)
         }
@@ -105,39 +113,23 @@ final class IssueBadge: NSPanel {
 
     func dismiss() {
         Theme.dismiss(self)
+        body.hovering = false
+    }
+
+    /// Set by the pointer poll, since the badge receives no hover events.
+    func setHovered(_ hovered: Bool) {
+        guard body.hovering != hovered else { return }
+        body.hovering = hovered
     }
 }
 
-/// Hover and click live on the view, not the panel: `updateTrackingAreas` and
-/// the mouse responder chain are `NSView` API.
+/// Clicks arrive normally. Hover does not: macOS delivers no mouse-moved
+/// events to a non-activating panel owned by a background accessory app, so
+/// `LiveChecker` polls the pointer and sets `hovering` itself.
 private final class BadgeBody: NSVisualEffectView {
     var onClick: (() -> Void)?
-    var onHover: ((Bool) -> Void)?
 
-    private var tracking: NSTrackingArea?
-    private var hovering = false { didSet { refresh() } }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: bounds,
-                                  options: [.mouseEnteredAndExited, .activeAlways],
-                                  owner: self, userInfo: nil)
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        hovering = true
-        NSCursor.pointingHand.set()
-        onHover?(true)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        hovering = false
-        NSCursor.arrow.set()
-        onHover?(false)
-    }
+    var hovering = false { didSet { refresh() } }
 
     override func mouseDown(with event: NSEvent) {
         onClick?()
