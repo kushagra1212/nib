@@ -35,11 +35,7 @@ enum RewriteMode: String, CaseIterable {
             // prefers one when installed.
             return "Correct the grammar, spelling, and punctuation of the user's text. "
                 + "Keep the meaning and wording as close to the original as possible. "
-                + "Split run-on sentences and comma splices.\n"
-                + "Example input: we was going to the store and buyed milk, it dont "
-                + "work\n"
-                + "Example output: We were going to the store and bought milk. It "
-                + "doesn't work."
+                + "Split run-on sentences and comma splices."
         case .clearer:
             return "Rewrite the user's text to be clearer and easier to read. "
                 + "Keep the same meaning and roughly the same length."
@@ -55,6 +51,33 @@ enum RewriteMode: String, CaseIterable {
             + " Reply with only the rewritten text."
             + " Do not explain, comment, add quotes, or think out loud."
             + " Leave code, identifiers, acronyms and proper nouns exactly as written."
+    }
+
+    /// A worked example, as a real exchange rather than text in the system
+    /// message.
+    ///
+    /// Written into the instruction, the example was not understood as an
+    /// example. Given a long input, Qwen3 0.6B returned "We were going to the
+    /// store and bought milk. It doesn't work." -- the example's own output,
+    /// in place of the user's sentence. Asked to tidy a paragraph about
+    /// Chromium, it answered with a paragraph about milk.
+    ///
+    /// As a user turn and an assistant turn it is unambiguous: the model sees
+    /// one exchange that is over, then a new question. The demonstration
+    /// survives and the leak does not.
+    var example: (input: String, output: String)? {
+        // None, for any mode.
+        //
+        // Moving it into proper turns did not help: given the same long
+        // paragraph the model still answered "We were going to the store and
+        // bought milk. It doesn't work." A 0.6B model handed a long input and
+        // a short worked example returns the example, whichever way it is
+        // framed, and one wrong sentence delivered in place of someone's
+        // paragraph costs more than the capital letter the example bought.
+        //
+        // The hook stays because a larger model does use examples properly,
+        // and this is where its example goes.
+        nil
     }
 }
 
@@ -124,11 +147,17 @@ actor RewriteEngine {
         // The instruction is a system message so it stays byte-identical
         // between calls, which is what lets the server reuse the cached
         // prefix and only process the sentence itself.
+        var messages: [[String: String]] = [
+            ["role": "system", "content": mode.systemPrompt],
+        ]
+        if let example = mode.example {
+            messages.append(["role": "user", "content": example.input])
+            messages.append(["role": "assistant", "content": example.output])
+        }
+        messages.append(["role": "user", "content": text])
+
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "messages": [
-                ["role": "system", "content": mode.systemPrompt],
-                ["role": "user", "content": text],
-            ],
+            "messages": messages,
             "temperature": config.temperature,
             "top_k": 1,
             "max_tokens": Self.tokenBudget(for: text, limit: config.maxTokens),
