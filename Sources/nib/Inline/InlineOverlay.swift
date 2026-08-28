@@ -58,20 +58,20 @@ final class InlineOverlay {
             return
         }
         self.context = context
+
+        // The card is anchored to a rect that may have just moved. Rather than
+        // chase it mid-scroll, drop it; the pointer is over the text, so it
+        // comes straight back on the next mouse move.
+        if card.isVisible, marksMoved(marks) {
+            card.dismiss()
+            card.reset()
+            shownIndex = nil
+        }
         ordered = marks.map(\.0)
 
         window.setFrame(fieldFrame, display: false)
-        // Rects arrive in screen coordinates; the view draws in window space.
-        marksView.marks = marks.map { suggestion, rects in
-            SquiggleView.Mark(
-                suggestion: suggestion,
-                rects: rects.map {
-                    CGRect(x: $0.origin.x - fieldFrame.origin.x,
-                           y: $0.origin.y - fieldFrame.origin.y,
-                           width: $0.width, height: $0.height)
-                }
-            )
-        }
+        // Rects arrive already converted to window space by MarkPlacement.
+        marksView.marks = marks.map { SquiggleView.Mark(suggestion: $0.0, rects: $0.1) }
         window.orderFront(nil)
     }
 
@@ -142,6 +142,15 @@ final class InlineOverlay {
         }
         card.reset()
         present(index: next)
+    }
+
+    /// Whether the currently shown suggestion sits somewhere new.
+    private func marksMoved(_ marks: [(Suggestion, [CGRect])]) -> Bool {
+        guard let shownIndex, ordered.indices.contains(shownIndex) else { return false }
+        let id = ordered[shownIndex].id
+        guard let old = marksView.anchorRect(for: id) else { return true }
+        guard let new = marks.first(where: { $0.0.id == id })?.1.first else { return true }
+        return abs(new.origin.y - old.origin.y) > 1 || abs(new.origin.x - old.origin.x) > 1
     }
 
     private func scheduleCardHide() {

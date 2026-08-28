@@ -46,6 +46,9 @@ final class LiveChecker {
         watcher.needsGeometry = { [weak self] in
             !(self?.suggestions.isEmpty ?? true)
         }
+        watcher.sentinelRange = { [weak self] in
+            self?.suggestions.first?.range
+        }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
         }
@@ -187,11 +190,9 @@ final class LiveChecker {
         let marks = AXGeometry.rects(for: live, in: element)
         // Clip to the field: a scrolled-away line still reports bounds, which
         // would paint marks over whatever is above or below the field.
-        let visible = marks.compactMap { mark -> (Suggestion, [CGRect])? in
-            let inside = mark.rects.filter { frame.intersects($0) }
-            return inside.isEmpty ? nil : (mark.suggestion, inside)
-        }
-        overlay.show(fieldFrame: frame, marks: visible, context: text)
+        let placed = MarkPlacement.place(marks: marks, fieldFrame: frame)
+        overlay.show(fieldFrame: frame, marks: placed.map { ($0.suggestion, $0.rects) },
+                     context: text)
     }
 
     /// Hides one suggestion until its text changes.
