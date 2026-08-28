@@ -46,6 +46,7 @@ final class LiveChecker {
         watcher.onGeometryChanged = { [weak self] in
             self?.redraw()
             self?.selectionBar.dismiss()
+            self?.overlay.isSuppressed = false
         }
         watcher.onSelectionChanged = { [weak self] selected, range in
             self?.selectionChanged(selected, range)
@@ -97,6 +98,7 @@ final class LiveChecker {
         modelTask?.cancel()
         selectionTask?.cancel()
         selectionBar.dismiss()
+        overlay.isSuppressed = false
         overlay.hide()
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
@@ -122,6 +124,7 @@ final class LiveChecker {
         // the selection the bar was offering to rewrite no longer exists.
         overlay.hide()
         selectionBar.dismiss()
+        overlay.isSuppressed = false
         selectionTask?.cancel()
         scheduleLint()
     }
@@ -226,6 +229,7 @@ final class LiveChecker {
         // there is nothing useful to rewrite in either.
         guard trimmed.count >= 12, WordDiff.tokenize(trimmed).count >= 3 else {
             selectionBar.dismiss()
+            overlay.isSuppressed = false
             selectionRange = nil
             return
         }
@@ -233,6 +237,7 @@ final class LiveChecker {
             // Without a model there is nothing to offer, and a bar that only
             // reports its own absence is worse than no bar.
             selectionBar.dismiss()
+            overlay.isSuppressed = false
             return
         }
 
@@ -250,6 +255,9 @@ final class LiveChecker {
             self.selectionBar.onAccept = { [weak self] replacement in
                 self?.replaceSelection(range, with: replacement, original: selected)
             }
+            // The bar takes over this region; the hover card would otherwise
+            // open on top of it.
+            self.overlay.isSuppressed = true
             self.selectionBar.prepare(original: trimmed)
             self.selectionBar.present(above: anchor)
         }
