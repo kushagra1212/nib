@@ -75,7 +75,48 @@ final class LiveChecker {
                      + "\(Int(lastFieldFrame.width))x\(Int(lastFieldFrame.height))")
         lines.append("overlay shown:  \(overlay.isVisible ? "yes" : "no")")
         lines.append("note:           \(lastNote)")
+
+        // The live path holds an element captured when focus changed; the
+        // probe fetches a fresh one. Chromium rebuilds its tree constantly, so
+        // these can be different objects with different capabilities. Asking
+        // both the same question is the only way to tell those apart.
+        lines.append("")
+        lines.append("bounds, cached element:")
+        lines.append(boundsReport(for: element))
+        lines.append("bounds, fresh element:")
+        lines.append(boundsReport(for: AXElement.focused))
         return lines.joined(separator: "\n")
+    }
+
+    private func boundsReport(for element: AXElement?) -> String {
+        guard let element else { return "  (none)" }
+        var out: [String] = []
+
+        let probes: [(String, CFRange)] = [
+            ("  at 0, len 1:  ", CFRange(location: 0, length: 1)),
+            ("  at 0, len 4:  ", CFRange(location: 0, length: 4)),
+            ("  suggestion:   ", suggestions.first.map {
+                CFRange(location: $0.range.location, length: $0.range.length)
+            } ?? CFRange(location: 0, length: 1)),
+        ]
+        for (label, range) in probes {
+            if let rect = element.bounds(forRange: range) {
+                out.append("\(label)\(Int(rect.origin.x)),\(Int(rect.origin.y)) "
+                           + "\(Int(rect.width))x\(Int(rect.height))")
+            } else {
+                out.append("\(label)nil")
+            }
+        }
+        // Whether the attribute is advertised at all, which is a different
+        // question from whether it answers.
+        var names: CFArray?
+        let err = AXUIElementCopyParameterizedAttributeNames(element.raw, &names)
+        let list = (names as? [String]) ?? []
+        out.append("  param attrs:  \(err == .success ? "\(list.count)" : "error \(err.rawValue)")")
+        out.append("  has bounds:   "
+                   + (list.contains(kAXBoundsForRangeParameterizedAttribute as String)
+                      ? "yes" : "NO"))
+        return out.joined(separator: "\n")
     }
 
     init(engine: HarperEngine, model: ModelChecker? = nil) {
