@@ -174,7 +174,10 @@ final class LiveChecker {
             let found = await model.check(snapshot)
             guard !Task.isCancelled, self.text == snapshot else { return }
             if !found.isEmpty {
-                self.suggestions = SuggestionFilter.apply(found, in: snapshot)
+                self.suggestions = Self.merge(
+                    harper: self.suggestions.filter { $0.kind == .correction },
+                    model: SuggestionFilter.apply(found, in: snapshot),
+                    in: snapshot)
                 self.redraw()
             }
 
@@ -257,6 +260,39 @@ final class LiveChecker {
                                     replacements: [replacement])
         apply(suggestion, replacement)
         selectionRange = nil
+    }
+
+    /// Widest a model edit may be and still count as a correction.
+    ///
+    /// Beyond this it is a rewrite of the phrase, not a fix to a word, and
+    /// marking it red claims a certainty the model does not have.
+    static let maxCorrectionWords = 4
+
+    /// Combines harper's word-level marks with the model's.
+    ///
+    /// The model pass used to replace harper's results outright, which is what
+    /// made precise marks vanish and a band appear across the line: a
+    /// sentence-level rewrite diffs into one wide span, and that span replaced
+    /// three exact words.
+    ///
+    /// Harper is precise about what it does know, so its marks are kept. The
+    /// model contributes what harper missed, and only where it is pointing at
+    /// something small enough to be a correction.
+    static func merge(
+        harper: [Suggestion], model: [Suggestion], in text: String
+    ) -> [Suggestion] {
+        var out = harper
+        for candidate in model {
+            let words = WordDiff.tokenize(candidate.excerpt(in: text) ?? "").count
+            guard words <= maxCorrectionWords else { continue }
+            // Harper already flagged this span, and its range is tighter.
+            let overlaps = harper.contains {
+                NSIntersectionRange($0.range, candidate.range).length > 0
+            }
+            guard !overlaps else { continue }
+            out.append(candidate)
+        }
+        return out.sorted { $0.range.location < $1.range.location }
     }
 
     private func redraw() {
