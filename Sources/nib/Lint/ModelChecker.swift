@@ -87,8 +87,10 @@ actor ModelChecker {
     /// A run rather than a total, because scattered single misses are what a
     /// real correction looks like -- "their is many erors" changes three of
     /// five words. Three in a row is a deletion.
-    nonisolated func dropsContent(original: String, corrected: String) -> Bool {
-        longestDroppedRun(original: original, corrected: corrected) >= 3
+    nonisolated func dropsContent(
+        original: String, corrected: String, limit: Int = 3
+    ) -> Bool {
+        longestDroppedRun(original: original, corrected: corrected) >= limit
     }
 
     /// The longest stretch of consecutive words present in the original and
@@ -184,16 +186,23 @@ actor ModelChecker {
     /// sentence is easy to accept without noticing. When that happens the
     /// original comes back unchanged, which reads as "nothing to do" rather
     /// than handing over a shortened version of what was written.
-    func rewriteSelection(_ text: String, mode: RewriteMode) async throws -> String {
-        if let hit = cache["\(mode.rawValue)|\(text)"] { return hit }
-        let result = try await rewriter.rewrite(text, mode: mode)
+    func rewriteSelection(
+        _ text: String, mode: RewriteMode,
+        strength: RewriteStrength = .current
+    ) async throws -> String {
+        let key = "\(mode.rawValue)|\(strength.rawValue)|\(text)"
+        if let hit = cache[key] { return hit }
+        let result = try await rewriter.rewrite(text, mode: mode, strength: strength)
 
-        if !mode.mayRestructure, dropsContent(original: text, corrected: result) {
+        // Bold switches the check off entirely, and Freely and Shorter are
+        // asked to move or drop words whatever the dial says.
+        if !mode.mayRestructure, let limit = strength.maxDroppedRun,
+           dropsContent(original: text, corrected: result, limit: limit) {
             Log.write("rewrite dropped content, mode=\(mode.rawValue) "
                       + "run=\(longestDroppedRun(original: text, corrected: result))")
             return text
         }
-        remember("\(mode.rawValue)|\(text)", result)
+        remember(key, result)
         return result
     }
 

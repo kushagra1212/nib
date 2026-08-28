@@ -56,8 +56,9 @@ enum RewriteMode: String, CaseIterable {
 
     /// Constant per mode, so the server can reuse the cached prefix rather
     /// than reprocessing the instruction on every request.
-    var systemPrompt: String {
+    func systemPrompt(strength: RewriteStrength = .current) -> String {
         instruction
+            + strength.clause
             + " Reply with only the rewritten text."
             + " Do not explain, comment, add quotes, or think out loud."
             + " Leave code, identifiers, acronyms and proper nouns exactly as written."
@@ -143,7 +144,10 @@ actor RewriteEngine {
 
     // MARK: - Rewriting
 
-    func rewrite(_ text: String, mode: RewriteMode) async throws -> String {
+    func rewrite(
+        _ text: String, mode: RewriteMode,
+        strength: RewriteStrength = .current
+    ) async throws -> String {
         let port = try await ensureRunning()
         scheduleIdleShutdown()
 
@@ -158,7 +162,7 @@ actor RewriteEngine {
         // between calls, which is what lets the server reuse the cached
         // prefix and only process the sentence itself.
         var messages: [[String: String]] = [
-            ["role": "system", "content": mode.systemPrompt],
+            ["role": "system", "content": mode.systemPrompt(strength: strength)],
         ]
         if let example = mode.example {
             messages.append(["role": "user", "content": example.input])

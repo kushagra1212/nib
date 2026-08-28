@@ -15,6 +15,7 @@ final class SelectionBar: NSPanel {
     var onAccept: ((String) -> Void)?
 
     private let glyph = NSImageView()
+    private let strengthDial = NSSegmentedControl()
     private let dots = LoadingDots()
     private let status = NSTextField(labelWithString: "")
     private let proposalView = ProposalView()
@@ -85,8 +86,26 @@ final class SelectionBar: NSPanel {
             modeRow.addArrangedSubview(button)
         }
 
+        // How far any of those four may travel. Its own control rather than
+        // more buttons: the mode is what you want done, the dial is how much,
+        // and folding twelve combinations into one row would read as twelve
+        // unrelated actions.
+        strengthDial.segmentStyle = .rounded
+        strengthDial.segmentCount = RewriteStrength.allCases.count
+        strengthDial.controlSize = .small
+        strengthDial.font = Theme.Font.control
+        strengthDial.target = self
+        strengthDial.action = #selector(strengthChanged)
+        for (index, strength) in RewriteStrength.allCases.enumerated() {
+            strengthDial.setLabel(strength.title, forSegment: index)
+            if strength == RewriteStrength.current {
+                strengthDial.selectedSegment = index
+            }
+        }
+        strengthDial.toolTip = "How far a rewrite may stray from what you wrote"
+
         let actionRow = NSStackView(views: [
-            glyph, modeRow, dots, status, NSView(),
+            glyph, modeRow, strengthDial, dots, status, NSView(),
         ])
         actionRow.orientation = .horizontal
         actionRow.spacing = Theme.Space.row
@@ -270,6 +289,21 @@ final class SelectionBar: NSPanel {
     }
 
     // MARK: - Actions
+
+    @objc private func strengthChanged() {
+        let index = strengthDial.selectedSegment
+        guard RewriteStrength.allCases.indices.contains(index) else { return }
+        let strength = RewriteStrength.allCases[index]
+        RewriteStrength.current = strength
+        Log.write("rewrite strength set to \(strength.rawValue)")
+
+        // The proposal on screen was produced under the old setting, so it no
+        // longer answers the question being asked.
+        proposal = nil
+        proposalView.isHidden = true
+        status.isHidden = true
+        resize()
+    }
 
     @objc private func runMode(_ sender: NSButton) {
         guard let onRewrite, sender.tag < RewriteMode.allCases.count else { return }
