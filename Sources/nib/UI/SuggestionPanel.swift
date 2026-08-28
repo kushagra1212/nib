@@ -411,6 +411,7 @@ extension RewriteMode {
         case .fixGrammar: return "Fix"
         case .clearer: return "Clearer"
         case .shorter: return "Shorter"
+        case .freely: return "Freely"
         }
     }
 
@@ -420,16 +421,32 @@ extension RewriteMode {
         case .fixGrammar: return "checkmark"
         case .clearer: return "wand.and.rays"
         case .shorter: return "arrow.down.right.and.arrow.up.left"
+        case .freely: return "text.badge.star"
         }
     }
 
-    /// Colour of that icon. Three grey chips are hard to tell apart at a
-    /// glance; three colours are not.
+    /// Colour of that icon. Grey chips are hard to tell apart at a glance;
+    /// coloured ones are not.
     var iconTint: NSColor {
         switch self {
         case .fixGrammar: return Theme.Colour.fix
         case .clearer: return Theme.Colour.rewrite
         case .shorter: return Theme.Colour.condense
+        case .freely: return Theme.Colour.clarity
+        }
+    }
+
+    /// Whether this mode may restructure the text.
+    ///
+    /// The deletion guard exists for modes whose output is meant to track the
+    /// original closely; it cannot tell "reordered for clarity" from "ate the
+    /// end of the sentence", so it refuses both. Shorter is asked to drop
+    /// words, and Freely is asked to move them, so neither is measured that
+    /// way -- both are shown in full and applied only when accepted.
+    var mayRestructure: Bool {
+        switch self {
+        case .shorter, .freely: return true
+        case .fixGrammar, .clearer: return false
         }
     }
 }

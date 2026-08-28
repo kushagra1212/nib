@@ -5,6 +5,7 @@ enum RewriteMode: String, CaseIterable {
     case fixGrammar = "Fix grammar"
     case clearer = "Make clearer"
     case shorter = "Make shorter"
+    case freely = "Rewrite freely"
 
     /// Instruction given to the model.
     ///
@@ -41,6 +42,15 @@ enum RewriteMode: String, CaseIterable {
                 + "Keep the same meaning and roughly the same length."
         case .shorter:
             return "Rewrite the user's text to be shorter, keeping every important point."
+        case .freely:
+            // The only mode allowed to reorder. Everything else is written to
+            // stay close to what was typed, because its output is applied as
+            // inline corrections; this one is asked for explicitly, shown in
+            // full, and applied only when accepted.
+            return "Rewrite the user's text so it reads well: fix the grammar, "
+                + "reorder clauses, and split or join sentences as needed. "
+                + "Keep every fact and every point the text makes. "
+                + "Do not add information that is not there."
         }
     }
 

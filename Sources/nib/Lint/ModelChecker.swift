@@ -188,7 +188,7 @@ actor ModelChecker {
         if let hit = cache["\(mode.rawValue)|\(text)"] { return hit }
         let result = try await rewriter.rewrite(text, mode: mode)
 
-        if mode != .shorter, dropsContent(original: text, corrected: result) {
+        if !mode.mayRestructure, dropsContent(original: text, corrected: result) {
             Log.write("rewrite dropped content, mode=\(mode.rawValue) "
                       + "run=\(longestDroppedRun(original: text, corrected: result))")
             return text
