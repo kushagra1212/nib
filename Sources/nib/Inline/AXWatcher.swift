@@ -84,8 +84,12 @@ final class AXWatcher {
         onFocusChanged?(focused, lastText)
     }
 
+    /// Set by the owner: false when there is nothing drawn, so the poll can
+    /// skip its cross-process call entirely.
+    var needsGeometry: (() -> Bool)?
+
     private func pollGeometry() {
-        guard let current else { return }
+        guard let current, needsGeometry?() ?? true else { return }
         let frame = AXGeometry.frame(of: current) ?? .zero
         guard frame != lastFrame else { return }
         lastFrame = frame

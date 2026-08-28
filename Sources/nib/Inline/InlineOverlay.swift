@@ -50,7 +50,7 @@ final class InlineOverlay {
 
     func show(
         fieldFrame: CGRect,
-        marks: [(suggestion: Suggestion, rect: CGRect)],
+        marks: [(Suggestion, [CGRect])],
         context: String
     ) {
         guard !marks.isEmpty, fieldFrame.width > 0, fieldFrame.height > 0 else {
@@ -58,17 +58,18 @@ final class InlineOverlay {
             return
         }
         self.context = context
-        ordered = marks.map(\.suggestion)
+        ordered = marks.map(\.0)
 
         window.setFrame(fieldFrame, display: false)
         // Rects arrive in screen coordinates; the view draws in window space.
-        marksView.marks = marks.map {
+        marksView.marks = marks.map { suggestion, rects in
             SquiggleView.Mark(
-                suggestion: $0.suggestion,
-                rect: CGRect(x: $0.rect.origin.x - fieldFrame.origin.x,
-                             y: $0.rect.origin.y - fieldFrame.origin.y,
-                             width: $0.rect.width,
-                             height: $0.rect.height)
+                suggestion: suggestion,
+                rects: rects.map {
+                    CGRect(x: $0.origin.x - fieldFrame.origin.x,
+                           y: $0.origin.y - fieldFrame.origin.y,
+                           width: $0.width, height: $0.height)
+                }
             )
         }
         window.orderFront(nil)
@@ -119,13 +120,12 @@ final class InlineOverlay {
             card.orderOut(nil)
             return
         }
-        guard let mark = marksView.marks.first(where: { $0.suggestion.id == suggestion.id })
-        else { return }
+        guard let rect = marksView.anchorRect(for: suggestion.id) else { return }
 
         shownIndex = index
         marksView.hovered = suggestion.id
-        let anchor = CGPoint(x: window.frame.origin.x + mark.rect.minX,
-                             y: window.frame.origin.y + mark.rect.minY)
+        let anchor = CGPoint(x: window.frame.origin.x + rect.minX,
+                             y: window.frame.origin.y + rect.minY)
         card.show(suggestion, context: context, index: index,
                   total: ordered.count, below: anchor)
     }
@@ -148,7 +148,7 @@ final class InlineOverlay {
         hideCardWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self, !self.card.isMouseInside else { return }
-            self.card.orderOut(nil)
+            self.card.dismiss()
             self.card.reset()
             self.shownIndex = nil
         }
