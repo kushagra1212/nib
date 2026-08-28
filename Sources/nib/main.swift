@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Locates the bundled harper-ls.
@@ -146,14 +147,22 @@ if args.first == "--lint" {
     exit(await runLintCLI(text))
 }
 
-FileHandle.standardError.write(Data("""
-nib — offline writing assistant
+if args.first == "--help" || args.first == "-h" {
+    print("""
+    nib — offline writing assistant
 
-usage:
-  nib --lint "text to check"
-  echo "text" | nib --lint
+    usage:
+      nib                        run the menu bar app
+      nib --lint "text"          check text and print suggestions
+      nib --bench [words]        measure lint latency
+      nib --ax-probe [seconds]   report what the focused text field exposes
+    """)
+    exit(0)
+}
 
-The menu bar app is not wired up yet.
-
-""".utf8))
-exit(2)
+// No arguments: run as the menu bar app.
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+let delegate = AppDelegate()
+app.delegate = delegate
+app.run()
