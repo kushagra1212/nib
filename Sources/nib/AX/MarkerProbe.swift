@@ -139,6 +139,9 @@ enum MarkerProbe {
 
         chainTest(element, value: value)
         layoutIngredients(element, value: value)
+        positionSweep(element, value: value)
+        caretSweep(element, value: value)
+        pointerSweep(element, value: value)
 
         var names: CFArray?
         AXUIElementCopyParameterizedAttributeNames(element.raw, &names)
@@ -263,6 +266,113 @@ enum MarkerProbe {
         }
         let font = styled.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
         print("     font:         \(font.map { "\($0.fontName) \($0.pointSize)" } ?? "not reported")")
+    }
+
+    /// Asks "which character is under this point" across the field.
+    ///
+    /// The inverse question to the one every other attribute here refuses.
+    /// If it answers, the map can be built the other way round: sample the
+    /// box, invert the answers, and the words have positions after all.
+    private static func positionSweep(_ element: AXElement, value: String) {
+        guard let frame = element.frame, frame.width > 0 else {
+            print("     position map: no frame")
+            return
+        }
+        var samples: [String] = []
+        let y = frame.minY + min(10, frame.height / 2)
+        for step in 0..<6 {
+            let x = frame.minX + 4 + CGFloat(step) * (frame.width - 8) / 6
+            guard let range = element.range(atPosition: CGPoint(x: x, y: y)) else {
+                samples.append("x+\(Int(x - frame.minX))=nil")
+                continue
+            }
+            let ns = value as NSString
+            let char = range.location >= 0 && range.location < ns.length
+                ? ns.substring(with: NSRange(location: range.location, length: 1))
+                : "?"
+            samples.append("x+\(Int(x - frame.minX))=\(range.location)'\(char)'")
+        }
+        print("     position map: \(samples.joined(separator: "  "))")
+    }
+
+    /// Whether the caret has a readable rectangle, and whether it moves.
+    ///
+    /// The caret is geometry an app cannot hide: a screen reader follows it and
+    /// an input method has to put its candidate window under it. If it can be
+    /// read, every keystroke is one exact sample of "character N is here", and
+    /// typing sweeps the line for free.
+    private static func caretSweep(_ element: AXElement, value: String) {
+        let length = value.utf16.count
+        guard length > 8 else { return }
+
+        // Where the caret is now, by every route.
+        if let selected = element.range(for: kAXSelectedTextRangeAttribute) {
+            print("     caret range:  \(selected.location)+\(selected.length)")
+            print("       bounds:     \(describe(element.rawBounds(forRange: selected)))")
+        } else {
+            print("     caret range:  not reported")
+        }
+        if let markerRange = element.value(for: "AXSelectedTextMarkerRange") {
+            print("       marker sel: \(describe(element.bounds(forMarkerRange: markerRange)))")
+        } else {
+            print("       marker sel: not reported")
+        }
+
+        // Move it, and see whether the rectangle follows.
+        guard element.isSettable(kAXSelectedTextRangeAttribute) else {
+            print("     caret move:   selection is not settable")
+            return
+        }
+        var moved: [String] = []
+        for offset in [0, length / 2, length - 1] {
+            var range = CFRange(location: offset, length: 0)
+            guard let value = AXValueCreate(.cfRange, &range) else { continue }
+            _ = element.set(kAXSelectedTextRangeAttribute, to: value)
+            Thread.sleep(forTimeInterval: 0.12)
+            let rect = element.rawBounds(forRange: CFRange(location: offset, length: 0))
+            let marker = element.value(for: "AXSelectedTextMarkerRange")
+                .flatMap { element.bounds(forMarkerRange: $0) }
+            moved.append("at \(offset): range=\(describe(rect)) marker=\(describe(marker))")
+        }
+        print("     caret move:")
+        for line in moved { print("       \(line)") }
+    }
+
+    /// Which character sits under a given screen point.
+    ///
+    /// The inverse map, by the one route not yet tried on a contenteditable:
+    /// a marker for the point, then the distance from the start marker, which
+    /// is the character offset. If this answers, hovering a word is solved
+    /// without knowing where any word is -- the pointer says which one it is.
+    private static func pointerSweep(_ element: AXElement, value: String) {
+        guard let frame = element.frame, frame.width > 0 else { return }
+        guard let whole = element.wholeMarkerRange(),
+              let start = TextMarkerBridge.startMarker(of: whole) else {
+            print("     pointer map:  no start marker")
+            return
+        }
+
+        let ns = value as NSString
+        var samples: [String] = []
+        let y = frame.minY + min(10, frame.height / 2)
+        for step in 0..<6 {
+            let x = frame.minX + 6 + CGFloat(step) * (frame.width - 12) / 6
+            guard let marker = element.marker(atPosition: CGPoint(x: x, y: y)) else {
+                samples.append("x+\(Int(x - frame.minX))=nil")
+                continue
+            }
+            guard let span = element.markerRange(from: start, to: marker)
+                    ?? TextMarkerBridge.range(from: start, to: marker),
+                  let offset = element.length(ofMarkerRange: span) else {
+                samples.append("x+\(Int(x - frame.minX))=marker,no-offset")
+                continue
+            }
+            let char = offset >= 0 && offset < ns.length
+                ? ns.substring(with: NSRange(location: offset, length: 1))
+                : "?"
+            samples.append("x+\(Int(x - frame.minX))=\(offset)'\(char)'")
+        }
+        print("     pointer map:  \(samples.joined(separator: "  "))")
     }
 
     private static func describe(_ rect: CGRect?) -> String {

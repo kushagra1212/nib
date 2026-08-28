@@ -236,9 +236,32 @@ struct AXElement {
         parameterized("AXStringForTextMarkerRange", range) as? String
     }
 
+    /// How many characters a marker range spans.
+    ///
+    /// With a start marker this converts any marker into a character offset:
+    /// build a range from the start to it, and its length is the offset.
+    func length(ofMarkerRange range: AnyObject) -> Int? {
+        parameterized("AXLengthForTextMarkerRange", range) as? Int
+    }
+
     /// A marker range covering the whole element.
     func wholeMarkerRange() -> AnyObject? {
         parameterized("AXTextMarkerRangeForUIElement", raw)
+    }
+
+    /// The character range at a screen point -- the inverse of asking where a
+    /// character is.
+    ///
+    /// If an app answers this while refusing AXBoundsForRange, the geometry
+    /// can still be recovered by sampling points and inverting the answers.
+    func range(atPosition point: CGPoint) -> CFRange? {
+        var position = point
+        guard let value = AXValueCreate(.cgPoint, &position),
+              let out = parameterized("AXRangeForPosition", value),
+              CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
+        var range = CFRange()
+        guard AXValueGetValue(out as! AXValue, .cfRange, &range) else { return nil }
+        return range
     }
 
     /// The character range of one visual line, addressed by line number.
