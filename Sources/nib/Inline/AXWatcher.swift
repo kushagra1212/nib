@@ -30,11 +30,6 @@ final class AXWatcher {
     /// Where the sentinel range sat last time, to detect scrolling.
     private var lastSentinelRect: CGRect?
 
-    /// Text fields worth underlining. Buttons and labels report values too.
-    private static let editableRoles: Set<String> = [
-        kAXTextAreaRole, kAXTextFieldRole, kAXComboBoxRole,
-    ]
-
     func start() {
         stop()
         // Clicking into a field should feel immediate, and this poll is one
@@ -67,8 +62,16 @@ final class AXWatcher {
         guard AXAccess.isTrusted else { return }
         let focused = AXElement.focused
 
-        guard let focused, let role = focused.role,
-              Self.editableRoles.contains(role) else {
+        // Eligibility covers more than the role: password fields are ordinary
+        // text fields wearing a secure subrole, and reading one would hand a
+        // password to the linter.
+        let eligible = focused.map {
+            FieldEligibility.mayRead(role: $0.role,
+                                     subrole: $0.string(for: kAXSubroleAttribute),
+                                     label: FieldEligibility.label(of: $0))
+        } ?? false
+
+        guard let focused, eligible else {
             if current != nil {
                 current = nil
                 lastText = ""
