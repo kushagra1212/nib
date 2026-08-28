@@ -130,6 +130,30 @@ struct AXElement {
         return rect
     }
 
+    /// Asks for the element's whole text as a marker range, then for the
+    /// rectangle covering it.
+    ///
+    /// Chromium answers `AXBoundsForRange` with an empty rectangle but reports
+    /// real geometry to VoiceOver through text markers, which are an opaque
+    /// Apple type with no public header. The attributes are addressed by name.
+    /// A non-empty rectangle here means Slack and every other Electron app can
+    /// be underlined after all, just not through the documented attribute.
+    func markerBounds() -> CGRect? {
+        var markerRange: AnyObject?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            raw, "AXTextMarkerRangeForUIElement" as CFString, raw, &markerRange
+        ) == .success, let markerRange else { return nil }
+
+        var out: AnyObject?
+        guard AXUIElementCopyParameterizedAttributeValue(
+            raw, "AXBoundsForTextMarkerRange" as CFString, markerRange, &out
+        ) == .success, let out, CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
+
+        var rect = CGRect.zero
+        guard AXValueGetValue(out as! AXValue, .cgRect, &rect) else { return nil }
+        return rect
+    }
+
     /// Whether a reported rectangle is somewhere a mark could actually go.
     ///
     /// Chromium answers the bounds attribute for text it has not laid out and
