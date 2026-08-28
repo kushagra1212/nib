@@ -115,6 +115,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(withTitle: "Accessibility Settings…",
                      action: #selector(openAccessibility), keyEquivalent: "").target = self
+
+        // Runs under nib's own permission, unlike the command line probes,
+        // which are attributed to whichever terminal launched them.
+        let diagnose = NSMenuItem(title: "Diagnose Frontmost App…",
+                                  action: #selector(diagnoseField), keyEquivalent: "")
+        diagnose.target = self
+        menu.addItem(diagnose)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit nib", action: #selector(NSApplication.terminate(_:)),
                      keyEquivalent: "q")
@@ -189,6 +196,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSPasteboard.general.setString(command, forType: .string)
         default:
             break
+        }
+    }
+
+    /// Reports what nib can see in the app that was frontmost.
+    ///
+    /// Counts down first, because opening the menu makes nib frontmost and the
+    /// app under investigation is whatever the user goes back to.
+    @objc private func diagnoseField() {
+        guard AXAccess.isTrusted else {
+            presentPermissionHelp()
+            return
+        }
+
+        let notice = NSAlert()
+        notice.messageText = "Click into the field you want to check"
+        notice.informativeText = """
+        Press Start, then click into the text field in the app you are testing. \
+        The report appears five seconds later.
+        """
+        notice.addButton(withTitle: "Start")
+        notice.addButton(withTitle: "Cancel")
+        guard notice.runModal() == .alertFirstButtonReturn else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+
+            let report: String
+            if let found = AXProbe.probeFocused() {
+                report = """
+                app:              \(found.app)
+                role:             \(found.role)
+                read value:       \(found.canReadValue ? "yes (\(found.valueLength) chars)" : "NO")
+                read selection:   \(found.canReadSelection ? "yes" : "no")
+                write value:      \(found.valueSettable ? "yes" : "no")
+                write selection:  \(found.selectionSettable ? "yes" : "no")
+                bounds for range: \(found.boundsForRange == nil ? "NO" : "yes")
+
+                \(found.verdict)
+                """
+            } else {
+                report = AXProbe.diagnoseNoFocus()
+            }
+
+            let result = NSAlert()
+            result.messageText = "What nib can see"
+            result.informativeText = report
+            result.addButton(withTitle: "Copy")
+            result.addButton(withTitle: "Done")
+            if result.runModal() == .alertFirstButtonReturn {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(report, forType: .string)
+            }
         }
     }
 
