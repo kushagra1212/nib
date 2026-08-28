@@ -26,6 +26,17 @@ final class SelectionBar: NSPanel {
     /// input.
     private var original = ""
 
+    /// Set once the bar has been dragged, so it stops being re-anchored.
+    ///
+    /// Moving somewhere and being put back on the next redraw is worse than
+    /// not being movable at all. Cleared when the bar goes away, so a fresh
+    /// selection is offered above itself as usual rather than wherever the
+    /// last one happened to be left.
+    private var wasMoved = false
+    /// True while nib is doing the moving, so its own frame changes are not
+    /// mistaken for the user's.
+    private var isPositioning = false
+
     /// Set by the owner before presenting.
     func prepare(original text: String) {
         self.original = text
@@ -46,6 +57,13 @@ final class SelectionBar: NSPanel {
         isOpaque = false
         hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Drag it anywhere by its background. The bar sits above the selection
+        // by default, which is the right place until it covers the very line
+        // being rewritten -- and then only the reader knows where it should go.
+        isMovableByWindowBackground = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowMoved),
+            name: NSWindow.didMoveNotification, object: self)
         build()
     }
 
@@ -137,6 +155,12 @@ final class SelectionBar: NSPanel {
         reset()
         resize(animated: false)
 
+        // Already put somewhere deliberately: stay there.
+        if reappearing, wasMoved {
+            runAutomatically()
+            return
+        }
+
         var origin = CGPoint(x: rect.midX - frame.width / 2, y: rect.maxY + 8)
         let screen = NSScreen.screens.first { $0.frame.intersects(rect) } ?? NSScreen.main
         if let visible = screen?.visibleFrame {
@@ -148,12 +172,14 @@ final class SelectionBar: NSPanel {
         }
         let target = NSRect(origin: origin, size: frame.size)
 
+        isPositioning = true
         if reappearing {
             setFrame(target, display: true)
         } else {
             Theme.present(self, at: target)
             staggerButtons()
         }
+        isPositioning = false
 
         // Offer something without being asked. A bar of three buttons is a
         // menu; having the suggestion already there is the point.
@@ -263,8 +289,19 @@ final class SelectionBar: NSPanel {
         }
     }
 
+    @objc private func windowMoved() {
+        guard !isPositioning else { return }
+        // The flag alone is not enough: present() and resize() animate, so
+        // their frame changes land after it has been cleared and would read as
+        // a drag. A drag has the mouse button held down; an animation does not.
+        guard NSEvent.pressedMouseButtons & 1 == 1 else { return }
+        wasMoved = true
+        Log.write("selection bar moved by hand")
+    }
+
     func dismiss() {
         autoTask?.cancel()
+        wasMoved = false
         guard isVisible else { return }
         dots.stop()
         Theme.dismiss(self)
@@ -281,6 +318,8 @@ final class SelectionBar: NSPanel {
     }
 
     private func resize(animated: Bool = true) {
+        isPositioning = true
+        defer { isPositioning = false }
         contentView?.layoutSubtreeIfNeeded()
         let fitting = contentView?.fittingSize ?? NSSize(width: Metrics.minWidth, height: 36)
         let width = min(max(Metrics.minWidth, fitting.width), Metrics.maxWidth)
