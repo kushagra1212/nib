@@ -142,6 +142,11 @@ final class LiveChecker {
 
     // MARK: - Applying a fix
 
+    /// Replaces one flagged range, trying three routes in order of fidelity.
+    ///
+    /// `AXUIElementSetAttributeValue` reports success by return code, but some
+    /// apps return success and change nothing, so each route is verified by
+    /// reading the text back rather than trusting the result.
     private func apply(_ suggestion: Suggestion, _ replacement: String) {
         guard let element else { return }
         let nsText = text as NSString
@@ -149,23 +154,53 @@ final class LiveChecker {
 
         let updated = nsText.replacingCharacters(in: suggestion.range, with: replacement)
 
-        // Prefer a targeted replacement: setting the whole value moves the
-        // caret to the end, which is intolerable mid-sentence.
-        let cfRange = CFRange(location: suggestion.range.location,
+        // Select the range first. Every route below needs it, and it is also
+        // what makes the change visible if the write itself fails.
+        var cfRange = CFRange(location: suggestion.range.location,
                               length: suggestion.range.length)
-        var applied = false
-        if var range = Optional(cfRange),
-           let axRange = AXValueCreate(.cfRange, &range),
-           element.isSettable(kAXSelectedTextRangeAttribute),
-           element.set(kAXSelectedTextRangeAttribute, to: axRange),
-           element.isSettable(kAXSelectedTextAttribute) {
-            applied = element.set(kAXSelectedTextAttribute, to: replacement as CFString)
+        let selected: Bool
+        if let axRange = AXValueCreate(.cfRange, &cfRange) {
+            selected = element.set(kAXSelectedTextRangeAttribute, to: axRange)
+        } else {
+            selected = false
         }
-        if !applied, element.isSettable(kAXValueAttribute) {
-            applied = element.set(kAXValueAttribute, to: updated as CFString)
-        }
-        guard applied else { return }
 
+        // 1. Replace just the selection. Preferred: the caret stays put.
+        if selected, element.set(kAXSelectedTextAttribute, to: replacement as CFString),
+           didApply(updated, on: element) {
+            finish(updated)
+            return
+        }
+
+        // 2. Rewrite the whole value. Works more widely, but moves the caret
+        //    to the end of the field.
+        if element.isSettable(kAXValueAttribute),
+           element.set(kAXValueAttribute, to: updated as CFString),
+           didApply(updated, on: element) {
+            finish(updated)
+            return
+        }
+
+        // 3. Type over the selection. Electron fields expose their text but
+        //    reject AX writes to it, silently: the range highlights and
+        //    nothing else happens. Synthetic input is what actually lands.
+        guard selected else { return }
+        Keystroke.type(replacement)
+        // The app applies the keystroke asynchronously, so re-read shortly.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard let self, let element = self.element else { return }
+            let now = element.string(for: kAXValueAttribute) ?? ""
+            self.finish(now.isEmpty ? updated : now)
+        }
+    }
+
+    /// Confirms the field really holds the new text.
+    private func didApply(_ expected: String, on element: AXElement) -> Bool {
+        element.string(for: kAXValueAttribute) == expected
+    }
+
+    private func finish(_ updated: String) {
         text = updated
         overlay.hide()
         scheduleLint()

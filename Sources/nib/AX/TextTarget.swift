@@ -138,6 +138,26 @@ enum TextWriter {
 }
 
 enum Keystroke {
+    /// Types a string into the frontmost app, replacing any selection.
+    ///
+    /// The fallback for apps that expose text over AX but refuse writes to it,
+    /// which includes most Electron fields. Unlike a clipboard paste this does
+    /// not disturb what the user had copied.
+    static func type(_ string: String) {
+        guard !string.isEmpty else { return }
+        let source = CGEventSource(stateID: .combinedSessionState)
+        var utf16 = Array(string.utf16)
+
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+        else { return }
+
+        down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
+        up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
+        down.post(tap: .cgAnnotatedSessionEventTap)
+        up.post(tap: .cgAnnotatedSessionEventTap)
+    }
+
     /// Posts a synthetic key down/up pair to the frontmost app.
     static func send(key: CGKeyCode, flags: CGEventFlags) {
         let source = CGEventSource(stateID: .combinedSessionState)
