@@ -33,12 +33,37 @@ enum TextGrabber {
     ]
 
     static func grab() -> TextTarget? {
+        // Checked before anything else: falling through to the clipboard would
+        // send Cmd-C to a password field, which is exactly what the AX guard
+        // below exists to prevent.
+        if focusIsSensitive() { return nil }
         if let target = grabViaAccessibility() { return target }
         return grabViaClipboard()
     }
 
+    /// Whether the focused element is one nib must not read.
+    static func focusIsSensitive() -> Bool {
+        guard AXAccess.isTrusted, let element = AXElement.focused else { return false }
+        if let subrole = element.string(for: kAXSubroleAttribute),
+           FieldEligibility.forbiddenSubroles.contains(subrole) {
+            return true
+        }
+        if let label = FieldEligibility.label(of: element) {
+            return FieldEligibility.mentionsSecret(label)
+        }
+        return false
+    }
+
     static func grabViaAccessibility() -> TextTarget? {
         guard AXAccess.isTrusted, let element = AXElement.focused else { return nil }
+
+        // The hotkey path reads whatever holds focus, so it needs the same
+        // guard as the live path: never read a password field.
+        guard FieldEligibility.mayRead(
+            role: element.role,
+            subrole: element.string(for: kAXSubroleAttribute),
+            label: FieldEligibility.label(of: element)
+        ) else { return nil }
 
         let selected = element.string(for: kAXSelectedTextAttribute) ?? ""
         if !selected.isEmpty {
