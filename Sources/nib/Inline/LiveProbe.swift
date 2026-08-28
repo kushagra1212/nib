@@ -28,6 +28,9 @@ enum LiveProbe {
     }
 
     private static func snapshot(engine: HarperEngine) async -> String {
+        // 0. Chromium apps expose nothing until asked.
+        ChromiumAccessibility.enableForFrontmost()
+
         // 1. Is there a focused element at all?
         guard let element = AXElement.focused else {
             let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "?"

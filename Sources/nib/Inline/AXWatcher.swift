@@ -65,6 +65,12 @@ final class AXWatcher {
 
     private func pollFocus() {
         guard AXAccess.isTrusted else { return }
+
+        // Chromium apps expose nothing readable until asked. Done before
+        // reading focus so the first poll after switching to Slack or VS Code
+        // already sees a real tree rather than an empty one.
+        ChromiumAccessibility.enableForFrontmost()
+
         let focused = AXElement.focused
 
         // Eligibility covers more than the role: password fields are ordinary

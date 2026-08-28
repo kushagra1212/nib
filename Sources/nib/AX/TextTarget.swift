@@ -55,7 +55,10 @@ enum TextGrabber {
     }
 
     static func grabViaAccessibility() -> TextTarget? {
-        guard AXAccess.isTrusted, let element = AXElement.focused else { return nil }
+        guard AXAccess.isTrusted else { return nil }
+        // Chromium apps hand back an empty tree until asked for a real one.
+        ChromiumAccessibility.enableForFrontmost()
+        guard let element = AXElement.focused else { return nil }
 
         // The hotkey path reads whatever holds focus, so it needs the same
         // guard as the live path: never read a password field.
