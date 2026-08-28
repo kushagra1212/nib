@@ -1,103 +1,117 @@
 import AppKit
 
-/// The floating editor that appears on the hotkey.
+/// A small floating card, sized to its content.
 ///
-/// A nonactivating panel, so the app the text came from keeps its focus ring
-/// and its notion of where the insertion point is. That matters: writing the
-/// result back depends on the original app still holding its selection.
+/// Deliberately not a document window: no title bar, no traffic lights, no
+/// fixed frame. It appears next to what you were typing, shows the few things
+/// that are wrong, and gets out of the way. A large empty window for a
+/// four-word sentence is the thing that made the first version feel wrong.
 final class SuggestionPanel: NSPanel {
+    private enum Metrics {
+        static let width: CGFloat = 380
+        static let padding: CGFloat = 12
+        static let cornerRadius: CGFloat = 12
+        /// Text area grows with the text, up to this, then scrolls.
+        static let maxTextHeight: CGFloat = 120
+        static let minTextHeight: CGFloat = 34
+        static let rowHeight: CGFloat = 26
+        /// More rows than this and the card stops being glanceable.
+        static let maxVisibleRows = 4
+    }
+
     private let textView = NSTextView()
+    private let textScroll = NSScrollView()
     private let statusLabel = NSTextField(labelWithString: "")
-    private let listStack = NSStackView()
-    private let applyButton = NSButton()
+    private let rowsStack = NSStackView()
+    private let overflowLabel = NSTextField(labelWithString: "")
+    private var rewriteButtons: [NSButton] = []
+    private let undoButton = NSButton()
+    private var textHeight: NSLayoutConstraint!
 
     private var suggestions: [Suggestion] = []
     private var onApply: ((String) -> Void)?
     private var onRequestFixes: (([Suggestion]) async -> [Suggestion])?
     private var onRewrite: ((String, RewriteMode) async throws -> String)?
-    private var rewriteButtons: [NSButton] = []
-    private let undoButton = NSButton()
-    /// Text before the last rewrite, so it can be undone in one click.
     private var textBeforeRewrite: String?
-
-    var currentText: String { textView.string }
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 380),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
+            contentRect: NSRect(x: 0, y: 0, width: Metrics.width, height: 120),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         isFloatingPanel = true
         level = .floating
-        titleVisibility = .hidden
-        titlebarAppearsTransparent = true
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
+        backgroundColor = .clear
+        isOpaque = false
+        hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         buildLayout()
     }
 
-    // Panels that are not key by default still need to accept typing.
     override var canBecomeKey: Bool { true }
 
     private func buildLayout() {
-        let content = NSView()
-        contentView = content
+        let background = NSVisualEffectView()
+        background.material = .popover
+        background.blendingMode = .behindWindow
+        background.state = .active
+        background.wantsLayer = true
+        background.layer?.cornerRadius = Metrics.cornerRadius
+        background.layer?.masksToBounds = true
+        contentView = background
 
         textView.isRichText = false
-        textView.font = .systemFont(ofSize: 14)
-        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.font = .systemFont(ofSize: 13)
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 4, height: 4)
         textView.isVerticallyResizable = true
-        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
 
-        let scroll = NSScrollView()
-        scroll.documentView = textView
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .noBorder
-        scroll.drawsBackground = false
+        textScroll.documentView = textView
+        textScroll.drawsBackground = false
+        textScroll.borderType = .noBorder
+        textScroll.hasVerticalScroller = false
+        textScroll.translatesAutoresizingMaskIntoConstraints = false
+        textHeight = textScroll.heightAnchor.constraint(
+            equalToConstant: Metrics.minTextHeight)
+        textHeight.isActive = true
 
-        statusLabel.font = .systemFont(ofSize: 11)
+        // Rows go straight into the stack rather than a scroll view. The first
+        // version nested them in an NSScrollView inside an NSSplitView, where
+        // they collapsed to zero height and the fixes were unreachable.
+        rowsStack.orientation = .vertical
+        rowsStack.alignment = .leading
+        rowsStack.spacing = 2
+
+        overflowLabel.font = .systemFont(ofSize: 10)
+        overflowLabel.textColor = .tertiaryLabelColor
+        overflowLabel.isHidden = true
+
+        statusLabel.font = .systemFont(ofSize: 10)
         statusLabel.textColor = .secondaryLabelColor
 
-        listStack.orientation = .vertical
-        listStack.alignment = .leading
-        listStack.spacing = 4
-        listStack.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-
-        let listScroll = NSScrollView()
-        listScroll.documentView = listStack
-        listScroll.hasVerticalScroller = true
-        listScroll.borderType = .noBorder
-        listScroll.drawsBackground = false
-
-        applyButton.title = "Replace"
-        applyButton.bezelStyle = .rounded
-        applyButton.keyEquivalent = "\r"
-        applyButton.target = self
-        applyButton.action = #selector(applyTapped)
-
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelTapped))
-        cancel.bezelStyle = .rounded
-        cancel.keyEquivalent = "\u{1b}" // Esc
-
-        // AI rewrite actions, one per mode.
         let rewriteRow = NSStackView()
         rewriteRow.orientation = .horizontal
-        rewriteRow.spacing = 6
+        rewriteRow.spacing = 4
         for (index, mode) in RewriteMode.allCases.enumerated() {
-            let button = NSButton(title: mode.rawValue, target: self,
+            let button = NSButton(title: mode.shortTitle, target: self,
                                   action: #selector(rewriteTapped(_:)))
             button.bezelStyle = .rounded
+            button.controlSize = .small
             button.font = .systemFont(ofSize: 11)
             button.tag = index
             rewriteButtons.append(button)
             rewriteRow.addArrangedSubview(button)
         }
+
         undoButton.title = "Undo"
         undoButton.bezelStyle = .rounded
+        undoButton.controlSize = .small
         undoButton.font = .systemFont(ofSize: 11)
         undoButton.keyEquivalent = "z"
         undoButton.keyEquivalentModifierMask = .command
@@ -107,29 +121,39 @@ final class SuggestionPanel: NSPanel {
         rewriteRow.addArrangedSubview(undoButton)
         rewriteRow.addArrangedSubview(NSView())
 
-        let buttons = NSStackView(views: [statusLabel, NSView(), cancel, applyButton])
-        buttons.orientation = .horizontal
-        buttons.spacing = 8
+        let replace = NSButton(title: "Replace", target: self,
+                               action: #selector(applyTapped))
+        replace.bezelStyle = .rounded
+        replace.controlSize = .small
+        replace.keyEquivalent = "\r"
 
-        let split = NSSplitView()
-        split.isVertical = false
-        split.dividerStyle = .thin
-        split.addArrangedSubview(scroll)
-        split.addArrangedSubview(listScroll)
+        let cancel = NSButton(title: "Esc", target: self, action: #selector(cancelTapped))
+        cancel.bezelStyle = .rounded
+        cancel.controlSize = .small
+        cancel.keyEquivalent = "\u{1b}"
 
-        let root = NSStackView(views: [split, rewriteRow, buttons])
+        let footer = NSStackView(views: [statusLabel, NSView(), cancel, replace])
+        footer.orientation = .horizontal
+        footer.spacing = 6
+
+        let root = NSStackView(views: [
+            textScroll, rowsStack, overflowLabel, rewriteRow, footer,
+        ])
         root.orientation = .vertical
+        root.alignment = .leading
         root.spacing = 8
-        root.edgeInsets = NSEdgeInsets(top: 28, left: 12, bottom: 12, right: 12)
+        root.edgeInsets = NSEdgeInsets(top: Metrics.padding, left: Metrics.padding,
+                                       bottom: Metrics.padding, right: Metrics.padding)
         root.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(root)
+        background.addSubview(root)
 
         NSLayoutConstraint.activate([
-            root.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            root.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            root.topAnchor.constraint(equalTo: content.topAnchor),
-            root.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 140),
+            root.leadingAnchor.constraint(equalTo: background.leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: background.trailingAnchor),
+            root.topAnchor.constraint(equalTo: background.topAnchor),
+            root.bottomAnchor.constraint(equalTo: background.bottomAnchor),
+            textScroll.widthAnchor.constraint(
+                equalToConstant: Metrics.width - Metrics.padding * 2),
         ])
     }
 
@@ -146,42 +170,80 @@ final class SuggestionPanel: NSPanel {
         self.onRequestFixes = requestFixes
         self.onRewrite = onRewrite
         self.textBeforeRewrite = nil
+        undoButton.isHidden = true
+
         textView.string = text
         suggestions = []
-        renderList()
+        renderRows()
         statusLabel.stringValue = "checking…"
+        resize()
+        position(near: point)
 
-        if let point {
-            setFrameTopLeftPoint(point)
-        } else {
-            center()
-        }
         orderFrontRegardless()
         makeKey()
     }
 
-    /// Shows lint results: underlines in the text, one row per suggestion.
+    /// Places the card near the caret, nudged fully on-screen.
+    private func position(near point: NSPoint?) {
+        guard let screen = NSScreen.main else { center(); return }
+        guard let point else { center(); return }
+
+        let size = frame.size
+        var origin = NSPoint(x: point.x - 20, y: point.y - size.height - 20)
+        let visible = screen.visibleFrame
+
+        origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
+        // Not enough room below the caret: flip above it rather than clipping.
+        if origin.y < visible.minY + 8 {
+            origin.y = point.y + 20
+        }
+        origin.y = min(origin.y, visible.maxY - size.height - 8)
+        setFrameOrigin(origin)
+    }
+
     func show(_ found: [Suggestion]) {
         suggestions = found
         decorate()
         statusLabel.stringValue = found.isEmpty
-            ? "no issues"
+            ? "looks clean"
             : "\(found.count) issue\(found.count == 1 ? "" : "s")"
-        renderList()
+        renderRows()
+        resize()
 
-        // Replacement text is fetched lazily, so pull it for what is on screen.
-        guard let onRequestFixes else { return }
-        let visible = Array(found.prefix(30))
+        guard let onRequestFixes, !found.isEmpty else { return }
+        let visible = Array(found.prefix(Metrics.maxVisibleRows))
         Task { @MainActor in
             let filled = await onRequestFixes(visible)
             guard self.suggestions.count >= filled.count else { return }
             self.suggestions.replaceSubrange(0..<filled.count, with: filled)
-            self.renderList()
+            self.renderRows()
+            self.resize()
         }
     }
 
     func showError(_ message: String) {
         statusLabel.stringValue = message
+    }
+
+    /// Grows the card to fit its content, within limits.
+    private func resize() {
+        layoutIfNeeded()
+
+        let measured = textView.layoutManager?.usedRect(
+            for: textView.textContainer!).height ?? Metrics.minTextHeight
+        textHeight.constant = min(max(measured + 12, Metrics.minTextHeight),
+                                  Metrics.maxTextHeight)
+        textScroll.hasVerticalScroller = measured + 12 > Metrics.maxTextHeight
+
+        layoutIfNeeded()
+        let fitting = contentView?.fittingSize ?? NSSize(width: Metrics.width, height: 120)
+        let target = NSSize(width: Metrics.width, height: ceil(fitting.height))
+
+        // Grow downward from the top edge so the card does not jump around.
+        var newFrame = frame
+        newFrame.origin.y += newFrame.height - target.height
+        newFrame.size = target
+        setFrame(newFrame, display: true)
     }
 
     private func decorate() {
@@ -199,34 +261,61 @@ final class SuggestionPanel: NSPanel {
         }
     }
 
-    private func renderList() {
-        listStack.arrangedSubviews.forEach {
-            listStack.removeArrangedSubview($0)
+    private func renderRows() {
+        rowsStack.arrangedSubviews.forEach {
+            rowsStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
 
-        for (index, suggestion) in suggestions.enumerated() {
-            let excerpt = suggestion.excerpt(in: textView.string) ?? ""
-            let label = NSTextField(labelWithString: "\(excerpt) — \(suggestion.message)")
-            label.font = .systemFont(ofSize: 11)
-            label.lineBreakMode = .byTruncatingTail
+        for (index, suggestion) in suggestions.prefix(Metrics.maxVisibleRows).enumerated() {
+            rowsStack.addArrangedSubview(makeRow(suggestion, index: index))
+        }
 
-            let row = NSStackView(views: [label])
-            row.orientation = .horizontal
-            row.spacing = 6
+        let hidden = suggestions.count - Metrics.maxVisibleRows
+        overflowLabel.isHidden = hidden <= 0
+        overflowLabel.stringValue = hidden > 0 ? "+\(hidden) more" : ""
+    }
 
-            // One button per replacement, capped: harper offers up to a dozen
-            // spellings and a row of twelve buttons is not a decision aid.
-            for fix in suggestion.replacements.prefix(3) {
-                let button = NSButton(title: fix, target: self, action: #selector(fixTapped(_:)))
+    /// One row: the wrong word, then its best fixes as buttons.
+    private func makeRow(_ suggestion: Suggestion, index: Int) -> NSView {
+        let excerpt = suggestion.excerpt(in: textView.string) ?? ""
+        let word = NSTextField(labelWithString: excerpt)
+        word.font = .systemFont(ofSize: 11, weight: .medium)
+        word.textColor = .systemRed
+        word.lineBreakMode = .byTruncatingTail
+
+        let row = NSStackView(views: [word])
+        row.orientation = .horizontal
+        row.spacing = 4
+        row.alignment = .centerY
+
+        if suggestion.replacements.isEmpty {
+            // No automatic fix: show what harper said instead of an empty row.
+            let note = NSTextField(labelWithString: suggestion.message)
+            note.font = .systemFont(ofSize: 10)
+            note.textColor = .secondaryLabelColor
+            note.lineBreakMode = .byTruncatingTail
+            row.addArrangedSubview(note)
+        } else {
+            let arrow = NSTextField(labelWithString: "→")
+            arrow.font = .systemFont(ofSize: 10)
+            arrow.textColor = .tertiaryLabelColor
+            row.addArrangedSubview(arrow)
+
+            for fix in suggestion.replacements.prefix(2) {
+                let button = NSButton(title: fix, target: self,
+                                      action: #selector(fixTapped(_:)))
                 button.bezelStyle = .inline
+                button.controlSize = .small
                 button.font = .systemFont(ofSize: 11)
                 button.tag = index
                 button.identifier = NSUserInterfaceItemIdentifier(fix)
                 row.addArrangedSubview(button)
             }
-            listStack.addArrangedSubview(row)
         }
+        row.addArrangedSubview(NSView())
+        row.heightAnchor.constraint(equalToConstant: Metrics.rowHeight).isActive = true
+        return row
     }
 
     // MARK: - Actions
@@ -240,8 +329,8 @@ final class SuggestionPanel: NSPanel {
 
         storage.replaceCharacters(in: suggestion.range, with: replacement)
 
-        // Every later suggestion shifts by the length delta, so recompute rather
-        // than leaving stale ranges that would corrupt the next edit.
+        // Every later suggestion shifts by the length delta; stale ranges would
+        // corrupt the next edit.
         let delta = (replacement as NSString).length - suggestion.range.length
         suggestions = suggestions.enumerated().compactMap { offset, other in
             if offset == sender.tag { return nil }
@@ -253,9 +342,10 @@ final class SuggestionPanel: NSPanel {
                               replacements: other.replacements)
         }
         decorate()
-        renderList()
+        renderRows()
         statusLabel.stringValue = suggestions.isEmpty
             ? "all fixed" : "\(suggestions.count) left"
+        resize()
     }
 
     @objc private func rewriteTapped(_ sender: NSButton) {
@@ -265,7 +355,7 @@ final class SuggestionPanel: NSPanel {
         guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         setRewriteEnabled(false)
-        statusLabel.stringValue = "\(mode.rawValue.lowercased())…"
+        statusLabel.stringValue = "\(mode.shortTitle.lowercased())…"
 
         Task { @MainActor in
             defer { self.setRewriteEnabled(true) }
@@ -275,16 +365,15 @@ final class SuggestionPanel: NSPanel {
                     self.statusLabel.stringValue = "model returned nothing"
                     return
                 }
-                // Keep the original recoverable: a small model can make text
-                // worse, and retyping it by hand is not an acceptable undo.
                 self.textBeforeRewrite = input
                 self.textView.string = result
                 self.undoButton.isHidden = false
                 self.suggestions = []
-                self.renderList()
-                self.statusLabel.stringValue = "rewritten — ⌘Z to undo"
+                self.renderRows()
+                self.statusLabel.stringValue = "rewritten"
+                self.resize()
             } catch {
-                self.statusLabel.stringValue = "rewrite failed: \(error)"
+                self.statusLabel.stringValue = "rewrite failed"
             }
         }
     }
@@ -293,13 +382,13 @@ final class SuggestionPanel: NSPanel {
         rewriteButtons.forEach { $0.isEnabled = enabled }
     }
 
-    /// Restores the text as it was before the last rewrite.
     @objc private func undoRewrite() {
         guard let previous = textBeforeRewrite else { return }
         textView.string = previous
         textBeforeRewrite = nil
         undoButton.isHidden = true
         statusLabel.stringValue = "reverted"
+        resize()
     }
 
     @objc private func applyTapped() {
@@ -309,5 +398,16 @@ final class SuggestionPanel: NSPanel {
 
     @objc private func cancelTapped() {
         orderOut(nil)
+    }
+}
+
+private extension RewriteMode {
+    /// Short label so three buttons fit on one line of a narrow card.
+    var shortTitle: String {
+        switch self {
+        case .fixGrammar: return "Fix"
+        case .clearer: return "Clearer"
+        case .shorter: return "Shorter"
+        }
     }
 }

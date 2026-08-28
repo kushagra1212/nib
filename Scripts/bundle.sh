@@ -27,9 +27,22 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$BIN" "$APP/Contents/MacOS/nib"
 cp "$ROOT/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 
-# Ad-hoc signature. Every rebuild changes the hash, so macOS may ask for
-# Accessibility permission again after each build during development.
+# Ad-hoc signature. Every rebuild produces a new code hash, and macOS binds
+# Accessibility permission to that hash.
 codesign --force --deep --sign - "$APP" 2>/dev/null
 
 echo "built $APP"
 du -sh "$APP" | awk '{print "  size: " $1}'
+
+# The failure this avoids is genuinely confusing: nib stays listed and switched
+# on in Accessibility, but is no longer trusted, because the grant points at the
+# previous binary. Toggling it does nothing; the entry has to be cleared.
+if pgrep -x nib >/dev/null; then
+  echo
+  echo "  nib is running the OLD build. Restart it:"
+  echo "    pkill -x nib && open $APP"
+fi
+echo
+echo "  If nib was already granted Accessibility, that grant is now stale."
+echo "  Clear it before relaunching:"
+echo "    tccutil reset Accessibility com.kushagra.nib"
