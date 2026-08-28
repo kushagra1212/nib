@@ -538,11 +538,13 @@ final class LiveChecker {
 
         if inside, !isPointerOnBadge {
             isPointerOnBadge = true
-            let frame = badge.frame
             Log.write("badge hover=true suggestions=\(badgeSuggestions.count)")
+            // Anchored to the pointer rather than to the badge, and only on
+            // the way in: a card that re-positions while the pointer moves
+            // walks away from the buttons you are reaching for.
             overlay.showDetached(badgeSuggestions, context: text,
-                                 below: CGPoint(x: frame.minX, y: frame.minY),
-                                 keepAlive: frame)
+                                 below: CGPoint(x: point.x - 12, y: point.y - 6),
+                                 keepAlive: badge.frame)
             Log.write("detached card visible=\(overlay.isCardVisible)")
         } else if !inside, isPointerOnBadge {
             isPointerOnBadge = false
