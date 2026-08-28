@@ -27,15 +27,34 @@ struct AXElement {
 
     static var systemWide: AXElement { AXElement(raw: AXUIElementCreateSystemWide()) }
 
-    /// The element with keyboard focus, anywhere on the system.
+    static func application(pid: pid_t) -> AXElement {
+        AXElement(raw: AXUIElementCreateApplication(pid))
+    }
+
+    /// The element with keyboard focus.
+    ///
+    /// Asking the system-wide element for its focused element is documented but
+    /// unreliable in practice: it returns nothing for many apps. Going through
+    /// the frontmost application's own element works far more often, so that is
+    /// tried first and the system-wide call is only a fallback.
     static var focused: AXElement? {
-        systemWide.element(for: kAXFocusedUIElementAttribute)
+        if let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+           let element = application(pid: pid).element(for: kAXFocusedUIElementAttribute) {
+            return element
+        }
+        return systemWide.element(for: kAXFocusedUIElementAttribute)
+    }
+
+    /// Reads an attribute, returning the raw AXError alongside the value so
+    /// callers can tell "unsupported" apart from "permission denied".
+    func read(_ attribute: String) -> (value: AnyObject?, error: AXError) {
+        var out: AnyObject?
+        let err = AXUIElementCopyAttributeValue(raw, attribute as CFString, &out)
+        return (err == .success ? out : nil, err)
     }
 
     func value(for attribute: String) -> AnyObject? {
-        var out: AnyObject?
-        let err = AXUIElementCopyAttributeValue(raw, attribute as CFString, &out)
-        return err == .success ? out : nil
+        read(attribute).value
     }
 
     func string(for attribute: String) -> String? {
