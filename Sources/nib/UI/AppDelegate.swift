@@ -268,7 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func writeBack(_ edited: String) {
         guard let target else { return }
         switch TextWriter.replace(target, with: edited) {
-        case .wroteInPlace, .pasted:
+        case .typed, .wroteInPlace, .pasted:
             break
         case .copiedToClipboard:
             presentFatal("Could not write to that app. The result is on your clipboard.")
