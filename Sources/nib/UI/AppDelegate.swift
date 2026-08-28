@@ -264,7 +264,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 read selection:   \(found.canReadSelection ? "yes" : "no")
                 write value:      \(found.valueSettable ? "yes" : "no")
                 write selection:  \(found.selectionSettable ? "yes" : "no")
-                bounds for range: \(found.boundsForRange == nil ? "NO" : "yes")
+                bounds, 1 char:   \(found.boundsForRange == nil ? "NO" : "yes")
+                bounds, 4 chars:  \(found.boundsForWord ? "yes" : "NO")
 
                 \(found.verdict)
                 """

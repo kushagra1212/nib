@@ -15,6 +15,8 @@ enum AXProbe {
         var valueSettable: Bool
         var selectionSettable: Bool
         var boundsForRange: CGRect?
+        /// Whether a multi-character range answers, not just one character.
+        var boundsForWord: Bool
         var attributes: [String]
 
         /// Panel-only, in-place edits, or full inline underlines.
@@ -68,10 +70,16 @@ enum AXProbe {
         let value = element.string(for: kAXValueAttribute)
         let selection = element.string(for: kAXSelectedTextAttribute)
 
-        // Probe bounds over the first character, which every text field has if
-        // it supports the attribute at all.
-        let probeRange = CFRange(location: 0, length: min(1, (value?.utf16.count ?? 0)))
-        let bounds = probeRange.length > 0 ? element.bounds(forRange: probeRange) : nil
+        // Two probes, because they are different questions. Slack answers for
+        // a single character and returns nothing for a word, so asking only
+        // the easy one reported it as fully capable while every mark was
+        // being dropped.
+        let length = value?.utf16.count ?? 0
+        let single = length > 0 ? element.bounds(forRange: CFRange(location: 0, length: 1)) : nil
+        let word = length >= 4
+            ? element.bounds(forRange: CFRange(location: 0, length: 4))
+            : nil
+        let bounds = word ?? single
 
         return Report(
             app: app,
@@ -82,6 +90,7 @@ enum AXProbe {
             valueSettable: element.isSettable(kAXValueAttribute),
             selectionSettable: element.isSettable(kAXSelectedTextAttribute),
             boundsForRange: bounds,
+            boundsForWord: word != nil,
             attributes: element.attributeNames
         )
     }
@@ -94,7 +103,8 @@ enum AXProbe {
           read selection:   \(r.canReadSelection ? "yes" : "no")
           write value:      \(r.valueSettable ? "yes" : "no")
           write selection:  \(r.selectionSettable ? "yes" : "no")
-          bounds for range: \(r.boundsForRange.map { "yes \($0)" } ?? "NO")
+          bounds, 1 char:   \(r.boundsForRange == nil ? "NO" : "yes")
+          bounds, 4 chars:  \(r.boundsForWord ? "yes" : "NO — needs per-character fallback")
           verdict:          \(r.verdict)
         """)
     }
