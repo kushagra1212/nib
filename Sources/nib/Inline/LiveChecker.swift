@@ -15,6 +15,8 @@ final class LiveChecker {
     var hotkeyLabel = "⌥Space"
     /// Called when the badge is clicked -- same action as the hotkey.
     var onOpenPanel: (() -> Void)?
+    /// What the badge is counting, so hovering it can offer the same fixes.
+    private var badgeSuggestions: [Suggestion] = []
     /// The selection the bar is currently offering to rewrite.
     private var selectionRange: NSRange?
     private var selectionTask: Task<Void, Never>?
@@ -159,7 +161,23 @@ final class LiveChecker {
             self?.suggestions.first?.range
         }
         badge.onOpen = { [weak self] in
+            self?.overlay.hideDetached()
             self?.onOpenPanel?()
+        }
+        // Hovering the badge stands in for hovering an underline, which these
+        // fields cannot offer. Same card, same buttons, same stepping.
+        badge.onHover = { [weak self] inside in
+            guard let self else { return }
+            guard inside else {
+                self.overlay.scheduleDetachedHide()
+                return
+            }
+            let frame = self.badge.frame
+            self.overlay.showDetached(
+                self.badgeSuggestions,
+                context: self.text,
+                below: CGPoint(x: frame.minX, y: frame.minY),
+                keepAlive: frame)
         }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
@@ -454,9 +472,11 @@ final class LiveChecker {
         // nowhere to draw and never will be. Say so rather than look broken.
         if placed.isEmpty {
             overlay.hide()
+            badgeSuggestions = live
             badge.show(count: live.count, hint: hotkeyLabel, near: frame)
             return
         }
+        badgeSuggestions = []
         badge.dismiss()
         overlay.show(fieldFrame: frame, marks: placed.map { ($0.suggestion, $0.rects) },
                      context: text)
@@ -465,6 +485,7 @@ final class LiveChecker {
     /// Clears both ways of showing suggestions.
     private func hideMarks() {
         overlay.hide()
+        badgeSuggestions = []
         badge.dismiss()
     }
 
