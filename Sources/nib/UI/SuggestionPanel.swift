@@ -114,7 +114,8 @@ final class SuggestionPanel: NSPanel {
         rewriteRow.spacing = Theme.Space.tight
         for (index, mode) in RewriteMode.allCases.enumerated() {
             let button = PillButton(title: mode.shortTitle, emphasis: .secondary,
-                                    icon: mode.icon, target: self,
+                                    icon: mode.icon, iconTint: mode.iconTint,
+                                    target: self,
                                     action: #selector(rewriteTapped(_:)))
             button.tag = index
             rewriteButtons.append(button)
@@ -419,6 +420,16 @@ extension RewriteMode {
         case .fixGrammar: return "checkmark"
         case .clearer: return "wand.and.rays"
         case .shorter: return "arrow.down.right.and.arrow.up.left"
+        }
+    }
+
+    /// Colour of that icon. Three grey chips are hard to tell apart at a
+    /// glance; three colours are not.
+    var iconTint: NSColor {
+        switch self {
+        case .fixGrammar: return Theme.Colour.fix
+        case .clearer: return Theme.Colour.rewrite
+        case .shorter: return Theme.Colour.condense
         }
     }
 }
