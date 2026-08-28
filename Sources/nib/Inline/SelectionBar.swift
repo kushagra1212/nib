@@ -16,6 +16,11 @@ final class SelectionBar: NSPanel {
 
     private let glyph = NSImageView()
     private let strengthDial = NSSegmentedControl()
+    private lazy var diffButton = PillButton(
+        title: "Diff", emphasis: .secondary, icon: "plusminus",
+        iconTint: Theme.Colour.accept, target: self, action: #selector(toggleDiff))
+    /// Whether the proposal is currently shown as a diff.
+    private var showingDiff = false
     private let dots = LoadingDots()
     private let status = NSTextField(labelWithString: "")
     private let proposalView = ProposalView()
@@ -122,8 +127,13 @@ final class SelectionBar: NSPanel {
         }
         strengthDial.toolTip = "How far a rewrite may stray from what you wrote"
 
+        // Only useful once there is a proposal, so it stays out of the way
+        // until then.
+        diffButton.isHidden = true
+        diffButton.toolTip = "Show what this changes"
+
         let actionRow = NSStackView(views: [
-            glyph, modeRow, strengthDial, dots, status, NSView(),
+            glyph, modeRow, strengthDial, diffButton, dots, status, NSView(),
         ])
         actionRow.orientation = .horizontal
         actionRow.spacing = Theme.Space.row
@@ -264,8 +274,28 @@ final class SelectionBar: NSPanel {
         show(status: text, tint: .systemRed)
     }
 
+    @objc private func toggleDiff() {
+        guard let proposal else { return }
+        showingDiff.toggle()
+        if showingDiff {
+            proposalView.show(DiffText.attributed(from: original, to: proposal))
+            diffButton.title = "Result"
+            diffButton.toolTip = "Show the finished text"
+        } else {
+            proposalView.text = proposal
+            diffButton.title = "Diff"
+            diffButton.toolTip = "Show what this changes"
+        }
+        resize()
+    }
+
     private func present(proposal text: String) {
         proposal = text
+        // A new proposal is a new set of changes, so the view goes back to
+        // showing the result rather than a diff of the previous one.
+        showingDiff = false
+        diffButton.title = "Diff"
+        diffButton.isHidden = false
         proposalView.text = text
         proposalView.isHidden = false
         status.isHidden = true
@@ -310,6 +340,9 @@ final class SelectionBar: NSPanel {
     private func reset() {
         autoTask?.cancel()
         proposal = nil
+        showingDiff = false
+        diffButton.isHidden = true
+        diffButton.title = "Diff"
         proposalView.isHidden = true
         proposalView.text = ""
         status.isHidden = true

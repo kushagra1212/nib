@@ -13,6 +13,14 @@ final class ProposalView: NSView {
     private var tracking: NSTrackingArea?
     private var hovering = false { didSet { refresh() } }
 
+    /// Shows something already styled -- the diff -- instead of plain text.
+    func show(_ body: NSAttributedString) {
+        let out = NSMutableAttributedString(attributedString: Theme.aiTag())
+        out.append(body)
+        label.attributedStringValue = out
+        invalidateIntrinsicContentSize()
+    }
+
     var text: String = "" {
         didSet {
             // Everything shown here was written by the model, so it is tagged
