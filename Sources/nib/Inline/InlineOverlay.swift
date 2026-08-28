@@ -115,11 +115,9 @@ final class InlineOverlay {
     private func present(index: Int) {
         guard ordered.indices.contains(index) else { return }
         let suggestion = ordered[index]
-        // Nothing to offer: an advisory lint with no replacement.
-        guard !suggestion.replacements.isEmpty else {
-            card.orderOut(nil)
-            return
-        }
+        // A suggestion with no automatic fix still has something to say. This
+        // used to return early, leaving those marks hoverable but silent,
+        // which reads as the app being broken rather than as advice.
         guard let rect = marksView.anchorRect(for: suggestion.id) else { return }
 
         shownIndex = index
@@ -134,12 +132,8 @@ final class InlineOverlay {
     private func step(by delta: Int) {
         guard let shownIndex, !ordered.isEmpty else { return }
         let count = ordered.count
-        var next = shownIndex
-        // Skip advisory lints with no fix; stepping onto one shows nothing.
-        for _ in 0..<count {
-            next = ((next + delta) % count + count) % count
-            if !ordered[next].replacements.isEmpty { break }
-        }
+        // Every suggestion is now presentable, so stepping just moves.
+        let next = ((shownIndex + delta) % count + count) % count
         card.reset()
         present(index: next)
     }

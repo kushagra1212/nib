@@ -150,20 +150,33 @@ final class FixCard: NSPanel {
         total: Int,
         below anchor: CGPoint
     ) {
-        guard let replacement = suggestion.replacements.first else { return }
+        // No replacement is a valid state: harper flags plenty it cannot fix
+        // automatically. The card then explains the problem and offers only
+        // Dismiss, rather than refusing to appear.
+        let replacement = suggestion.replacements.first
 
         if self.suggestion?.id != suggestion.id {
             self.suggestion = suggestion
             self.replacement = replacement
             explanation.stringValue = suggestion.message
-            // A clarity suggestion replaces a whole sentence, so a word-level
-            // diff with surrounding context would repeat most of it twice.
-            // Show the rewritten sentence on its own instead.
-            diff.attributedStringValue = suggestion.kind == .clarity
-                ? Self.clarityText(replacement)
-                : Self.diffText(suggestion, replacement: replacement, context: context)
-            acceptButton.bezelColor = suggestion.kind == .clarity
-                ? .systemBlue : Style.added
+
+            if let replacement {
+                // A clarity suggestion replaces a whole sentence, so a
+                // word-level diff with surrounding context would repeat most
+                // of it twice. Show the rewritten sentence on its own instead.
+                diff.attributedStringValue = suggestion.kind == .clarity
+                    ? Self.clarityText(replacement)
+                    : Self.diffText(suggestion, replacement: replacement, context: context)
+                diff.isHidden = false
+                acceptButton.isHidden = false
+                acceptButton.bezelColor = suggestion.kind == .clarity
+                    ? .systemBlue : Style.added
+            } else {
+                // The message alone carries the point; an empty diff row would
+                // just be a gap.
+                diff.isHidden = true
+                acceptButton.isHidden = true
+            }
 
             counter.stringValue = total > 1 ? "\(index + 1) of \(total)" : ""
             previousButton.isHidden = total <= 1

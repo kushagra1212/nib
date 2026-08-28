@@ -20,6 +20,7 @@ final class LiveChecker {
     private var lintTask: Task<Void, Never>?
     private var redrawPending = false
     private var mouseMonitor: Any?
+    private var localMouseMonitor: Any?
 
     /// Fields longer than this are skipped. Underlining a 10,000-word document
     /// means thousands of AX bounds calls per keystroke, which stalls the app
@@ -61,10 +62,23 @@ final class LiveChecker {
         guard !isRunning, AXAccess.isTrusted else { return }
         isRunning = true
         watcher.start()
-        // The overlay ignores mouse events, so hover is detected globally.
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) {
-            [weak self] _ in
+        // The overlay ignores mouse events, so hover has to be watched for.
+        //
+        // Both monitors are needed. A global monitor sees events destined for
+        // OTHER apps and stops the moment nib itself becomes frontmost, which
+        // happens as soon as the card is clicked -- after which hovering did
+        // nothing until focus moved away again. A local monitor covers that
+        // gap. Dragging is included so hover still tracks while selecting.
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDragged]
+        ) { [weak self] _ in
             self?.overlay.mouseMoved(to: NSEvent.mouseLocation)
+        }
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDragged]
+        ) { [weak self] event in
+            self?.overlay.mouseMoved(to: NSEvent.mouseLocation)
+            return event
         }
     }
 
@@ -75,7 +89,9 @@ final class LiveChecker {
         modelTask?.cancel()
         overlay.hide()
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
+        if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
         mouseMonitor = nil
+        localMouseMonitor = nil
     }
 
     // MARK: - Reacting to the field
@@ -107,7 +123,9 @@ final class LiveChecker {
         }
 
         lintTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            // Harper answers in ~30ms, so a long debounce is all dead time.
+            // Just enough to coalesce a burst of keystrokes.
+            try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled, let self else { return }
             guard self.text == snapshot else { return } // superseded
 
