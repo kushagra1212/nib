@@ -1,31 +1,28 @@
 import AppKit
 
-/// A small floating card, sized to its content.
+/// The hotkey surface, for fields where marks cannot be placed.
 ///
-/// Deliberately not a document window: no title bar, no traffic lights, no
-/// fixed frame. It appears next to what you were typing, shows the few things
-/// that are wrong, and gets out of the way. A large empty window for a
-/// four-word sentence is the thing that made the first version feel wrong.
+/// Laid out as a card with a header, the text, the fixes, then the actions.
+/// The previous version was a form: stock bezels, no hierarchy, and a large
+/// gap under the text because the editor claimed whatever height was going.
 final class SuggestionPanel: NSPanel {
     private enum Metrics {
-        static let width: CGFloat = 380
-        static let padding: CGFloat = 12
-        static let cornerRadius: CGFloat = 12
-        /// Text area grows with the text, up to this, then scrolls.
-        static let maxTextHeight: CGFloat = 120
-        static let minTextHeight: CGFloat = 34
-        static let rowHeight: CGFloat = 26
-        /// More rows than this and the card stops being glanceable.
+        static let width: CGFloat = 400
+        static let maxTextHeight: CGFloat = 128
+        static let minTextHeight: CGFloat = 24
+        static let rowHeight: CGFloat = 24
         static let maxVisibleRows = 4
     }
 
     private let textView = NSTextView()
     private let textScroll = NSScrollView()
-    private let statusLabel = NSTextField(labelWithString: "")
+    private let titleLabel = NSTextField(labelWithString: "nib")
+    private let statusPill = Pill()
     private let rowsStack = NSStackView()
     private let overflowLabel = NSTextField(labelWithString: "")
-    private var rewriteButtons: [NSButton] = []
-    private let undoButton = NSButton()
+    private let spinner = NSProgressIndicator()
+    private var rewriteButtons: [PillButton] = []
+    private var undoButton: PillButton!
     private var textHeight: NSLayoutConstraint!
 
     private var suggestions: [Suggestion] = []
@@ -34,13 +31,12 @@ final class SuggestionPanel: NSPanel {
     private var onRewrite: ((String, RewriteMode) async throws -> String)?
     private var textBeforeRewrite: String?
 
+    var currentText: String { textView.string }
+
     init() {
-        super.init(
-            contentRect: NSRect(x: 0, y: 0, width: Metrics.width, height: 120),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
+        super.init(contentRect: NSRect(x: 0, y: 0, width: Metrics.width, height: 120),
+                   styleMask: [.borderless, .nonactivatingPanel],
+                   backing: .buffered, defer: false)
         isFloatingPanel = true
         level = .floating
         isMovableByWindowBackground = true
@@ -49,29 +45,35 @@ final class SuggestionPanel: NSPanel {
         isOpaque = false
         hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-        buildLayout()
+        build()
     }
 
     override var canBecomeKey: Bool { true }
 
-    private func buildLayout() {
-        let background = NSVisualEffectView()
-        background.material = .popover
-        background.blendingMode = .behindWindow
-        background.state = .active
-        background.wantsLayer = true
-        background.layer?.cornerRadius = Metrics.cornerRadius
-        background.layer?.masksToBounds = true
+    private func build() {
+        let background = Theme.makeBackground()
         contentView = background
 
-        // An NSTextView built in code, rather than loaded from a nib, starts
-        // with a zero max size and a zero-width text container. Without these
-        // it lays out nothing and the field renders blank.
-        let contentWidth = Metrics.width - Metrics.padding * 2
-        textView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: Metrics.minTextHeight)
-        textView.minSize = NSSize(width: 0, height: 0)
+        // Header: what this is, and how it is going.
+        titleLabel.font = Theme.Font.title
+        titleLabel.textColor = .secondaryLabelColor
+
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.isDisplayedWhenStopped = false
+
+        let header = NSStackView(views: [titleLabel, spinner, NSView(), statusPill])
+        header.orientation = .horizontal
+        header.spacing = Theme.Space.tight
+        header.alignment = .centerY
+
+        // Editor. Built in code, so it needs explicit sizing or it lays out
+        // nothing at all.
+        let contentWidth = Metrics.width - Theme.Space.edge * 2
         let unbounded = CGFloat.greatestFiniteMagnitude
+        textView.frame = NSRect(x: 0, y: 0, width: contentWidth,
+                                height: Metrics.minTextHeight)
+        textView.minSize = .zero
         textView.maxSize = NSSize(width: unbounded, height: unbounded)
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -79,13 +81,12 @@ final class SuggestionPanel: NSPanel {
         textView.textContainer?.containerSize = NSSize(width: contentWidth,
                                                        height: unbounded)
         textView.textContainer?.widthTracksTextView = true
-
+        textView.textContainerInset = .zero
         textView.isRichText = false
-        textView.font = .systemFont(ofSize: 13)
+        textView.font = Theme.Font.body
         textView.textColor = .labelColor
         textView.insertionPointColor = .labelColor
         textView.drawsBackground = false
-        textView.textContainerInset = NSSize(width: 2, height: 2)
 
         textScroll.documentView = textView
         textScroll.drawsBackground = false
@@ -96,69 +97,55 @@ final class SuggestionPanel: NSPanel {
             equalToConstant: Metrics.minTextHeight)
         textHeight.isActive = true
 
-        // Rows go straight into the stack rather than a scroll view. The first
-        // version nested them in an NSScrollView inside an NSSplitView, where
-        // they collapsed to zero height and the fixes were unreachable.
+        let divider = NSBox()
+        divider.boxType = .separator
+
         rowsStack.orientation = .vertical
         rowsStack.alignment = .leading
         rowsStack.spacing = 2
 
-        overflowLabel.font = .systemFont(ofSize: 10)
+        overflowLabel.font = Theme.Font.caption
         overflowLabel.textColor = .tertiaryLabelColor
         overflowLabel.isHidden = true
 
-        statusLabel.font = .systemFont(ofSize: 10)
-        statusLabel.textColor = .secondaryLabelColor
-
+        // Actions.
         let rewriteRow = NSStackView()
         rewriteRow.orientation = .horizontal
-        rewriteRow.spacing = 4
+        rewriteRow.spacing = Theme.Space.tight
         for (index, mode) in RewriteMode.allCases.enumerated() {
-            let button = NSButton(title: mode.shortTitle, target: self,
-                                  action: #selector(rewriteTapped(_:)))
-            button.bezelStyle = .rounded
-            button.controlSize = .small
-            button.font = .systemFont(ofSize: 11)
+            let button = PillButton(title: mode.shortTitle, emphasis: .secondary,
+                                    target: self, action: #selector(rewriteTapped(_:)))
             button.tag = index
             rewriteButtons.append(button)
             rewriteRow.addArrangedSubview(button)
         }
-
-        undoButton.title = "Undo"
-        undoButton.bezelStyle = .rounded
-        undoButton.controlSize = .small
-        undoButton.font = .systemFont(ofSize: 11)
+        undoButton = PillButton(title: "Undo", emphasis: .plain,
+                                target: self, action: #selector(undoRewrite))
         undoButton.keyEquivalent = "z"
         undoButton.keyEquivalentModifierMask = .command
-        undoButton.target = self
-        undoButton.action = #selector(undoRewrite)
         undoButton.isHidden = true
         rewriteRow.addArrangedSubview(undoButton)
-        rewriteRow.addArrangedSubview(NSView())
 
-        let replace = NSButton(title: "Replace", target: self,
-                               action: #selector(applyTapped))
-        replace.bezelStyle = .rounded
-        replace.controlSize = .small
+        let cancel = PillButton(title: "Esc", emphasis: .plain,
+                                target: self, action: #selector(cancelTapped))
+        cancel.keyEquivalent = "\u{1b}"
+        let replace = PillButton(title: "Replace", emphasis: .primary,
+                                 tint: Theme.Colour.clarity,
+                                 target: self, action: #selector(applyTapped))
         replace.keyEquivalent = "\r"
 
-        let cancel = NSButton(title: "Esc", target: self, action: #selector(cancelTapped))
-        cancel.bezelStyle = .rounded
-        cancel.controlSize = .small
-        cancel.keyEquivalent = "\u{1b}"
-
-        let footer = NSStackView(views: [statusLabel, NSView(), cancel, replace])
-        footer.orientation = .horizontal
-        footer.spacing = 6
+        let actions = NSStackView(views: [rewriteRow, NSView(), cancel, replace])
+        actions.orientation = .horizontal
+        actions.spacing = Theme.Space.tight
 
         let root = NSStackView(views: [
-            textScroll, rowsStack, overflowLabel, rewriteRow, footer,
+            header, textScroll, divider, rowsStack, overflowLabel, actions,
         ])
         root.orientation = .vertical
         root.alignment = .leading
-        root.spacing = 8
-        root.edgeInsets = NSEdgeInsets(top: Metrics.padding, left: Metrics.padding,
-                                       bottom: Metrics.padding, right: Metrics.padding)
+        root.spacing = Theme.Space.row
+        root.edgeInsets = NSEdgeInsets(top: Theme.Space.edge, left: Theme.Space.edge,
+                                       bottom: Theme.Space.edge, right: Theme.Space.edge)
         root.translatesAutoresizingMaskIntoConstraints = false
         background.addSubview(root)
 
@@ -167,8 +154,10 @@ final class SuggestionPanel: NSPanel {
             root.trailingAnchor.constraint(equalTo: background.trailingAnchor),
             root.topAnchor.constraint(equalTo: background.topAnchor),
             root.bottomAnchor.constraint(equalTo: background.bottomAnchor),
-            textScroll.widthAnchor.constraint(
-                equalToConstant: Metrics.width - Metrics.padding * 2),
+            textScroll.widthAnchor.constraint(equalToConstant: contentWidth),
+            divider.widthAnchor.constraint(equalToConstant: contentWidth),
+            header.widthAnchor.constraint(equalToConstant: contentWidth),
+            actions.widthAnchor.constraint(equalToConstant: contentWidth),
         ])
     }
 
@@ -184,44 +173,47 @@ final class SuggestionPanel: NSPanel {
         self.onApply = onApply
         self.onRequestFixes = requestFixes
         self.onRewrite = onRewrite
-        self.textBeforeRewrite = nil
+        textBeforeRewrite = nil
         undoButton.isHidden = true
 
         textView.string = text
         suggestions = []
         renderRows()
-        statusLabel.stringValue = "checking…"
-        resize()
-        position(near: point)
+        setStatus("checking", tint: .secondaryLabelColor)
+        spinner.startAnimation(nil)
 
-        orderFrontRegardless()
+        resize(animated: false)
+        Theme.present(self, at: framePositioned(near: point))
         makeKey()
     }
 
-    /// Places the card near the caret, nudged fully on-screen.
-    private func position(near point: NSPoint?) {
-        guard let screen = NSScreen.main else { center(); return }
-        guard let point else { center(); return }
-
-        let size = frame.size
-        var origin = NSPoint(x: point.x - 20, y: point.y - size.height - 20)
-        let visible = screen.visibleFrame
-
-        origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - size.width - 8)
-        // Not enough room below the caret: flip above it rather than clipping.
-        if origin.y < visible.minY + 8 {
-            origin.y = point.y + 20
+    private func framePositioned(near point: NSPoint?) -> NSRect {
+        guard let point, let screen = NSScreen.main else {
+            var centred = frame
+            if let visible = NSScreen.main?.visibleFrame {
+                centred.origin = CGPoint(x: visible.midX - frame.width / 2,
+                                         y: visible.midY - frame.height / 2)
+            }
+            return centred
         }
-        origin.y = min(origin.y, visible.maxY - size.height - 8)
-        setFrameOrigin(origin)
+        var origin = NSPoint(x: point.x - 20, y: point.y - frame.height - 20)
+        let visible = screen.visibleFrame
+        origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - frame.width - 8)
+        if origin.y < visible.minY + 8 { origin.y = point.y + 20 }
+        origin.y = min(origin.y, visible.maxY - frame.height - 8)
+        return NSRect(origin: origin, size: frame.size)
     }
 
     func show(_ found: [Suggestion]) {
+        spinner.stopAnimation(nil)
         suggestions = found
         decorate()
-        statusLabel.stringValue = found.isEmpty
-            ? "looks clean"
-            : "\(found.count) issue\(found.count == 1 ? "" : "s")"
+        if found.isEmpty {
+            setStatus("looks clean", tint: Theme.Colour.accept)
+        } else {
+            setStatus("\(found.count) issue\(found.count == 1 ? "" : "s")",
+                      tint: Theme.Colour.correction)
+        }
         renderRows()
         resize()
 
@@ -237,32 +229,33 @@ final class SuggestionPanel: NSPanel {
     }
 
     func showError(_ message: String) {
-        statusLabel.stringValue = message
+        spinner.stopAnimation(nil)
+        setStatus(message, tint: .systemOrange)
     }
 
-    /// Grows the card to fit its content, within limits.
-    private func resize() {
-        layoutIfNeeded()
+    private func setStatus(_ text: String, tint: NSColor) {
+        statusPill.tint = tint
+        statusPill.text = text
+    }
 
-        // usedRect is only valid after layout has actually run for the glyphs.
+    private func resize(animated: Bool = true) {
+        contentView?.layoutSubtreeIfNeeded()
+
         var measured = Metrics.minTextHeight
         if let manager = textView.layoutManager, let container = textView.textContainer {
             manager.ensureLayout(for: container)
             measured = manager.usedRect(for: container).height
         }
-        textHeight.constant = min(max(measured + 8, Metrics.minTextHeight),
+        // Clamped tightly. Letting the editor take the slack is what left a
+        // block of empty space under a single line of text.
+        textHeight.constant = min(max(measured, Metrics.minTextHeight),
                                   Metrics.maxTextHeight)
-        textScroll.hasVerticalScroller = measured + 12 > Metrics.maxTextHeight
+        textScroll.hasVerticalScroller = measured > Metrics.maxTextHeight
 
-        layoutIfNeeded()
+        contentView?.layoutSubtreeIfNeeded()
         let fitting = contentView?.fittingSize ?? NSSize(width: Metrics.width, height: 120)
-        let target = NSSize(width: Metrics.width, height: ceil(fitting.height))
-
-        // Grow downward from the top edge so the card does not jump around.
-        var newFrame = frame
-        newFrame.origin.y += newFrame.height - target.height
-        newFrame.size = target
-        setFrame(newFrame, display: true)
+        Theme.resize(self, to: NSSize(width: Metrics.width, height: ceil(fitting.height)),
+                     animated: animated)
     }
 
     private func decorate() {
@@ -270,12 +263,16 @@ final class SuggestionPanel: NSPanel {
         let whole = NSRange(location: 0, length: storage.length)
         storage.removeAttribute(.underlineStyle, range: whole)
         storage.removeAttribute(.underlineColor, range: whole)
+        storage.removeAttribute(.backgroundColor, range: whole)
 
         for suggestion in suggestions {
             guard NSMaxRange(suggestion.range) <= storage.length else { continue }
+            let tint = suggestion.kind == .correction
+                ? Theme.Colour.correction : Theme.Colour.clarity
             storage.addAttributes([
                 .underlineStyle: NSUnderlineStyle.thick.rawValue,
-                .underlineColor: NSColor.systemRed,
+                .underlineColor: tint,
+                .backgroundColor: tint.withAlphaComponent(0.10),
             ], range: suggestion.range)
         }
     }
@@ -285,48 +282,42 @@ final class SuggestionPanel: NSPanel {
             rowsStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-
         for (index, suggestion) in suggestions.prefix(Metrics.maxVisibleRows).enumerated() {
             rowsStack.addArrangedSubview(makeRow(suggestion, index: index))
         }
-
         let hidden = suggestions.count - Metrics.maxVisibleRows
         overflowLabel.isHidden = hidden <= 0
         overflowLabel.stringValue = hidden > 0 ? "+\(hidden) more" : ""
     }
 
-    /// One row: the wrong word, then its best fixes as buttons.
     private func makeRow(_ suggestion: Suggestion, index: Int) -> NSView {
         let excerpt = suggestion.excerpt(in: textView.string) ?? ""
         let word = NSTextField(labelWithString: excerpt)
-        word.font = .systemFont(ofSize: 11, weight: .medium)
-        word.textColor = .systemRed
+        word.font = Theme.Font.control
+        word.textColor = suggestion.kind == .correction
+            ? Theme.Colour.correction : Theme.Colour.clarity
         word.lineBreakMode = .byTruncatingTail
 
         let row = NSStackView(views: [word])
         row.orientation = .horizontal
-        row.spacing = 4
+        row.spacing = Theme.Space.tight
         row.alignment = .centerY
 
         if suggestion.replacements.isEmpty {
-            // No automatic fix: show what harper said instead of an empty row.
             let note = NSTextField(labelWithString: suggestion.message)
-            note.font = .systemFont(ofSize: 10)
+            note.font = Theme.Font.caption
             note.textColor = .secondaryLabelColor
             note.lineBreakMode = .byTruncatingTail
             row.addArrangedSubview(note)
         } else {
             let arrow = NSTextField(labelWithString: "→")
-            arrow.font = .systemFont(ofSize: 10)
+            arrow.font = Theme.Font.caption
             arrow.textColor = .tertiaryLabelColor
             row.addArrangedSubview(arrow)
 
             for fix in suggestion.replacements.prefix(2) {
-                let button = NSButton(title: fix, target: self,
-                                      action: #selector(fixTapped(_:)))
-                button.bezelStyle = .inline
-                button.controlSize = .small
-                button.font = .systemFont(ofSize: 11)
+                let button = PillButton(title: fix, emphasis: .secondary,
+                                        target: self, action: #selector(fixTapped(_:)))
                 button.tag = index
                 button.identifier = NSUserInterfaceItemIdentifier(fix)
                 row.addArrangedSubview(button)
@@ -349,16 +340,12 @@ final class SuggestionPanel: NSPanel {
         guard let updated = EditPlanner.apply(edit, to: textView.string) else { return }
 
         storage.replaceCharacters(in: suggestion.range, with: replacement)
-
-        // Reanchoring lives in EditPlanner so it is covered by tests. Doing it
-        // inline here previously shifted overlapping ranges instead of
-        // discarding them, which corrupted the next edit.
         suggestions = EditPlanner.pruneOutOfBounds(
             EditPlanner.reanchor(suggestions, after: edit), in: updated)
         decorate()
         renderRows()
-        statusLabel.stringValue = suggestions.isEmpty
-            ? "all fixed" : "\(suggestions.count) left"
+        setStatus(suggestions.isEmpty ? "all fixed" : "\(suggestions.count) left",
+                  tint: suggestions.isEmpty ? Theme.Colour.accept : Theme.Colour.correction)
         resize()
     }
 
@@ -368,15 +355,19 @@ final class SuggestionPanel: NSPanel {
         let input = textView.string
         guard !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
-        setRewriteEnabled(false)
-        statusLabel.stringValue = "\(mode.shortTitle.lowercased())…"
+        rewriteButtons.forEach { $0.isEnabled = false }
+        spinner.startAnimation(nil)
+        setStatus(mode.shortTitle.lowercased() + "…", tint: .secondaryLabelColor)
 
         Task { @MainActor in
-            defer { self.setRewriteEnabled(true) }
+            defer {
+                self.rewriteButtons.forEach { $0.isEnabled = true }
+                self.spinner.stopAnimation(nil)
+            }
             do {
                 let result = try await onRewrite(input, mode)
                 guard !result.isEmpty else {
-                    self.statusLabel.stringValue = "model returned nothing"
+                    self.setStatus("no suggestion", tint: .systemOrange)
                     return
                 }
                 self.textBeforeRewrite = input
@@ -384,16 +375,12 @@ final class SuggestionPanel: NSPanel {
                 self.undoButton.isHidden = false
                 self.suggestions = []
                 self.renderRows()
-                self.statusLabel.stringValue = "rewritten"
+                self.setStatus("rewritten", tint: Theme.Colour.accept)
                 self.resize()
             } catch {
-                self.statusLabel.stringValue = "rewrite failed"
+                self.setStatus("needs a model", tint: .systemOrange)
             }
         }
-    }
-
-    private func setRewriteEnabled(_ enabled: Bool) {
-        rewriteButtons.forEach { $0.isEnabled = enabled }
     }
 
     @objc private func undoRewrite() {
@@ -401,21 +388,21 @@ final class SuggestionPanel: NSPanel {
         textView.string = previous
         textBeforeRewrite = nil
         undoButton.isHidden = true
-        statusLabel.stringValue = "reverted"
+        setStatus("reverted", tint: .secondaryLabelColor)
         resize()
     }
 
     @objc private func applyTapped() {
         onApply?(textView.string)
-        orderOut(nil)
+        Theme.dismiss(self)
     }
 
     @objc private func cancelTapped() {
-        orderOut(nil)
+        Theme.dismiss(self)
     }
 }
 
-private extension RewriteMode {
+extension RewriteMode {
     /// Short label so three buttons fit on one line of a narrow card.
     var shortTitle: String {
         switch self {
