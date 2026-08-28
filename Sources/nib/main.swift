@@ -118,7 +118,7 @@ func runAXProbe(delay: Int) -> Int32 {
     }
 
     guard let report = AXProbe.probeFocused() else {
-        print("No focused element. The frontmost app exposes nothing over AX.")
+        print(AXProbe.diagnoseNoFocus())
         return 1
     }
     AXProbe.printReport(report)

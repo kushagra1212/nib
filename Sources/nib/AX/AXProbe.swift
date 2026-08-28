@@ -32,6 +32,33 @@ enum AXProbe {
         }
     }
 
+    /// Explains why no text element could be reached, rather than just failing.
+    static func diagnoseNoFocus() -> String {
+        guard let running = NSWorkspace.shared.frontmostApplication else {
+            return "No frontmost application at all."
+        }
+        let name = running.localizedName ?? "unknown"
+        let appElement = AXElement.application(pid: running.processIdentifier)
+
+        let (_, focusErr) = appElement.read(kAXFocusedUIElementAttribute)
+        let attributes = appElement.attributeNames
+
+        if attributes.isEmpty {
+            return """
+            Frontmost app: \(name)
+            It exposes no accessibility attributes at all (error \(focusErr.rawValue)).
+            Either the app has no accessibility support, or nib is not trusted.
+            """
+        }
+        return """
+        Frontmost app: \(name)
+        App element reachable, but it reports no focused UI element
+        (error \(focusErr.rawValue)).
+        Usually means focus is not in a text field, or the app draws its own
+        text without exposing it. App-level attributes present: \(attributes.count).
+        """
+    }
+
     static func probeFocused() -> Report? {
         guard let element = AXElement.focused else { return nil }
 
