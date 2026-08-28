@@ -183,15 +183,24 @@ final class LiveChecker {
             let clarity = await model.clarity(snapshot)
             guard !Task.isCancelled, self.text == snapshot, !clarity.isEmpty else { return }
 
-            // Both kinds are kept. Excluding any sentence that contained a
-            // correction meant short text, which is usually a single sentence,
-            // never showed a clarity mark at all.
+            // Clarity waits for the errors in its sentence to be fixed.
             //
-            // Corrections come first so hit-testing prefers them: hovering the
-            // misspelled word offers the spelling fix, hovering elsewhere in
-            // the sentence offers the rewrite.
+            // A rewrite of a sentence that still contains typos is built on
+            // the typos: the model either preserves them or invents around
+            // them, and either way the suggestion is wrong. Offering it
+            // alongside the spelling fix also asks the reader to choose
+            // between two answers to different questions.
+            //
+            // Corrections stay first in the array so hit-testing prefers
+            // them: hovering a marked word offers its fix, hovering elsewhere
+            // in a clean sentence offers the rewrite.
             let corrections = self.suggestions.filter { $0.kind == .correction }
-            self.suggestions = corrections + clarity
+            let settled = clarity.filter { sentence in
+                !corrections.contains {
+                    NSIntersectionRange($0.range, sentence.range).length > 0
+                }
+            }
+            self.suggestions = corrections + settled
             self.redraw()
         }
     }

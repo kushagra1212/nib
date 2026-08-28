@@ -6,9 +6,10 @@ import AppKit
 /// expect, and it previously required a hotkey and a full panel.
 ///
 /// Two states, and the transition between them is the point: a row of actions,
-/// then the proposed text with a Replace button. The result is always shown
-/// before it is applied, because a small model can produce something worse
-/// than the original and swapping text out unseen is not a fair trade.
+/// then the proposal itself, which is what you click to accept. The result is
+/// always shown before it is applied, because a small model can produce
+/// something worse than the original and swapping text out unseen is not a
+/// fair trade.
 final class SelectionBar: NSPanel {
     var onRewrite: ((RewriteMode) async throws -> String)?
     var onAccept: ((String) -> Void)?
@@ -16,10 +17,8 @@ final class SelectionBar: NSPanel {
     private let glyph = NSImageView()
     private let dots = LoadingDots()
     private let status = NSTextField(labelWithString: "")
-    private let preview = NSTextField(labelWithString: "")
-    private let previewBox = NSView()
+    private let proposalView = ProposalView()
     private var modeButtons: [PillButton] = []
-    private var acceptButton: PillButton!
     private var proposal: String?
 
     private enum Metrics {
@@ -47,7 +46,7 @@ final class SelectionBar: NSPanel {
         contentView = background
 
         // A mark of whose bar this is, so it is not mistaken for the host app.
-        glyph.image = NSImage(systemSymbolName: "pencil.line",
+        glyph.image = NSImage(systemSymbolName: "sparkles",
                               accessibilityDescription: "nib")
         glyph.contentTintColor = .tertiaryLabelColor
         glyph.imageScaling = .scaleProportionallyUpOrDown
@@ -58,29 +57,11 @@ final class SelectionBar: NSPanel {
 
         dots.isHidden = true
 
-        // The proposed text, in its own tinted well so it reads as a quotation
-        // rather than as more chrome.
-        preview.font = Theme.Font.body
-        preview.textColor = .labelColor
-        preview.lineBreakMode = .byWordWrapping
-        preview.maximumNumberOfLines = 4
-        preview.preferredMaxLayoutWidth = Metrics.maxWidth - Theme.Space.edge * 2 - 16
-        preview.translatesAutoresizingMaskIntoConstraints = false
-
-        previewBox.wantsLayer = true
-        previewBox.layer?.cornerRadius = Theme.Radius.control
-        previewBox.layer?.cornerCurve = .continuous
-        previewBox.layer?.backgroundColor = NSColor.controlColor
-            .withAlphaComponent(0.35).cgColor
-        previewBox.addSubview(preview)
-        previewBox.isHidden = true
-
-        NSLayoutConstraint.activate([
-            preview.leadingAnchor.constraint(equalTo: previewBox.leadingAnchor, constant: 8),
-            preview.trailingAnchor.constraint(equalTo: previewBox.trailingAnchor, constant: -8),
-            preview.topAnchor.constraint(equalTo: previewBox.topAnchor, constant: 6),
-            preview.bottomAnchor.constraint(equalTo: previewBox.bottomAnchor, constant: -6),
-        ])
+        // The proposal is the button. Clicking the text applies it, so what
+        // you agree to and what you click are the same thing.
+        proposalView.wrapWidth = Metrics.maxWidth - Theme.Space.edge * 2 - 40
+        proposalView.isHidden = true
+        proposalView.onAccept = { [weak self] in self?.accept() }
 
         let modeRow = NSStackView()
         modeRow.orientation = .horizontal
@@ -93,19 +74,14 @@ final class SelectionBar: NSPanel {
             modeRow.addArrangedSubview(button)
         }
 
-        acceptButton = PillButton(title: "Replace", emphasis: .primary,
-                                  tint: Theme.Colour.accept,
-                                  target: self, action: #selector(accept))
-        acceptButton.isHidden = true
-
         let actionRow = NSStackView(views: [
-            glyph, modeRow, dots, status, NSView(), acceptButton,
+            glyph, modeRow, dots, status, NSView(),
         ])
         actionRow.orientation = .horizontal
         actionRow.spacing = Theme.Space.row
         actionRow.alignment = .centerY
 
-        let root = NSStackView(views: [previewBox, actionRow])
+        let root = NSStackView(views: [proposalView, actionRow])
         root.orientation = .vertical
         root.alignment = .leading
         root.spacing = Theme.Space.row
@@ -174,9 +150,8 @@ final class SelectionBar: NSPanel {
 
     private func reset() {
         proposal = nil
-        previewBox.isHidden = true
-        preview.stringValue = ""
-        acceptButton.isHidden = true
+        proposalView.isHidden = true
+        proposalView.text = ""
         status.isHidden = true
         dots.stop()
         modeButtons.forEach { $0.isEnabled = true }
@@ -197,8 +172,7 @@ final class SelectionBar: NSPanel {
         let mode = RewriteMode.allCases[sender.tag]
 
         modeButtons.forEach { $0.isEnabled = false }
-        previewBox.isHidden = true
-        acceptButton.isHidden = true
+        proposalView.isHidden = true
         status.stringValue = mode.shortTitle.lowercased()
         status.isHidden = false
         dots.start()
@@ -216,9 +190,8 @@ final class SelectionBar: NSPanel {
                     return
                 }
                 self.proposal = result
-                self.preview.stringValue = result
-                self.previewBox.isHidden = false
-                self.acceptButton.isHidden = false
+                self.proposalView.text = result
+                self.proposalView.isHidden = false
                 self.status.isHidden = true
                 self.resize()
                 self.revealPreview()
@@ -237,7 +210,7 @@ final class SelectionBar: NSPanel {
 
     /// Slides the proposal down into place as the bar grows to fit it.
     private func revealPreview() {
-        guard let layer = previewBox.layer else { return }
+        guard let layer = proposalView.layer else { return }
         let slide = CABasicAnimation(keyPath: "transform.translation.y")
         slide.fromValue = 6
         slide.toValue = 0
@@ -252,7 +225,7 @@ final class SelectionBar: NSPanel {
         layer.add(group, forKey: "reveal")
     }
 
-    @objc private func accept() {
+    private func accept() {
         guard let proposal else { return }
         onAccept?(proposal)
         dismiss()
