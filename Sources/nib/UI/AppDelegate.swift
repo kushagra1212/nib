@@ -1,6 +1,6 @@
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let hotkey = HotkeyMonitor()
     private let panel = SuggestionPanel()
@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var rewriter: RewriteEngine?
     private var live: LiveChecker?
     private var liveMenuItem: NSMenuItem?
+    private var permissionWatch: Task<Void, Never>?
     /// Held between opening the panel and applying, so the result goes back to
     /// the field it came from.
     private var target: TextTarget?
@@ -58,11 +59,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             liveMenuItem?.state = .on
             return
         }
-        Task { @MainActor [weak self] in
-            for _ in 0..<60 { // give up after a minute
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                guard let self, self.live?.isRunning != true else { return }
+        // Waits indefinitely. An earlier version gave up after a minute, which
+        // meant that approving the prompt any later than that left inline
+        // underlining switched off for the rest of the session -- while the
+        // hotkey kept working, because it checks permission on demand. The
+        // result looked exactly like "nib does not work in this app".
+        guard permissionWatch == nil else { return }
+        permissionWatch = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard let self else { return }
+                guard self.live?.isRunning != true else {
+                    self.permissionWatch = nil
+                    return
+                }
                 if AXAccess.isTrusted {
+                    self.permissionWatch = nil
                     self.startLiveWhenTrusted()
                     return
                 }
@@ -100,6 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         liveItem.state = .off
         menu.addItem(liveItem)
         liveMenuItem = liveItem
+        menu.delegate = self
 
         menu.addItem(.separator())
 
@@ -127,6 +140,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                      keyEquivalent: "q")
         item.menu = menu
         statusItem = item
+    }
+
+    /// Refreshes the menu each time it opens, so its state is current rather
+    /// than whatever was true at launch.
+    func menuWillOpen(_ menu: NSMenu) {
+        let running = live?.isRunning == true
+        liveMenuItem?.state = running ? .on : .off
+        liveMenuItem?.title = running
+            ? "Underline As I Type"
+            : (AXAccess.isTrusted
+                ? "Underline As I Type — off"
+                : "Underline As I Type — needs permission")
     }
 
     private func updateStatusTitle(combo: HotkeyMonitor.Combo?) {
