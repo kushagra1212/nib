@@ -250,6 +250,7 @@ final class LiveChecker {
             self.selectionBar.onAccept = { [weak self] replacement in
                 self?.replaceSelection(range, with: replacement, original: selected)
             }
+            self.selectionBar.prepare(original: trimmed)
             self.selectionBar.present(above: anchor)
         }
     }
