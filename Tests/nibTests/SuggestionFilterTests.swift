@@ -30,8 +30,42 @@ final class SuggestionFilterTests: XCTestCase {
         XCTAssertFalse(kept("how the chat gpt corrects", "gpt", "get"))
     }
 
+    /// A word-choice rule, not a spelling one: "bugs" is in the dictionary, so
+    /// harper does not ask whether it was spelled that way. The distinction
+    /// matters now -- an unknown word keeps its mark when its fixes are
+    /// rejected, because something is wrong with it either way, while a rule
+    /// that misfired on an ordinary word takes its mark with it.
     func testReplacementThatChangesMeaningIsRejected() {
-        XCTAssertFalse(kept("this kind of bugs and how", "bugs", "thing"))
+        let text = "this kind of bugs and how"
+        let wordChoice = Suggestion(range: (text as NSString).range(of: "bugs"),
+                                    message: "Consider a more precise word.",
+                                    replacements: ["thing"])
+        XCTAssertFalse(SuggestionFilter.keep(wordChoice, in: text))
+    }
+
+    /// The reported bug: a plainly misspelled word with no underline, because
+    /// harper's best guess was too far from what was typed and the whole
+    /// suggestion was discarded along with it.
+    func testUnknownWordKeepsItsMarkWhenEveryFixIsRejected() {
+        let text = "the undlesing of it"
+        let suggestion = Suggestion(range: (text as NSString).range(of: "undlesing"),
+                                    message: "Did you mean to spell `undlesing` this way?",
+                                    replacements: ["understanding"])
+        let refined = SuggestionFilter.refine(suggestion, in: text)
+        XCTAssertNotNil(refined, "the word is still wrong, so it is still marked")
+        XCTAssertTrue(refined?.replacements.isEmpty ?? false,
+                      "but a fix that far away is not offered")
+    }
+
+    /// Harper ranks its three guesses by its own lights, so a poor first
+    /// choice must not bury a good second one.
+    func testAGoodSecondChoiceSurvivesABadFirst() {
+        let text = "click on optioaa now"
+        let suggestion = Suggestion(range: (text as NSString).range(of: "optioaa"),
+                                    message: "Did you mean to spell `optioaa` this way?",
+                                    replacements: ["operational", "optical", "optimal"])
+        let refined = SuggestionFilter.refine(suggestion, in: text)
+        XCTAssertEqual(refined?.replacements, ["optical", "optimal"])
     }
 
     func testShortAcronymIsNotCorrected() {

@@ -18,32 +18,68 @@ import Foundation
 /// what you typed, so a "fix" that shares almost nothing with the original is
 /// not a fix.
 enum SuggestionFilter {
-    /// Removes suggestions whose flagged text or replacement looks wrong.
+    /// Removes suggestions that are not mistakes, and bad fixes for ones that
+    /// are.
     static func apply(_ suggestions: [Suggestion], in text: String) -> [Suggestion] {
-        suggestions.filter { keep($0, in: text) }
+        suggestions.compactMap { refine($0, in: text) }
     }
 
+    /// Whether a suggestion survives at all, in any form.
     static func keep(_ suggestion: Suggestion, in text: String) -> Bool {
-        guard let token = suggestion.excerpt(in: text) else { return false }
+        refine(suggestion, in: text) != nil
+    }
 
-        if looksLikeCode(token) { return false }
-        if isSurroundedByCode(suggestion.range, in: text) { return false }
+    /// Judges the flagged word and its replacements separately.
+    ///
+    /// These are two different questions and the answers do not travel
+    /// together. "Is this a mistake?" decides whether to mark the word at all.
+    /// "Is this a good fix?" decides what to offer for it. Answering the first
+    /// with the second is why a plainly misspelled word could end up with no
+    /// underline: harper's best guess was too far from what was typed, the
+    /// whole suggestion went in the bin, and the mistake went unreported.
+    ///
+    /// A word with no usable fix keeps its mark and offers nothing, which is
+    /// what advisory lints have always done.
+    static func refine(_ suggestion: Suggestion, in text: String) -> Suggestion? {
+        guard let token = suggestion.excerpt(in: text) else { return nil }
 
-        // Advisory lints with no replacement are only ever shown as a note.
-        guard let replacement = suggestion.replacements.first else { return true }
+        // These say the word is not a mistake, so the mark goes too.
+        if looksLikeCode(token) { return nil }
+        if isSurroundedByCode(suggestion.range, in: text) { return nil }
+
+        guard let first = suggestion.replacements.first else { return suggestion }
 
         // Both guards below ask "did the writer mean this word", which only
         // makes sense for a word Harper does not know. Its grammar rules fire
         // on words that are in the dictionary -- their/there, its/it's -- and
         // those must still be corrected wherever they appear.
         if isSpellingCheck(suggestion.message) {
-            if isProperNoun(suggestion.range, in: text) { return false }
-            if repeatsDeliberately(token, in: text, replacement: replacement) {
-                return false
-            }
+            if isProperNoun(suggestion.range, in: text) { return nil }
+            if repeatsDeliberately(token, in: text, replacement: first) { return nil }
         }
 
-        return isPlausibleCorrection(from: token, to: replacement)
+        // Every replacement, not just the first. Harper offers up to three and
+        // ranks them by its own lights: judging only the first threw away good
+        // second choices, and "optioaa -> optical | optimal" is exactly that
+        // shape.
+        let usable = suggestion.replacements.filter {
+            isPlausibleCorrection(from: token, to: $0)
+        }
+        if usable.isEmpty {
+            // Nothing worth offering. Whether to still mark the word depends
+            // on what kind of lint it was.
+            //
+            // A spelling lint means harper does not know the word, so
+            // something is wrong with it whatever the suggested fix looked
+            // like -- mark it and offer nothing. Any other rule fired on words
+            // that are in the dictionary: "bugs" is not misspelled, and a rule
+            // that wanted to make it "thing" has simply misfired. Marking that
+            // would be inventing an error.
+            guard isSpellingCheck(suggestion.message) else { return nil }
+        }
+        return Suggestion(id: suggestion.id, kind: suggestion.kind,
+                          range: suggestion.range, message: suggestion.message,
+                          replacements: usable)
     }
 
     /// Whether the lint is "I do not know this word" rather than a grammar rule.

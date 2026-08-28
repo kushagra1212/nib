@@ -175,10 +175,13 @@ enum WordDiff {
 
     /// Converts edits into suggestions the UI can render.
     static func suggestions(
-        from original: String, to corrected: String, message: String = "Suggested rewrite"
+        from original: String, to corrected: String,
+        message: String = "Suggested rewrite",
+        source: SuggestionSource = .model
     ) -> [Suggestion] {
         edits(from: original, to: corrected).map { edit in
-            Suggestion(range: edit.range,
+            Suggestion(source: source,
+                       range: edit.range,
                        message: message,
                        replacements: [edit.replacement])
         }

@@ -45,9 +45,30 @@ else
   echo "  no icon; run: swift Scripts/make-icon.swift && iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns"
 fi
 
-# Ad-hoc signature. Every rebuild produces a new code hash, and macOS binds
-# Accessibility permission to that hash.
-codesign --force --deep --sign - "$APP" 2>/dev/null
+# Sign with a real identity when the machine has one.
+#
+# An ad-hoc signature ("-") has no identity behind it, so macOS derives the
+# designated requirement from the binary's own hash. Every rebuild changes that
+# hash, the Accessibility grant no longer matches, and nib comes up blind while
+# still listed and switched on in System Settings -- the toggle does nothing,
+# because the entry points at a binary that no longer exists.
+#
+# A certificate makes the requirement "this bundle id, signed by this identity",
+# which does not change when the code does. That is why ordinary apps keep their
+# permissions across updates.
+SIGN_IDENTITY="${SIGN_IDENTITY:-$(
+  security find-identity -v -p codesigning 2>/dev/null \
+    | awk '/Apple Development|Developer ID Application/ { print $2; exit }'
+)}"
+
+if [[ -n "$SIGN_IDENTITY" ]]; then
+  codesign --force --deep --sign "$SIGN_IDENTITY" "$APP" 2>/dev/null \
+    && SIGNED_WITH="identity $SIGN_IDENTITY" \
+    || { codesign --force --deep --sign - "$APP" 2>/dev/null; SIGNED_WITH="ad-hoc (identity failed)"; }
+else
+  codesign --force --deep --sign - "$APP" 2>/dev/null
+  SIGNED_WITH="ad-hoc (no certificate found)"
+fi
 
 echo "built $APP"
 du -sh "$APP" | awk '{print "  size: " $1}'
@@ -60,7 +81,11 @@ if pgrep -x nib >/dev/null; then
   echo "  nib is running the OLD build. Restart it:"
   echo "    pkill -x nib && open $APP"
 fi
-echo
-echo "  If nib was already granted Accessibility, that grant is now stale."
-echo "  Clear it before relaunching:"
-echo "    tccutil reset Accessibility com.kushagra.nib"
+echo "  signed: $SIGNED_WITH"
+
+if [[ "$SIGNED_WITH" == ad-hoc* ]]; then
+  echo
+  echo "  Ad-hoc signed, so any existing Accessibility grant is now stale."
+  echo "  Toggling nib in System Settings will not help -- clear it:"
+  echo "    tccutil reset Accessibility com.kushagra.nib"
+fi

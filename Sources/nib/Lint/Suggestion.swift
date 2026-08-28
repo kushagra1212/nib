@@ -13,9 +13,21 @@ enum SuggestionKind: Equatable {
     case clarity
 }
 
+/// What produced a suggestion.
+///
+/// Worth showing. The two are not equally sure of themselves: harper matched a
+/// word against a dictionary and a rule set, while the model wrote a sentence
+/// and nib diffed it. A reader deciding whether to accept a change is entitled
+/// to know which of those they are looking at.
+enum SuggestionSource: Equatable {
+    case harper
+    case model
+}
+
 struct Suggestion: Identifiable, Equatable {
     let id: UUID
     let kind: SuggestionKind
+    let source: SuggestionSource
     /// Range within the linted text, in UTF-16 offsets (what NSTextView uses).
     let range: NSRange
     /// Harper's description, e.g. "Did you mean `there`?".
@@ -25,9 +37,11 @@ struct Suggestion: Identifiable, Equatable {
     let replacements: [String]
 
     init(id: UUID = UUID(), kind: SuggestionKind = .correction,
+         source: SuggestionSource = .harper,
          range: NSRange, message: String, replacements: [String]) {
         self.id = id
         self.kind = kind
+        self.source = source
         self.range = range
         self.message = message
         self.replacements = replacements

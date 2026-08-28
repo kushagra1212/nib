@@ -135,8 +135,24 @@ actor ModelChecker {
 
         var out: [Suggestion] = []
         for sentence in sentences.prefix(limit) {
-            guard let rewritten = await rewrite(sentence.text, mode: .clearer) else { continue }
-            guard rewritten != sentence.text else { continue }
+            // Each guard below is a different reason to say nothing, and from
+            // outside they all look the same: hovering a clean line and
+            // getting no rewrite. The log says which one fired.
+            let short = sentence.text.prefix(32)
+            guard let rewritten = await rewrite(sentence.text, mode: .clearer) else {
+                Log.write("clarity \"\(short)\": model gave nothing")
+                continue
+            }
+            guard rewritten != sentence.text else {
+                Log.write("clarity \"\(short)\": unchanged")
+                continue
+            }
+            let similarity = characterSimilarity(sentence.text.lowercased(),
+                                                 rewritten.lowercased())
+            let dropped = longestDroppedRun(original: sentence.text,
+                                            corrected: rewritten)
+            Log.write("clarity \"\(short)\": similarity "
+                      + String(format: "%.2f", similarity) + ", dropped run \(dropped)")
             // A clarity rewrite may restructure, so the tighter inline gate
             // does not apply; it only has to remain about the same sentence.
             guard characterSimilarity(sentence.text.lowercased(),
@@ -149,7 +165,7 @@ actor ModelChecker {
             guard !dropsContent(original: sentence.text,
                                 corrected: rewritten) else { continue }
 
-            out.append(Suggestion(kind: .clarity,
+            out.append(Suggestion(kind: .clarity, source: .model,
                                   range: sentence.range,
                                   message: "This could read more clearly",
                                   replacements: [rewritten]))

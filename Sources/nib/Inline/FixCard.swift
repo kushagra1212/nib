@@ -141,7 +141,12 @@ final class FixCard: NSPanel {
         if self.suggestion?.id != suggestion.id {
             self.suggestion = suggestion
             self.replacement = replacement
-            explanation.stringValue = suggestion.message
+            // Says where the advice came from. Harper matched a dictionary and
+            // a rule set; the model wrote a sentence and nib diffed it. Those
+            // do not deserve the same confidence, and the card is where the
+            // decision to accept is actually made.
+            explanation.attributedStringValue = Self.explanationText(
+                suggestion.message, source: suggestion.source)
 
             if let replacement {
                 // A clarity suggestion replaces a whole sentence, so a
@@ -223,6 +228,28 @@ final class FixCard: NSPanel {
             self.orderOut(nil)
             self.alphaValue = 1
         }
+    }
+
+    /// The message, with a small tag when the model wrote it.
+    ///
+    /// A tag rather than a separate row: it belongs to the sentence explaining
+    /// the change, and a whole line of chrome for one word would crowd a card
+    /// that has to stay small enough to float over someone's text.
+    static func explanationText(
+        _ message: String, source: SuggestionSource
+    ) -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        if source == .model {
+            out.append(NSAttributedString(string: "AI  ", attributes: [
+                .foregroundColor: Theme.Colour.rewrite,
+                .font: NSFont.systemFont(ofSize: 10, weight: .bold),
+            ]))
+        }
+        out.append(NSAttributedString(string: message, attributes: [
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .font: NSFont.systemFont(ofSize: 12),
+        ]))
+        return out
     }
 
     /// The proposed sentence, shown plainly.
