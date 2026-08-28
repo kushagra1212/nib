@@ -7,6 +7,10 @@ import AppKit
 final class LiveChecker {
     private let watcher = AXWatcher()
     private let overlay = InlineOverlay()
+    private let selectionBar = SelectionBar()
+    /// The selection the bar is currently offering to rewrite.
+    private var selectionRange: NSRange?
+    private var selectionTask: Task<Void, Never>?
     private let engine: HarperEngine
     /// Optional second pass. Harper reads words; this reads sentences.
     private let model: ModelChecker?
@@ -41,6 +45,10 @@ final class LiveChecker {
         }
         watcher.onGeometryChanged = { [weak self] in
             self?.redraw()
+            self?.selectionBar.dismiss()
+        }
+        watcher.onSelectionChanged = { [weak self] selected, range in
+            self?.selectionChanged(selected, range)
         }
         // Nothing on screen means nothing to reposition, so the geometry poll
         // can skip its cross-process call while the text is clean.
@@ -87,6 +95,8 @@ final class LiveChecker {
         watcher.stop()
         lintTask?.cancel()
         modelTask?.cancel()
+        selectionTask?.cancel()
+        selectionBar.dismiss()
         overlay.hide()
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
@@ -108,8 +118,11 @@ final class LiveChecker {
 
     private func textChanged(_ text: String) {
         self.text = text
-        // Squiggles from the previous text are now in the wrong places.
+        // Squiggles from the previous text are now in the wrong places, and
+        // the selection the bar was offering to rewrite no longer exists.
         overlay.hide()
+        selectionBar.dismiss()
+        selectionTask?.cancel()
         scheduleLint()
     }
 
@@ -189,6 +202,54 @@ final class LiveChecker {
     /// cross-process AX call per mark, so a scroll used to fire hundreds of
     /// them a second on the main thread. Merging every request that lands
     /// within a frame collapses that back to one pass.
+    /// Shows the rewrite bar over a selection worth rewriting.
+    ///
+    /// Debounced, because a drag emits a selection change per pixel and the
+    /// bar would flicker along behind the pointer.
+    private func selectionChanged(_ selected: String, _ range: NSRange) {
+        selectionTask?.cancel()
+
+        let trimmed = selected.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Short selections are usually a click or a double-clicked word, and
+        // there is nothing useful to rewrite in either.
+        guard trimmed.count >= 12, WordDiff.tokenize(trimmed).count >= 3 else {
+            selectionBar.dismiss()
+            selectionRange = nil
+            return
+        }
+        guard let model else {
+            // Without a model there is nothing to offer, and a bar that only
+            // reports its own absence is worse than no bar.
+            selectionBar.dismiss()
+            return
+        }
+
+        selectionTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled, let self, let element = self.element else { return }
+
+            let rects = AXGeometry.lineRects(for: range, in: element)
+            guard let anchor = rects.max(by: { $0.maxY < $1.maxY }) else { return }
+
+            self.selectionRange = range
+            self.selectionBar.onRewrite = { mode in
+                try await model.rewriteSelection(trimmed, mode: mode)
+            }
+            self.selectionBar.onAccept = { [weak self] replacement in
+                self?.replaceSelection(range, with: replacement, original: selected)
+            }
+            self.selectionBar.present(above: anchor)
+        }
+    }
+
+    private func replaceSelection(_ range: NSRange, with replacement: String,
+                                  original: String) {
+        let suggestion = Suggestion(range: range, message: "Rewrite",
+                                    replacements: [replacement])
+        apply(suggestion, replacement)
+        selectionRange = nil
+    }
+
     private func redraw() {
         guard redrawPending == false else { return }
         redrawPending = true

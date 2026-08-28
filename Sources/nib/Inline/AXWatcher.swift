@@ -15,6 +15,9 @@ final class AXWatcher {
     var onFocusChanged: ((AXElement?, String) -> Void)?
     /// Fires when the focused field's text changes.
     var onTextChanged: ((String) -> Void)?
+    /// Fires when the selection changes, with the selected text and its range.
+    /// An empty string means the selection was cleared.
+    var onSelectionChanged: ((String, NSRange) -> Void)?
     /// Fires when the field may have moved: scrolled, resized, window dragged.
     var onGeometryChanged: (() -> Void)?
 
@@ -26,6 +29,8 @@ final class AXWatcher {
 
     private(set) var current: AXElement?
     private var lastText = ""
+    private var lastSelection = ""
+    private var lastSelectionRange = NSRange(location: 0, length: 0)
     private var lastFrame: CGRect = .zero
     /// Where the sentinel range sat last time, to detect scrolling.
     private var lastSentinelRect: CGRect?
@@ -171,10 +176,29 @@ final class AXWatcher {
 
     private func textDidChange() {
         guard let current else { return }
+
+        // The same notification covers edits and selection changes, so both
+        // are checked. Selecting text leaves the value untouched, and an
+        // earlier version returned here and never reported the selection.
         let text = current.string(for: kAXValueAttribute) ?? ""
-        guard text != lastText else { return }
-        lastText = text
-        onTextChanged?(text)
+        if text != lastText {
+            lastText = text
+            onTextChanged?(text)
+        }
+        reportSelection()
+    }
+
+    private func reportSelection() {
+        guard let current else { return }
+        let selected = current.string(for: kAXSelectedTextAttribute) ?? ""
+        let cfRange = current.range(for: kAXSelectedTextRangeAttribute)
+        let range = cfRange.map { NSRange(location: $0.location, length: $0.length) }
+            ?? NSRange(location: 0, length: 0)
+
+        guard selected != lastSelection || range != lastSelectionRange else { return }
+        lastSelection = selected
+        lastSelectionRange = range
+        onSelectionChanged?(selected, range)
     }
 
     private func pidOf(_ element: AXElement) -> pid_t? {

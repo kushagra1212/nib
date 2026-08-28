@@ -111,6 +111,19 @@ actor ModelChecker {
         return out
     }
 
+    /// Rewrites a selection the user explicitly asked about.
+    ///
+    /// No trust gate here, unlike the always-on passes: the user picked the
+    /// text and the mode, sees the result before it is applied, and asking for
+    /// "shorter" legitimately produces something that shares little with the
+    /// original.
+    func rewriteSelection(_ text: String, mode: RewriteMode) async throws -> String {
+        if let hit = cache["\(mode.rawValue)|\(text)"] { return hit }
+        let result = try await rewriter.rewrite(text, mode: mode)
+        remember("\(mode.rawValue)|\(text)", result)
+        return result
+    }
+
     private func rewrite(_ text: String, mode: RewriteMode) async -> String? {
         let key = "\(mode.rawValue)|\(text)"
         if let hit = cache[key] { return hit }
