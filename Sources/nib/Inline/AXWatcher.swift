@@ -96,7 +96,7 @@ final class AXWatcher {
         if let current, CFEqual(current.raw, focused.raw) { return }
 
         current = focused
-        lastText = focused.string(for: kAXValueAttribute) ?? ""
+        lastText = focused.editableText
         lastFrame = AXGeometry.frame(of: focused) ?? .zero
         attachObserver(to: focused)
         onFocusChanged?(focused, lastText)
@@ -186,7 +186,7 @@ final class AXWatcher {
         // The same notification covers edits and selection changes, so both
         // are checked. Selecting text leaves the value untouched, and an
         // earlier version returned here and never reported the selection.
-        let text = current.string(for: kAXValueAttribute) ?? ""
+        let text = current.editableText
         if text != lastText {
             lastText = text
             onTextChanged?(text)

@@ -95,6 +95,40 @@ struct AXElement {
 
     var role: String? { string(for: kAXRoleAttribute) }
 
+    /// What the user has typed, with placeholder text treated as nothing.
+    ///
+    /// An empty Chromium field reports its placeholder as its value, so nib
+    /// read "Ask anything" out of an empty ChatGPT box, linted it, and offered
+    /// to put a full stop on the end of it. Worse than the wrong suggestion:
+    /// the field looked busy, so nothing that mattered was ever checked.
+    var editableText: String {
+        let value = string(for: kAXValueAttribute) ?? ""
+        guard !value.isEmpty else { return "" }
+        let placeholders = [
+            string(for: kAXPlaceholderValueAttribute),
+            // Chromium puts the placeholder here for a contenteditable div,
+            // which is what most chat composers are.
+            string(for: kAXDescriptionAttribute),
+        ]
+        return AXElement.isPlaceholder(value: value, anyOf: placeholders) ? "" : value
+    }
+
+    /// Whether a field's value is only its own placeholder showing through.
+    ///
+    /// Exact match after trimming, deliberately. Someone who genuinely types
+    /// the placeholder word for word gets ignored, which costs one suggestion;
+    /// anything looser would start discarding real text that happens to begin
+    /// the same way.
+    static func isPlaceholder(value: String, anyOf placeholders: [String?]) -> Bool {
+        let typed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { return true }
+        return placeholders.contains { candidate in
+            guard let candidate else { return false }
+            let hint = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !hint.isEmpty && hint == typed
+        }
+    }
+
     /// Screen rect for a character range.
     ///
     /// This is the attribute inline underlines depend on. Native AppKit text
