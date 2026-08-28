@@ -204,8 +204,13 @@ final class SuggestionFilterTests: XCTestCase {
 
     // MARK: - batch
 
+    /// `Their` sits at the start, which is where it sits in the sentence this
+    /// case came from: "Their is many erors". It used to sit mid-text, which
+    /// asked the filter to accept a spelling lint on a capitalised word in the
+    /// middle of a sentence -- the shape of a name, and something Harper does
+    /// not emit for a word it knows.
     func testApplyKeepsOnlyTheGoodOnes() {
-        let text = "UTF-16 and Their erors"
+        let text = "Their erors and UTF-16"
         let all = [
             suggestion(text, "UTF", "Uhf"),
             suggestion(text, "Their", "There"),
@@ -213,7 +218,20 @@ final class SuggestionFilterTests: XCTestCase {
         ]
         let kept = SuggestionFilter.apply(all, in: text)
         XCTAssertEqual(kept.count, 2)
-        XCTAssertEqual(kept.compactMap { $0.excerpt(in: text) }, ["Their", "erors"])
+        XCTAssertEqual(kept.compactMap { $0.excerpt(in: text) }.sorted(),
+                       ["Their", "erors"])
+    }
+
+    /// A grammar lint carries a different message from a spelling one, and the
+    /// name guard must not touch it: "their" is in the dictionary, so a
+    /// capital mid-sentence says nothing about whether it is a name.
+    func testGrammarLintOnACapitalisedKnownWordIsKept() {
+        let text = "I think Their is a problem"
+        let range = (text as NSString).range(of: "Their")
+        let grammar = Suggestion(range: range,
+                                 message: "Use `There` to refer to a place.",
+                                 replacements: ["There"])
+        XCTAssertTrue(SuggestionFilter.keep(grammar, in: text))
     }
 
     func testOutOfBoundsSuggestionIsDropped() {
