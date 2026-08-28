@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Nil when no GGUF model is installed; rewrite then reports that instead
     /// of failing silently.
     private var rewriter: RewriteEngine?
+    private var live: LiveChecker?
+    private var liveMenuItem: NSMenuItem?
     /// Held between opening the panel and applying, so the result goes back to
     /// the field it came from.
     private var target: TextTarget?
@@ -47,12 +49,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "nib"
+        // An icon rather than the word "nib", which is invisible among a dozen
+        // other menu bar items.
+        if let icon = NSImage(systemSymbolName: "pencil.line",
+                              accessibilityDescription: "nib") {
+            icon.isTemplate = true
+            item.button?.image = icon
+        } else {
+            item.button?.title = "nib"
+        }
         item.button?.font = .systemFont(ofSize: 12, weight: .medium)
 
         let menu = NSMenu()
         menu.addItem(withTitle: "Check Selection", action: #selector(trigger), keyEquivalent: "")
             .target = self
+
+        let liveItem = NSMenuItem(title: "Underline As I Type",
+                                  action: #selector(toggleLive), keyEquivalent: "")
+        liveItem.target = self
+        liveItem.state = .off
+        menu.addItem(liveItem)
+        liveMenuItem = liveItem
+
         menu.addItem(.separator())
         menu.addItem(withTitle: "Accessibility Settings…",
                      action: #selector(openAccessibility), keyEquivalent: "").target = self
@@ -73,12 +91,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AXAccess.openSettings()
     }
 
+    /// Turns inline underlines on or off.
+    ///
+    /// Off by default. It polls the focused element and lints on every pause in
+    /// typing, which is the right trade only once the user has asked for it.
+    @MainActor
+    @objc private func toggleLive() {
+        guard AXAccess.isTrusted else {
+            presentPermissionHelp()
+            return
+        }
+        guard let engine else { return }
+
+        if live?.isRunning == true {
+            live?.stop()
+            liveMenuItem?.state = .off
+        } else {
+            if live == nil { live = LiveChecker(engine: engine) }
+            live?.start()
+            liveMenuItem?.state = .on
+        }
+    }
+
     // MARK: - The flow
 
     @objc private func trigger() {
         guard AXAccess.isTrusted else {
-            presentFatal("nib needs Accessibility permission to read the text you are editing.")
-            AXAccess.openSettings()
+            presentPermissionHelp()
             return
         }
         guard let grabbed = TextGrabber.grab(), !grabbed.selectedText.isEmpty else {
@@ -124,6 +163,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             presentFatal("Could not write to that app. The result is on your clipboard.")
         }
         self.target = nil
+    }
+
+    /// Explains the case that looks like a macOS bug but is not: nib listed and
+    /// switched on in Accessibility, yet still untrusted.
+    ///
+    /// Ad-hoc signing produces a new code hash on every build, and the grant is
+    /// bound to that hash. Rebuilding leaves an entry that is toggled on and
+    /// points at a binary that no longer exists. Only clearing the entry fixes
+    /// it; toggling it off and on again does not.
+    private func presentPermissionHelp() {
+        let alert = NSAlert()
+        alert.messageText = "nib cannot read your text"
+        alert.informativeText = """
+        nib needs Accessibility permission.
+
+        If nib is ALREADY switched on in that list, the entry is stale: \
+        rebuilding the app changes its signature and invalidates the grant. \
+        Toggling it off and on will not help.
+
+        To clear it, run:
+
+            tccutil reset Accessibility com.kushagra.nib
+
+        then relaunch nib and approve the prompt.
+        """
+        alert.addButton(withTitle: "Open Accessibility Settings")
+        alert.addButton(withTitle: "Copy Command")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            AXAccess.openSettings()
+        case .alertSecondButtonReturn:
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(
+                "tccutil reset Accessibility com.kushagra.nib", forType: .string)
+        default:
+            break
+        }
     }
 
     private func presentFatal(_ message: String) {
