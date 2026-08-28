@@ -241,6 +241,26 @@ struct AXElement {
         parameterized("AXTextMarkerRangeForUIElement", raw)
     }
 
+    /// The character range of one visual line, addressed by line number.
+    ///
+    /// If this answers for a contenteditable, nib knows where the app decided
+    /// to wrap even though it will not say where the words are.
+    func range(forLine line: Int) -> CFRange? {
+        guard let out = parameterized("AXRangeForLine", line as CFNumber),
+              CFGetTypeID(out) == AXValueGetTypeID() else { return nil }
+        var range = CFRange()
+        guard AXValueGetValue(out as! AXValue, .cfRange, &range) else { return nil }
+        return range
+    }
+
+    /// The text of a range with its styling, which is where the font would
+    /// come from if nib had to lay the text out itself.
+    func attributedString(forRange range: CFRange) -> NSAttributedString? {
+        var input = range
+        guard let axRange = AXValueCreate(.cfRange, &input) else { return nil }
+        return parameterized("AXAttributedStringForRange", axRange) as? NSAttributedString
+    }
+
     /// A marker range for one visual line, addressed by number.
     ///
     /// The only range this app hands out that needs no marker to ask for.

@@ -138,6 +138,7 @@ enum MarkerProbe {
         print("     marker bounds:      \(describe(element.markerBounds()))")
 
         chainTest(element, value: value)
+        layoutIngredients(element, value: value)
 
         var names: CFArray?
         AXUIElementCopyParameterizedAttributeNames(element.raw, &names)
@@ -235,6 +236,33 @@ enum MarkerProbe {
             print("     line \(line) \"\(lineText)\" "
                   + describe(element.bounds(forMarkerRange: lineRange)))
         }
+    }
+
+    /// Whether nib could work out the geometry itself when the app refuses.
+    ///
+    /// Laying text out needs three things: where the app wrapped each line,
+    /// what font it used, and the box to put it in. The first two are asked
+    /// for here; the box is already known.
+    private static func layoutIngredients(_ element: AXElement, value: String) {
+        var lines: [String] = []
+        for line in 0..<4 {
+            guard let range = element.range(forLine: line) else { break }
+            let ns = value as NSString
+            let text = NSMaxRange(NSRange(location: range.location, length: range.length))
+                <= ns.length
+                ? ns.substring(with: NSRange(location: range.location, length: range.length))
+                : "<out of bounds>"
+            lines.append("line \(line) = \(range.location)+\(range.length) \"\(text.prefix(24))\"")
+        }
+        print("     line ranges:  \(lines.isEmpty ? "no answer" : lines.joined(separator: "; "))")
+
+        guard let styled = element.attributedString(
+            forRange: CFRange(location: 0, length: min(8, value.utf16.count))) else {
+            print("     font:         no attributed string")
+            return
+        }
+        let font = styled.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        print("     font:         \(font.map { "\($0.fontName) \($0.pointSize)" } ?? "not reported")")
     }
 
     private static func describe(_ rect: CGRect?) -> String {
