@@ -27,6 +27,12 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$BIN" "$APP/Contents/MacOS/nib"
 cp "$ROOT/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 
+if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
+  cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+else
+  echo "  no icon; run: swift Scripts/make-icon.swift && iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns"
+fi
+
 # Ad-hoc signature. Every rebuild produces a new code hash, and macOS binds
 # Accessibility permission to that hash.
 codesign --force --deep --sign - "$APP" 2>/dev/null
