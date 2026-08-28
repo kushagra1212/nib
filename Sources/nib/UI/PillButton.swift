@@ -19,6 +19,9 @@ final class PillButton: NSButton {
 
     private var emphasis: Emphasis = .secondary
     private var tint: NSColor = Theme.Colour.accept
+    /// Colour of the leading icon, separate from the fill so a quiet button
+    /// can still carry a bright glyph.
+    private var iconTint: NSColor?
     private var hovering = false { didSet { refresh(animated: true) } }
     private var pressing = false { didSet { refresh(animated: true) } }
     private var tracking: NSTrackingArea?
@@ -36,22 +39,23 @@ final class PillButton: NSButton {
 
     convenience init(title: String, emphasis: Emphasis = .secondary,
                      tint: NSColor = Theme.Colour.accept,
-                     icon: String? = nil,
+                     icon: String? = nil, iconTint: NSColor? = nil,
                      target: AnyObject?, action: Selector) {
         self.init(frame: .zero)
         configure(title: title, emphasis: emphasis, tint: tint, icon: icon,
-                  target: target, action: action)
+                  iconTint: iconTint, target: target, action: action)
     }
 
     /// For buttons held as stored properties, which cannot use the convenience
     /// initialiser.
     func configure(title: String, emphasis: Emphasis = .secondary,
                    tint: NSColor = Theme.Colour.accept,
-                   icon: String? = nil,
+                   icon: String? = nil, iconTint: NSColor? = nil,
                    target: AnyObject?, action: Selector) {
         self.emphasis = emphasis
         self.tint = tint
         self.iconName = icon
+        self.iconTint = iconTint
         self.title = title
         self.target = target
         self.action = action
@@ -65,9 +69,15 @@ final class PillButton: NSButton {
         imageHugsTitle = true
 
         if let iconName {
-            let config = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+            var config = NSImage.SymbolConfiguration(pointSize: 11, weight: .bold)
+            if let iconTint {
+                // Palette configuration keeps the glyph's own colour instead of
+                // inheriting contentTintColor with the label.
+                config = config.applying(.init(paletteColors: [iconTint]))
+            }
             image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)?
                 .withSymbolConfiguration(config)
+            image?.isTemplate = iconTint == nil
         }
 
         if fillLayer.superlayer == nil {
@@ -104,6 +114,11 @@ final class PillButton: NSButton {
         fillLayer.cornerRadius = radius
         layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: radius,
                                    cornerHeight: radius, transform: nil)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refresh(animated: false)
     }
 
     override func updateTrackingAreas() {
@@ -152,15 +167,14 @@ final class PillButton: NSButton {
             let base = pressing ? tint.shaded(0.16) : tint
             return (base.tinted(hovering ? 0.16 : 0.08), base.shaded(0.06))
         case .secondary:
-            let top: CGFloat = pressing ? 0.30 : (hovering ? 0.72 : 0.52)
-            let bottom: CGFloat = pressing ? 0.24 : (hovering ? 0.58 : 0.40)
-            return (NSColor.controlColor.withAlphaComponent(top),
-                    NSColor.controlColor.withAlphaComponent(bottom))
+            let top: CGFloat = pressing ? 0.07 : (hovering ? 0.20 : 0.13)
+            let bottom: CGFloat = pressing ? 0.05 : (hovering ? 0.14 : 0.08)
+            return (Theme.Colour.controlFill(top), Theme.Colour.controlFill(bottom))
         case .plain:
             guard hovering || pressing else { return (.clear, .clear) }
-            let alpha: CGFloat = pressing ? 0.28 : 0.45
-            return (NSColor.controlColor.withAlphaComponent(alpha),
-                    NSColor.controlColor.withAlphaComponent(alpha * 0.8))
+            let alpha: CGFloat = pressing ? 0.07 : 0.13
+            return (Theme.Colour.controlFill(alpha),
+                    Theme.Colour.controlFill(alpha * 0.7))
         }
     }
 
@@ -170,15 +184,21 @@ final class PillButton: NSButton {
         case .primary:
             return tint.shaded(0.22).withAlphaComponent(0.9)
         case .secondary:
-            return NSColor.separatorColor.withAlphaComponent(hovering ? 0.9 : 0.55)
+            return Theme.Colour.controlEdge(hovering ? 0.26 : 0.15)
         case .plain:
-            return hovering ? NSColor.separatorColor.withAlphaComponent(0.6) : .clear
+            return hovering ? Theme.Colour.controlEdge(0.15) : .clear
         }
     }
 
     private var textColour: NSColor {
         guard isEnabled else { return .tertiaryLabelColor }
         return emphasis == .primary ? .white : .labelColor
+    }
+
+    /// Tinting the whole button would recolour the label too, so the icon
+    /// carries its colour through the symbol configuration instead.
+    private var labelTint: NSColor? {
+        iconTint == nil ? textColour : nil
     }
 
     private func refresh(animated: Bool) {
@@ -196,10 +216,13 @@ final class PillButton: NSButton {
         CATransaction.begin()
         CATransaction.setDisableActions(!animated)
         CATransaction.setAnimationDuration(Theme.Motion.hover)
-        apply()
+        // A dynamic NSColor resolves when it is converted to cgColor, using
+        // whatever appearance is current at that moment. Without this the
+        // colours freeze at whatever was active the first time.
+        effectiveAppearance.performAsCurrentDrawingAppearance(apply)
         CATransaction.commit()
 
-        contentTintColor = textColour
+        contentTintColor = labelTint
         attributedTitle = NSAttributedString(string: title, attributes: [
             .font: Theme.Font.control,
             .foregroundColor: textColour,

@@ -48,7 +48,7 @@ final class SelectionBar: NSPanel {
         // A mark of whose bar this is, so it is not mistaken for the host app.
         glyph.image = NSImage(systemSymbolName: "sparkles",
                               accessibilityDescription: "nib")
-        glyph.contentTintColor = .tertiaryLabelColor
+        glyph.contentTintColor = Theme.Colour.rewrite.withAlphaComponent(0.85)
         glyph.imageScaling = .scaleProportionallyUpOrDown
 
         status.font = Theme.Font.caption
@@ -68,7 +68,8 @@ final class SelectionBar: NSPanel {
         modeRow.spacing = Theme.Space.tight
         for (index, mode) in RewriteMode.allCases.enumerated() {
             let button = PillButton(title: mode.shortTitle, emphasis: .secondary,
-                                    icon: mode.icon, target: self,
+                                    icon: mode.icon, iconTint: mode.iconTint,
+                                    target: self,
                                     action: #selector(runMode(_:)))
             button.tag = index
             modeButtons.append(button)

@@ -43,12 +43,34 @@ enum Theme {
         static let removed = NSColor.systemRed
         static let added = NSColor.systemGreen
 
-        /// Fill for a quiet control, which has to work on both appearances.
-        static var controlFill: NSColor {
-            NSColor.controlColor.withAlphaComponent(0.55)
+        /// Per-mode icon colour, so the row is distinguishable at a glance and
+        /// carries some warmth rather than reading as three grey chips.
+        static let fix = NSColor.systemGreen
+        static let rewrite = NSColor.systemBlue
+        static let condense = NSColor.systemPurple
+
+        /// Fill for a quiet control.
+        ///
+        /// Layered light-on-dark or dark-on-light rather than `controlColor`,
+        /// which is nearly invisible against a blurred backdrop and left the
+        /// capsules looking like hollow outlines.
+        static func controlFill(_ opacity: CGFloat) -> NSColor {
+            NSColor(name: nil) { appearance in
+                let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                return dark
+                    ? NSColor(white: 1, alpha: opacity)
+                    : NSColor(white: 0, alpha: opacity * 0.55)
+            }
         }
-        static var controlHover: NSColor {
-            NSColor.controlColor.withAlphaComponent(0.95)
+
+        /// Edge that separates a control from whatever shows through behind it.
+        static func controlEdge(_ opacity: CGFloat) -> NSColor {
+            NSColor(name: nil) { appearance in
+                let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                return dark
+                    ? NSColor(white: 1, alpha: opacity)
+                    : NSColor(white: 0, alpha: opacity * 0.7)
+            }
         }
     }
 
