@@ -135,6 +135,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                   action: #selector(diagnoseField), keyEquivalent: "")
         diagnose.target = self
         menu.addItem(diagnose)
+
+        // Reports what the live checker itself holds, which is different from
+        // what the AX probe can reach: the probe asks the system, this asks
+        // the running pipeline.
+        let liveDiagnose = NSMenuItem(title: "Diagnose Live Checking…",
+                                      action: #selector(diagnoseLive), keyEquivalent: "")
+        liveDiagnose.target = self
+        menu.addItem(liveDiagnose)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit nib", action: #selector(NSApplication.terminate(_:)),
                      keyEquivalent: "q")
@@ -266,6 +274,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
             let result = NSAlert()
             result.messageText = "What nib can see"
+            result.informativeText = report
+            result.addButton(withTitle: "Copy")
+            result.addButton(withTitle: "Done")
+            if result.runModal() == .alertFirstButtonReturn {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(report, forType: .string)
+            }
+        }
+    }
+
+    /// Reports the live checker's own state, stage by stage.
+    @objc private func diagnoseLive() {
+        let notice = NSAlert()
+        notice.messageText = "Type in the field you want to check"
+        notice.informativeText = """
+        Press Start, click into the field, and type a misspelled word. \
+        The report appears eight seconds later and shows which stage stopped.
+        """
+        notice.addButton(withTitle: "Start")
+        notice.addButton(withTitle: "Cancel")
+        guard notice.runModal() == .alertFirstButtonReturn else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            let report = live?.report() ?? "live checker was never created"
+
+            let result = NSAlert()
+            result.messageText = "Live checking"
             result.informativeText = report
             result.addButton(withTitle: "Copy")
             result.addButton(withTitle: "Done")
