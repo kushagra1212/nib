@@ -45,6 +45,7 @@ actor ModelChecker {
         }
 
         guard isTrustworthy(original: trimmed, corrected: corrected) else { return [] }
+        guard !dropsContent(original: trimmed, corrected: corrected) else { return [] }
         return WordDiff.suggestions(from: text, to: corrected,
                                     message: "Suggested correction")
     }
@@ -72,6 +73,47 @@ actor ModelChecker {
         // "There are many errors" keeps only two words out of five intact --
         // so word overlap scores real corrections as if they were rewrites.
         return characterSimilarity(original.lowercased(), corrected.lowercased()) >= 0.5
+    }
+
+    /// Whether a rewrite quietly deleted a stretch of what was written.
+    ///
+    /// Asked to tidy "...to see the product that they click on product details
+    /// 3 options", the model returned "...to see the product that they click
+    /// on." -- four words gone from the end. Every existing gate passed it: the
+    /// word count barely moved, and dropping four words out of thirty-three
+    /// leaves the characters almost identical. Both gates measure how alike the
+    /// two strings are, and neither asks whether the writing survived.
+    ///
+    /// A run rather than a total, because scattered single misses are what a
+    /// real correction looks like -- "their is many erors" changes three of
+    /// five words. Three in a row is a deletion.
+    nonisolated func dropsContent(original: String, corrected: String) -> Bool {
+        longestDroppedRun(original: original, corrected: corrected) >= 3
+    }
+
+    /// The longest stretch of consecutive words present in the original and
+    /// missing from the rewrite.
+    nonisolated func longestDroppedRun(original: String, corrected: String) -> Int {
+        let before = WordDiff.tokenize(original).map { $0.text.lowercased() }
+        let after = WordDiff.tokenize(corrected).map { $0.text.lowercased() }
+        guard !before.isEmpty else { return 0 }
+
+        // The subsequence is what survived, in order, so walking the original
+        // against it marks every word the rewrite did not keep.
+        let kept = WordDiff.longestCommonSubsequence(before, after)
+        var index = 0
+        var run = 0
+        var longest = 0
+        for word in before {
+            if index < kept.count, word == kept[index] {
+                index += 1
+                run = 0
+            } else {
+                run += 1
+                longest = max(longest, run)
+            }
+        }
+        return longest
     }
 
     /// 1.0 for identical strings, approaching 0 as they diverge.
@@ -102,6 +144,10 @@ actor ModelChecker {
             // Ignore changes too small to be worth interrupting for.
             guard characterSimilarity(sentence.text.lowercased(),
                                       rewritten.lowercased()) <= 0.97 else { continue }
+            // Restructuring is allowed here. Deleting is not: "clearer" that
+            // loses the end of the sentence is not clearer.
+            guard !dropsContent(original: sentence.text,
+                                corrected: rewritten) else { continue }
 
             out.append(Suggestion(kind: .clarity,
                                   range: sentence.range,
@@ -113,13 +159,24 @@ actor ModelChecker {
 
     /// Rewrites a selection the user explicitly asked about.
     ///
-    /// No trust gate here, unlike the always-on passes: the user picked the
-    /// text and the mode, sees the result before it is applied, and asking for
-    /// "shorter" legitimately produces something that shares little with the
-    /// original.
+    /// The similarity gates do not apply: the user picked the text and the
+    /// mode, sees the result before it is applied, and asking for "shorter"
+    /// legitimately produces something that shares little with the original.
+    ///
+    /// Deletion is different. "Shorter" is licensed to drop words; "fix" and
+    /// "clearer" are not, and a rewrite that quietly loses the end of a
+    /// sentence is easy to accept without noticing. When that happens the
+    /// original comes back unchanged, which reads as "nothing to do" rather
+    /// than handing over a shortened version of what was written.
     func rewriteSelection(_ text: String, mode: RewriteMode) async throws -> String {
         if let hit = cache["\(mode.rawValue)|\(text)"] { return hit }
         let result = try await rewriter.rewrite(text, mode: mode)
+
+        if mode != .shorter, dropsContent(original: text, corrected: result) {
+            Log.write("rewrite dropped content, mode=\(mode.rawValue) "
+                      + "run=\(longestDroppedRun(original: text, corrected: result))")
+            return text
+        }
         remember("\(mode.rawValue)|\(text)", result)
         return result
     }
