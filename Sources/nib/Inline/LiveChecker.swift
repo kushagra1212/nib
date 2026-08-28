@@ -331,7 +331,23 @@ final class LiveChecker {
                                     message: suggestion.message,
                                     replacements: suggestion.replacements)
 
-        // 1. Replace just the selection. Preferred: the caret stays put.
+        // 1. Select the range and type over it.
+        //
+        //    Typing goes through the app's normal input path, so the edit
+        //    lands in its undo stack and Cmd-Z reverts it. AX writes do not:
+        //    they change the text without the app noticing, leaving the user
+        //    with an edit they cannot take back. That is why this is first
+        //    despite being slower than setting the value directly.
+        if selectRange(suggestion.range, on: element) {
+            Keystroke.type(replacement)
+            if await settled(to: updated, on: element) {
+                finish(updated)
+                return
+            }
+        }
+
+        // 2. Replace just the selection through AX. No undo entry, but it
+        //    keeps the caret where it was.
         if selectRange(suggestion.range, on: element),
            element.set(kAXSelectedTextAttribute, to: replacement as CFString),
            await settled(to: updated, on: element) {
@@ -339,8 +355,8 @@ final class LiveChecker {
             return
         }
 
-        // 2. Rewrite the whole value. Wider support, but moves the caret to
-        //    the end of the field.
+        // 3. Rewrite the whole value. Widest support, no undo entry, and it
+        //    moves the caret to the end of the field.
         if element.isSettable(kAXValueAttribute),
            element.set(kAXValueAttribute, to: updated as CFString),
            await settled(to: updated, on: element) {
@@ -348,18 +364,12 @@ final class LiveChecker {
             return
         }
 
-        // A late-landing write from either route above must not be followed by
-        // a third attempt; that is what produced the duplicate.
+        // A late-landing write from any route above must not be followed by
+        // another attempt; that is what produced a duplicated word.
         if await settled(to: updated, on: element, attempts: 2) {
             finish(updated)
             return
         }
-
-        // 3. Type over the selection. Electron fields expose their text and
-        //    silently refuse AX writes to it; synthetic input is what lands.
-        guard selectRange(suggestion.range, on: element) else { return }
-        Keystroke.type(replacement)
-        _ = await settled(to: updated, on: element)
         finish(element.string(for: kAXValueAttribute) ?? updated)
     }
 
