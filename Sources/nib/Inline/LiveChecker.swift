@@ -12,6 +12,8 @@ final class LiveChecker {
     private var element: AXElement?
     private var text = ""
     private var suggestions: [Suggestion] = []
+    /// Suggestions the user waved away, cleared when focus moves elsewhere.
+    private var dismissed: Set<String> = []
     private var lintTask: Task<Void, Never>?
     private var mouseMonitor: Any?
 
@@ -36,6 +38,9 @@ final class LiveChecker {
         }
         overlay.onAcceptFix = { [weak self] suggestion, replacement in
             self?.apply(suggestion, replacement)
+        }
+        overlay.onDismissFix = { [weak self] suggestion in
+            self?.dismiss(suggestion)
         }
     }
 
@@ -65,6 +70,7 @@ final class LiveChecker {
         self.element = element
         self.text = text
         suggestions = []
+        dismissed.removeAll()
         overlay.hide()
         guard element != nil else { return }
         scheduleLint()
@@ -111,11 +117,27 @@ final class LiveChecker {
             overlay.hide()
             return
         }
-        let marks = AXGeometry.rects(for: suggestions, in: element)
+        let live = suggestions.filter { !dismissed.contains(key(for: $0)) }
+        let marks = AXGeometry.rects(for: live, in: element)
         // Clip to the field: a scrolled-away line still reports bounds, which
-        // would paint squiggles over whatever is above or below the field.
+        // would paint marks over whatever is above or below the field.
         let visible = marks.filter { frame.intersects($0.rect) }
-        overlay.show(fieldFrame: frame, marks: visible)
+        overlay.show(fieldFrame: frame, marks: visible, context: text)
+    }
+
+    /// Hides one suggestion until its text changes.
+    ///
+    /// Keyed by the flagged word plus the message rather than by id, because a
+    /// re-lint mints new ids and a dismissal keyed on id would come straight
+    /// back on the next keystroke.
+    private func dismiss(_ suggestion: Suggestion) {
+        dismissed.insert(key(for: suggestion))
+        redraw()
+    }
+
+    private func key(for suggestion: Suggestion) -> String {
+        let word = suggestion.excerpt(in: text) ?? ""
+        return "\(word)|\(suggestion.message)"
     }
 
     // MARK: - Applying a fix
