@@ -164,9 +164,22 @@ final class SelectionBar: NSPanel {
                 self?.modeButtons.forEach { $0.isEnabled = true }
                 self?.dots.stop()
             }
+            // Kept so a failure can be told apart from a clean sentence. This
+            // used to be `try?`, which threw the error away: with no model
+            // installed both modes fell through to the end of the loop and the
+            // bar reported "looks good" in green. Nothing had been checked.
+            var failure: Error?
+
             for mode in [RewriteMode.fixGrammar, .clearer] {
                 guard !Task.isCancelled, let self else { return }
-                guard let result = try? await onRewrite(mode), !result.isEmpty else { continue }
+                let result: String
+                do {
+                    result = try await onRewrite(mode)
+                } catch {
+                    failure = error
+                    continue
+                }
+                guard !result.isEmpty else { continue }
                 guard !Task.isCancelled else { return }
                 // Unchanged text is not a suggestion; try the next mode.
                 guard result.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -177,8 +190,33 @@ final class SelectionBar: NSPanel {
                 return
             }
             guard !Task.isCancelled else { return }
-            self?.show(status: "looks good", tint: Theme.Colour.accept)
+            if let failure {
+                self?.showFailure(failure)
+            } else {
+                self?.show(status: "looks good", tint: Theme.Colour.accept)
+            }
         }
+    }
+
+    /// Names what went wrong, in red.
+    ///
+    /// "looks good" and "needs a model" are both claims about the writing.
+    /// Neither is true when the model never ran, and green in particular reads
+    /// as "checked, and clean" when nothing was checked at all.
+    private func showFailure(_ error: Error) {
+        let text: String
+        switch error {
+        case RewriteError.modelMissing:
+            text = "no model installed"
+        case RewriteError.serverFailed:
+            text = "model would not start"
+        case RewriteError.badResponse:
+            text = "model gave no answer"
+        default:
+            text = "model unavailable"
+        }
+        Log.write("selection rewrite failed: \(error)")
+        show(status: text, tint: .systemRed)
     }
 
     private func present(proposal text: String) {
@@ -258,7 +296,9 @@ final class SelectionBar: NSPanel {
                 }
                 self.present(proposal: result)
             } catch {
-                self.show(status: "needs a model", tint: .systemOrange)
+                // Was "needs a model" in orange for every failure, including a
+                // server that crashed with the model sitting right there.
+                self.showFailure(error)
             }
         }
     }
