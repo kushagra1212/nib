@@ -20,20 +20,28 @@ Underlines mistakes in any app, offers the fix on hover, and never sends your te
 ## Install
 
 ```sh
-brew install --cask kushagra1212/tap/nib
+brew install --cask --no-quarantine kushagra1212/tap/nib
 ```
 
-Or [download the DMG](https://github.com/kushagra1212/nib/releases/latest) and drag nib to Applications.
+Or [download the DMG](https://github.com/kushagra1212/nib/releases/latest), drag
+nib to Applications, and run `xattr -dr com.apple.quarantine /Applications/nib.app`.
 
-> **Installing the DMG by hand needs one extra command.** nib is not notarised
-> — that requires a paid Apple Developer account — so macOS quarantines it and
-> reports that it is damaged. Clear the flag:
+> **Why the extra flag.** nib is not notarised — that needs a paid Apple
+> Developer account — so Gatekeeper refuses to open it and offers only
+> *Move to Trash*, saying it "could not verify nib is free of malware".
+>
+> macOS applies that block to anything carrying the quarantine attribute, which
+> both a browser download **and Homebrew** attach. `--no-quarantine` tells
+> Homebrew not to, which is why it is on the command above.
+>
+> If you have already installed it and hit the dialog, this clears it:
 >
 > ```sh
-> xattr -cr /Applications/nib.app
+> xattr -dr com.apple.quarantine /Applications/nib.app
 > ```
 >
-> Homebrew does this for you, which is why it is the easier route.
+> Neither route avoids this on its own. Until nib is notarised, one of these is
+> required whichever way you install.
 
 ### Grant Accessibility permission
 
