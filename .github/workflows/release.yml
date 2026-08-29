@@ -131,13 +131,54 @@ jobs:
             exit 0
           fi
 
+          # Ask what the token can reach before using it. A bare git clone
+          # answers "Permission denied", which reads as a broken secret when
+          # the secret is fine and its scope is not -- and says nothing about
+          # which of the two permissions is missing.
+          REPO="https://api.github.com/repos/kushagra1212/homebrew-tap"
+          BODY="$(curl -sS -H "Authorization: Bearer ${TAP_TOKEN}" "$REPO")"
+          # tostring, rather than `jq -e` or `// "absent"`. Both of those treat
+          # a false result the same as a missing one -- jq's // is the
+          # alternative operator, which fires on false as well as null -- and a
+          # read-only token would have been reported as a token that cannot see
+          # the repository at all. Which is the wrong instruction to hand
+          # someone, and the exact failure this check exists to prevent.
+          PUSH="$(echo "$BODY" | jq -r '.permissions.push | tostring')"
+          if [[ "$PUSH" == "null" ]]; then
+            echo "::error title=Tap token cannot see the repository::TAP_TOKEN"\
+                 "cannot read kushagra1212/homebrew-tap. GitHub replied:"\
+                 "$(echo "$BODY" | jq -r '.message // "no message"'). A"\
+                 "fine-grained token only reaches repositories listed on it, so"\
+                 "add homebrew-tap under Repository access -- owning the"\
+                 "repository is not the same as granting access to it."
+            exit 1
+          fi
+          if [[ "$PUSH" != "true" ]]; then
+            echo "::error title=Tap token is read-only::TAP_TOKEN can read"\
+                 "kushagra1212/homebrew-tap but not write to it. Set"\
+                 "Permissions -> Contents to 'Read and write'."
+            exit 1
+          fi
+
           git clone --depth 1 \
             "https://x-access-token:${TAP_TOKEN}@github.com/kushagra1212/homebrew-tap.git" tap
 
           mkdir -p tap/Casks
-          sed -e "s|^  version .*|  version \"${VERSION}\"|" \
-              -e "s|^  sha256 .*|  sha256 \"${SHA256}\"|" \
-              Casks/nib.rb > tap/Casks/nib.rb
+          # A banner first, so the copy cannot be mistaken for the original.
+          # Without it the generated file opens with "this file is the source",
+          # which is true where it was written and false where it lands.
+          {
+            printf '%s\n' \
+              '# GENERATED FILE -- do not edit here.' \
+              '#' \
+              '# Written by the nib release workflow from Casks/nib.rb in' \
+              '# kushagra1212/nib. Any change made in this repository is lost on the' \
+              '# next release.' \
+              '#'
+            sed -e "s|^  version .*|  version \"${VERSION}\"|" \
+                -e "s|^  sha256 .*|  sha256 \"${SHA256}\"|" \
+                Casks/nib.rb
+          } > tap/Casks/nib.rb
 
           # Confirm the substitution landed. A silent no-op here would publish
           # a cask still carrying the placeholder checksum.
