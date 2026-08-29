@@ -32,6 +32,18 @@ if [[ ! -x "$ROOT/vendor/harper-ls" ]]; then
   exit 1
 fi
 
+# Stop it before deleting the bundle it is running from.
+#
+# rm -rf on a live .app does not stop the process, it removes the ground from
+# under it: the app stays in the menu bar until it next touches a resource and
+# then quits, or simply disappears with no message. Looking for a crash after
+# that finds nothing, because there wasn't one.
+if pgrep -x nib >/dev/null; then
+  echo "  stopping the running nib first"
+  pkill -x nib || true
+  sleep 1
+fi
+
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
