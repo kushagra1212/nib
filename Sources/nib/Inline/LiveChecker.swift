@@ -36,6 +36,8 @@ final class LiveChecker {
     private var redrawPending = false
     private var mouseMonitor: Any?
     private var localMouseMonitor: Any?
+    private var keyMonitor: Any?
+    private var localKeyMonitor: Any?
 
     /// Fields longer than this are skipped. Underlining a 10,000-word document
     /// means thousands of AX bounds calls per keystroke, which stalls the app
@@ -210,6 +212,38 @@ final class LiveChecker {
             self?.overlay.mouseMoved(to: NSEvent.mouseLocation)
             return event
         }
+
+        // Escape closes whatever nib is showing.
+        //
+        // None of these panels can become key -- that is what stops them
+        // stealing focus from the field being typed in -- so no key event ever
+        // reaches them and Esc did nothing. Watched globally instead, and only
+        // observed: the keystroke still reaches the app underneath, where Esc
+        // usually means something too.
+        keyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) {
+            [weak self] event in
+            guard event.keyCode == 53 else { return }
+            self?.dismissEverything()
+        }
+        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) {
+            [weak self] event in
+            guard event.keyCode == 53 else { return event }
+            self?.dismissEverything()
+            return event
+        }
+    }
+
+    /// Closes every surface nib has open.
+    @MainActor
+    func dismissEverything() {
+        guard overlay.isVisible || overlay.isCardVisible
+                || selectionBar.isVisible || badge.isVisible else { return }
+        Log.write("escape: dismissing everything")
+        selectionTask?.cancel()
+        selectionBar.dismiss()
+        overlay.hideDetached()
+        overlay.isSuppressed = false
+        hideMarks()
     }
 
     func stop() {
@@ -224,8 +258,12 @@ final class LiveChecker {
         hideMarks()
         if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
         if let localMouseMonitor { NSEvent.removeMonitor(localMouseMonitor) }
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        if let localKeyMonitor { NSEvent.removeMonitor(localKeyMonitor) }
         mouseMonitor = nil
         localMouseMonitor = nil
+        keyMonitor = nil
+        localKeyMonitor = nil
     }
 
     // MARK: - Reacting to the field
@@ -631,6 +669,7 @@ final class LiveChecker {
         if selectRange(suggestion.range, on: element) {
             Keystroke.type(replacement)
             if await settled(to: updated, on: element) {
+                Log.write("applied by typing -- undo will work")
                 finish(updated)
                 return
             }
@@ -641,6 +680,7 @@ final class LiveChecker {
         if selectRange(suggestion.range, on: element),
            element.set(kAXSelectedTextAttribute, to: replacement as CFString),
            await settled(to: updated, on: element) {
+            Log.write("applied by AX selected-text write -- NO undo entry")
             finish(updated)
             return
         }
@@ -650,6 +690,7 @@ final class LiveChecker {
         if element.isSettable(kAXValueAttribute),
            element.set(kAXValueAttribute, to: updated as CFString),
            await settled(to: updated, on: element) {
+            Log.write("applied by AX whole-value write -- NO undo entry")
             finish(updated)
             return
         }

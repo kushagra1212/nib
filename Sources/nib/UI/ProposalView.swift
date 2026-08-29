@@ -10,8 +10,29 @@ final class ProposalView: NSView {
 
     private let label = NSTextField(labelWithString: "")
     private let hint = NSImageView()
+    private let expander = NSButton()
     private var tracking: NSTrackingArea?
     private var hovering = false { didSet { refresh() } }
+
+    /// Called when the reader expands or collapses, so the bar can resize.
+    var onToggleExpanded: (() -> Void)?
+
+    /// Whether the whole proposal is shown.
+    ///
+    /// Four lines by default, because the bar floats over the text being
+    /// rewritten and a tall one covers the thing it is about. But a proposal
+    /// cut off mid-sentence cannot be judged, and accepting text you have not
+    /// read is the one thing this view exists to prevent.
+    private(set) var isExpanded = false {
+        didSet {
+            label.maximumNumberOfLines = isExpanded ? 0 : 4
+            expander.image = NSImage(
+                systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
+                accessibilityDescription: isExpanded ? "Show less" : "Show all")
+            invalidateIntrinsicContentSize()
+            onToggleExpanded?()
+        }
+    }
 
     /// Shows something already styled -- the diff -- instead of plain text.
     func show(_ body: NSAttributedString) {
@@ -56,6 +77,18 @@ final class ProposalView: NSView {
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
 
+        expander.isBordered = false
+        expander.bezelStyle = .inline
+        expander.imagePosition = .imageOnly
+        expander.image = NSImage(systemSymbolName: "chevron.down",
+                                 accessibilityDescription: "Show all")
+        expander.contentTintColor = .secondaryLabelColor
+        expander.target = self
+        expander.action = #selector(toggleExpanded)
+        expander.toolTip = "Show the whole suggestion"
+        expander.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(expander)
+
         // A return glyph, so the affordance is legible without a caption.
         hint.image = NSImage(systemSymbolName: "return",
                              accessibilityDescription: "Accept")
@@ -67,7 +100,11 @@ final class ProposalView: NSView {
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
             label.topAnchor.constraint(equalTo: topAnchor, constant: 7),
             label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
-            hint.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
+            expander.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 6),
+            expander.centerYAnchor.constraint(equalTo: centerYAnchor),
+            expander.widthAnchor.constraint(equalToConstant: 16),
+            expander.heightAnchor.constraint(equalToConstant: 16),
+            hint.leadingAnchor.constraint(equalTo: expander.trailingAnchor, constant: 4),
             hint.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             hint.centerYAnchor.constraint(equalTo: centerYAnchor),
             hint.widthAnchor.constraint(equalToConstant: 12),
@@ -98,7 +135,20 @@ final class ProposalView: NSView {
         NSCursor.arrow.set()
     }
 
+    @objc private func toggleExpanded() {
+        isExpanded.toggle()
+    }
+
+    /// Hides the chevron when everything already fits.
+    func updateExpander(fits: Bool) {
+        expander.isHidden = fits && !isExpanded
+    }
+
     override func mouseDown(with event: NSEvent) {
+        // The chevron is a button in its own right; clicking it must not be
+        // read as accepting the text behind it.
+        let local = convert(event.locationInWindow, from: nil)
+        guard !expander.frame.insetBy(dx: -4, dy: -4).contains(local) else { return }
         onAccept?()
     }
 

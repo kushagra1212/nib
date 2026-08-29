@@ -46,6 +46,7 @@ actor ModelChecker {
 
         guard isTrustworthy(original: trimmed, corrected: corrected) else { return [] }
         guard !dropsContent(original: trimmed, corrected: corrected) else { return [] }
+        guard !flipsQuestion(original: trimmed, corrected: corrected) else { return [] }
         return WordDiff.suggestions(from: text, to: corrected,
                                     message: "Suggested correction")
     }
@@ -91,6 +92,25 @@ actor ModelChecker {
         original: String, corrected: String, limit: Int = 3
     ) -> Bool {
         longestDroppedRun(original: original, corrected: corrected) >= limit
+    }
+
+    /// Whether a rewrite turned a question into a statement.
+    ///
+    /// "The approach you have given, is this safe?" came back as "The approach
+    /// you have given is this safe approach." -- the question mark gone and
+    /// with it the fact that anything was being asked. Punctuation is the
+    /// smallest possible edit and one of the largest possible changes in
+    /// meaning, so no similarity or deletion check notices it: one character
+    /// out of fifty.
+    ///
+    /// Only in that direction. Adding a question mark to something that reads
+    /// as a question is a real correction.
+    nonisolated func flipsQuestion(original: String, corrected: String) -> Bool {
+        let asked = original.trimmingCharacters(in: .whitespacesAndNewlines)
+            .hasSuffix("?")
+        let answers = corrected.trimmingCharacters(in: .whitespacesAndNewlines)
+            .hasSuffix("?")
+        return asked && !answers
     }
 
     /// The longest stretch of consecutive words present in the original and
@@ -166,6 +186,11 @@ actor ModelChecker {
             // loses the end of the sentence is not clearer.
             guard !dropsContent(original: sentence.text,
                                 corrected: rewritten) else { continue }
+            guard !flipsQuestion(original: sentence.text,
+                                 corrected: rewritten) else {
+                Log.write("clarity \"\(short)\": turned a question into a statement")
+                continue
+            }
 
             out.append(Suggestion(kind: .clarity, source: .model,
                                   range: sentence.range,
@@ -196,6 +221,13 @@ actor ModelChecker {
 
         // Bold switches the check off entirely, and Freely and Shorter are
         // asked to move or drop words whatever the dial says.
+        // A question that comes back as a statement is wrong in every mode,
+        // however freely it was asked to rewrite.
+        if flipsQuestion(original: text, corrected: result) {
+            Log.write("rewrite turned a question into a statement, mode=\(mode.rawValue)")
+            return text
+        }
+
         if !mode.mayRestructure, let limit = strength.maxDroppedRun,
            dropsContent(original: text, corrected: result, limit: limit) {
             Log.write("rewrite dropped content, mode=\(mode.rawValue) "

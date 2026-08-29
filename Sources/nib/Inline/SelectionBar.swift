@@ -95,6 +95,7 @@ final class SelectionBar: NSPanel {
         proposalView.wrapWidth = Metrics.maxWidth - Theme.Space.edge * 2 - 40
         proposalView.isHidden = true
         proposalView.onAccept = { [weak self] in self?.accept() }
+        proposalView.onToggleExpanded = { [weak self] in self?.resize() }
 
         let modeRow = NSStackView()
         modeRow.orientation = .horizontal
@@ -297,6 +298,9 @@ final class SelectionBar: NSPanel {
         diffButton.title = "Diff"
         diffButton.isHidden = false
         proposalView.text = text
+        // Roughly four lines' worth at this width; the chevron only appears
+        // when there is something hidden behind it.
+        proposalView.updateExpander(fits: text.count < 190)
         proposalView.isHidden = false
         status.isHidden = true
         resize()
