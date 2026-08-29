@@ -37,7 +37,9 @@ cask "nib" do
     Approve it in System Settings > Privacy & Security > Accessibility,
     then launch nib again.
 
-    AI rewrite is optional and off until you add a model. See:
+    AI rewrite is optional and off until you add a .gguf model to
+    ~/Library/Application Support/nib/models -- the engine that runs it
+    is already inside the app. See:
       https://github.com/kushagra1212/nib#ai-rewrite-optional
   EOS
 end

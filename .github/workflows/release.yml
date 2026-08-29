@@ -26,6 +26,12 @@ jobs:
       - name: Fetch harper-ls
         run: Scripts/fetch-harper.sh
 
+      # Before the tests, not just before the bundle: one of them checks that
+      # every library llama-server loads was actually vendored, and it can only
+      # do that if the directory is there.
+      - name: Fetch llama-server
+        run: Scripts/fetch-llama.sh
+
       - name: Test
         run: swift test
 

@@ -31,6 +31,10 @@ if [[ ! -x "$ROOT/vendor/harper-ls" ]]; then
   echo "harper-ls missing -- run: Scripts/fetch-harper.sh" >&2
   exit 1
 fi
+if [[ ! -x "$ROOT/vendor/llama/llama-server" ]]; then
+  echo "llama-server missing -- run: Scripts/fetch-llama.sh" >&2
+  exit 1
+fi
 
 # Stop it before deleting the bundle it is running from.
 #
@@ -50,6 +54,13 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$BIN" "$APP/Contents/MacOS/nib"
 cp "$ROOT/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
+
+# llama-server and its libraries, kept together in one directory.
+#
+# They have to stay together: llama-server finds the libraries through an
+# rpath of @loader_path, which means "beside me". Move the binary out on its
+# own and it fails in dyld before it reaches main().
+cp -R "$ROOT/vendor/llama" "$APP/Contents/Resources/llama"
 
 if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
   cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"

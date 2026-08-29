@@ -149,18 +149,41 @@ func modelSearchPaths() -> [URL] {
     return paths
 }
 
+/// Places llama-server may live, most specific first.
+///
+/// The bundled copy comes first so an installed nib never depends on what the
+/// machine happens to have. Homebrew is last and is a courtesy: it is a
+/// different build than the one nib was tested against, so it is only reached
+/// when the bundled copy is missing, which outside a release means a checkout
+/// that has not run Scripts/fetch-llama.sh.
+///
+/// Taking the directory rather than the binary matters. llama-server loads its
+/// libraries with an rpath of @loader_path, so the whole directory travels
+/// together and a candidate is only real if the libraries came with it.
+func llamaServerCandidates(bundleResources: URL?, executable: URL) -> [URL] {
+    var dirs: [URL] = []
+    if let bundleResources {
+        dirs.append(bundleResources.appendingPathComponent("llama"))
+    }
+    // Development checkout: walk up from the executable to the repo root,
+    // the same way models are found.
+    var dir = executable.resolvingSymlinksInPath().deletingLastPathComponent()
+    for _ in 0..<6 {
+        dirs.append(dir.appendingPathComponent("vendor/llama"))
+        dir = dir.deletingLastPathComponent()
+    }
+    var candidates = dirs.map { $0.appendingPathComponent("llama-server") }
+    candidates.append(URL(fileURLWithPath: "/opt/homebrew/bin/llama-server"))
+    candidates.append(URL(fileURLWithPath: "/usr/local/bin/llama-server"))
+    return candidates
+}
+
 /// Locates llama-server, checking the bundle before known build locations.
 func locateLlamaServer() -> URL? {
     let fm = FileManager.default
-    var candidates: [URL] = []
-    if let resources = Bundle.main.resourceURL {
-        candidates.append(resources.appendingPathComponent("llama-server"))
-    }
-    candidates.append(URL(fileURLWithPath:
-        "/Users/apple/code/per/llama.cpp/build/bin/llama-server"))
-    candidates.append(URL(fileURLWithPath: "/opt/homebrew/bin/llama-server"))
-    candidates.append(URL(fileURLWithPath: "/usr/local/bin/llama-server"))
-
+    let candidates = llamaServerCandidates(
+        bundleResources: Bundle.main.resourceURL,
+        executable: URL(fileURLWithPath: CommandLine.arguments[0]))
     return candidates.first { fm.isExecutableFile(atPath: $0.path) }
 }
 
@@ -222,6 +245,10 @@ func runRewriteCLI(text: String, modelName: String?) async -> Int32 {
         return 1
     }
     print("model: \(config.modelPath.lastPathComponent)")
+    // Which llama-server, in full. There are up to four on a developer's
+    // machine and they are not the same build; "it worked" is not a useful
+    // report when the answer came from a copy nobody meant to test.
+    print("server: \(config.serverBinary.path)")
 
     let engine = RewriteEngine(config: config)
     defer { Task { await engine.shutdown() } }

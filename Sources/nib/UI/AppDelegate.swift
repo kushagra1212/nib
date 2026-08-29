@@ -295,21 +295,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
+        // nib ships llama-server, so the model is normally the only thing
+        // missing. Saying "install llama.cpp" when it is already inside the
+        // app sends people off to fix something that is not broken.
+        let engine = locateLlamaServer() == nil ? """
+
+
+        llama-server is missing too, which should not happen in an installed \
+        copy. Reinstall nib, or run Scripts/fetch-llama.sh in a checkout.
+        """ : ""
+
         let alert = NSAlert()
         alert.messageText = "No AI model installed"
         alert.informativeText = """
         Grammar checking works without one. The Fix, Clearer and Shorter \
         buttons, and the blue clarity underlines, need a local model.
 
-        1. brew install llama.cpp
-        2. Put a .gguf model in:
+        1. Put a .gguf model in:
            ~/Library/Application Support/nib/models
-        3. Restart nib.
+        2. Restart nib.
 
         Qwen3 0.6B is the smallest that works well. Anything smaller \
         describes your text instead of correcting it.
 
-        Nothing is uploaded; the model runs on this machine.
+        Nothing is uploaded; the model runs on this machine.\(engine)
         """
         alert.addButton(withTitle: "Open Models Folder")
         alert.addButton(withTitle: "Copy Download Command")

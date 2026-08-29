@@ -96,16 +96,11 @@ alias nib=/Applications/nib.app/Contents/MacOS/nib
 Grammar checking works out of the box and needs no model.
 
 The **Fix / Clearer / Shorter** buttons and the blue clarity underlines run a
-language model locally. nib ships without one, so those are inactive until you
-add a model yourself. Nothing leaves your machine either way.
+language model locally. nib bundles the engine that runs it but no model — the
+smallest useful one is another 600MB, and it is a choice worth leaving open.
+Nothing leaves your machine either way.
 
-**1. Install llama.cpp**
-
-```sh
-brew install llama.cpp
-```
-
-**2. Download a model**
+**1. Download a model**
 
 ```sh
 mkdir -p ~/Library/Application\ Support/nib/models
@@ -113,7 +108,12 @@ curl -L -o ~/Library/Application\ Support/nib/models/Qwen3-0.6B-Q8_0.gguf \
   https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
 ```
 
-**3. Restart nib.**
+**2. Restart nib.**
+
+There is no step for installing llama.cpp: a build of `llama-server` ships
+inside the app, so the model is the only piece you supply. A Homebrew
+installation is still used if one is there and the bundled copy is not, which
+in practice means a checkout that has not run `Scripts/fetch-llama.sh`.
 
 ### Which model
 
@@ -170,8 +170,9 @@ git clone https://github.com/kushagra1212/nib.git
 cd nib
 
 Scripts/fetch-harper.sh          # prebuilt harper-ls, no Rust toolchain needed
+Scripts/fetch-llama.sh           # llama-server and the libraries it loads
 swift build -c release
-swift test                       # 215 tests
+swift test
 
 swift Scripts/make-icon.swift
 iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
