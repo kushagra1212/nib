@@ -113,6 +113,27 @@ actor ModelChecker {
         return asked && !answers
     }
 
+    /// How many words were dropped from the very end.
+    ///
+    /// The distinction the run count cannot make. "we should probably think
+    /// about maybe adding a check" losing "probably think about maybe" is a
+    /// rewrite doing its job -- four words, mid-sentence, all filler. The same
+    /// four words missing off the end is a truncated sentence, and that is the
+    /// failure this was written for: a Slack message that lost "product
+    /// details 3 options" and said nothing about it.
+    ///
+    /// Middle deletions are a matter of taste and belong to the mode. A
+    /// truncated ending is wrong in every mode.
+    nonisolated func droppedTail(original: String, corrected: String) -> Int {
+        let before = WordDiff.tokenize(original).map { $0.text.lowercased() }
+        let after = WordDiff.tokenize(corrected).map { $0.text.lowercased() }
+        guard !before.isEmpty else { return 0 }
+        let kept = WordDiff.longestCommonSubsequence(before, after)
+        guard let last = kept.last else { return before.count }
+        guard let index = before.lastIndex(of: last) else { return before.count }
+        return before.count - 1 - index
+    }
+
     /// The longest stretch of consecutive words present in the original and
     /// missing from the rewrite.
     nonisolated func longestDroppedRun(original: String, corrected: String) -> Int {
@@ -184,8 +205,14 @@ actor ModelChecker {
                                       rewritten.lowercased()) <= 0.97 else { continue }
             // Restructuring is allowed here. Deleting is not: "clearer" that
             // loses the end of the sentence is not clearer.
-            guard !dropsContent(original: sentence.text,
-                                corrected: rewritten) else { continue }
+            // Tightening a sentence is what clarity is for, so a run of
+            // dropped words in the middle is allowed here. Losing the end is
+            // not: that is a truncation whatever it is called.
+            guard droppedTail(original: sentence.text, corrected: rewritten) < 3
+            else {
+                Log.write("clarity \"\(short)\": truncated the ending")
+                continue
+            }
             guard !flipsQuestion(original: sentence.text,
                                  corrected: rewritten) else {
                 Log.write("clarity \"\(short)\": turned a question into a statement")
@@ -221,6 +248,14 @@ actor ModelChecker {
 
         // Bold switches the check off entirely, and Freely and Shorter are
         // asked to move or drop words whatever the dial says.
+        // A sentence that stops early is wrong in every mode, however freely
+        // it was asked to rewrite: the end of what someone wrote is missing
+        // and nothing says so.
+        if droppedTail(original: text, corrected: result) >= 3 {
+            Log.write("rewrite truncated the ending, mode=\(mode.rawValue)")
+            return text
+        }
+
         // A question that comes back as a statement is wrong in every mode,
         // however freely it was asked to rewrite.
         if flipsQuestion(original: text, corrected: result) {

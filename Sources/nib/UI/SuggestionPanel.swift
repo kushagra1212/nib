@@ -445,8 +445,12 @@ extension RewriteMode {
     /// way -- both are shown in full and applied only when accepted.
     var mayRestructure: Bool {
         switch self {
-        case .shorter, .freely: return true
-        case .fixGrammar, .clearer: return false
+        // Clearer is a rewrite too. Its whole job is to cut "probably think
+        // about maybe" down to "consider", and measuring that as deletion
+        // refused the exact edits it exists to make. Only Fix, which is meant
+        // to change as little as possible, is held to the mid-sentence rule.
+        case .clearer, .shorter, .freely: return true
+        case .fixGrammar: return false
         }
     }
 }

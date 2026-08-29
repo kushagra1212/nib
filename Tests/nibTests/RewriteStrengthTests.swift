@@ -67,13 +67,35 @@ final class RewriteStrengthTests: XCTestCase {
 
     // MARK: - Which modes the dial applies to
 
-    /// Shorter is asked to drop words and Freely to move them, so neither is
-    /// measured for deletion whatever the dial says.
+    /// Only Fix is held to the mid-sentence deletion rule.
+    ///
+    /// Clearer was on the strict side of this line and should not have been.
+    /// Cutting "probably think about maybe" to "consider" is four words gone
+    /// in a row, and refusing that refuses the edit Clearer exists to make.
     func testModesAskedToRestructureAreExempt() {
+        XCTAssertTrue(RewriteMode.clearer.mayRestructure)
         XCTAssertTrue(RewriteMode.shorter.mayRestructure)
         XCTAssertTrue(RewriteMode.freely.mayRestructure)
         XCTAssertFalse(RewriteMode.fixGrammar.mayRestructure)
-        XCTAssertFalse(RewriteMode.clearer.mayRestructure)
+    }
+
+    /// Exempt from the middle rule, never from the ending one.
+    func testATruncatedEndingIsRefusedInEveryMode() {
+        let typed = "add the check to the cart page before the release goes out"
+        let cut = "add the check to the cart page"
+        XCTAssertGreaterThanOrEqual(
+            checker.droppedTail(original: typed, corrected: cut), 3)
+    }
+
+    func testTighteningTheMiddleIsNotATruncation() {
+        let typed = "we should probably think about maybe adding a check at some point"
+        let tightened = "We should consider adding a check at some point."
+        XCTAssertLessThan(
+            checker.droppedTail(original: typed, corrected: tightened), 3,
+            "the ending survived, so this is tightening, not truncation")
+        XCTAssertGreaterThanOrEqual(
+            checker.longestDroppedRun(original: typed, corrected: tightened), 3,
+            "and the middle run is exactly what the old rule refused")
     }
 
     // MARK: - The setting itself
