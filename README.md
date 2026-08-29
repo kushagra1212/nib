@@ -11,7 +11,7 @@ Underlines mistakes in any app, offers the fix on hover, and never sends your te
 [![Release](https://img.shields.io/github/v/release/kushagra1212/nib)](https://github.com/kushagra1212/nib/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-<img src="media/nib-demo.gif" width="640" alt="nib correcting a sentence as it is typed, then rewriting a selected sentence">
+<img src="media/nib-hero.gif" width="640" alt="nib correcting a sentence as it is typed, then rewriting a selected sentence">
 
 </div>
 
