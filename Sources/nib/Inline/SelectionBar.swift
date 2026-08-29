@@ -42,6 +42,17 @@ final class SelectionBar: NSPanel {
     /// mistaken for the user's.
     private var isPositioning = false
 
+    /// The selected text, in screen coordinates. What the bar must not cover.
+    private var anchor: CGRect = .zero
+    /// Which side of the selection the bar settled on, so that growing to fit
+    /// a proposal moves it away from the text rather than over it.
+    private var placedAbove = true
+
+    private enum Gap {
+        static let fromText: CGFloat = 8
+        static let fromScreen: CGFloat = 6
+    }
+
     /// Set by the owner before presenting.
     func prepare(original text: String) {
         self.original = text
@@ -163,6 +174,7 @@ final class SelectionBar: NSPanel {
 
     func present(above rect: CGRect) {
         let reappearing = isVisible
+        anchor = rect
         reset()
         resize(animated: false)
 
@@ -172,16 +184,7 @@ final class SelectionBar: NSPanel {
             return
         }
 
-        var origin = CGPoint(x: rect.midX - frame.width / 2, y: rect.maxY + 8)
-        let screen = NSScreen.screens.first { $0.frame.intersects(rect) } ?? NSScreen.main
-        if let visible = screen?.visibleFrame {
-            origin.x = min(max(origin.x, visible.minX + 6), visible.maxX - frame.width - 6)
-            // No room above the selection: sit below it instead.
-            if origin.y + frame.height > visible.maxY - 6 {
-                origin.y = rect.minY - frame.height - 8
-            }
-        }
-        let target = NSRect(origin: origin, size: frame.size)
+        let target = NSRect(origin: origin(for: frame.size), size: frame.size)
 
         isPositioning = true
         if reappearing {
@@ -354,14 +357,68 @@ final class SelectionBar: NSPanel {
         modeButtons.forEach { $0.isEnabled = true }
     }
 
+    /// Where the bar should sit so it covers as little of the selection as
+    /// possible.
+    ///
+    /// Above by default, because a reader's eye is already at the end of what
+    /// they selected. Below when there is not enough room above -- and the
+    /// choice is made against the height it is about to be, not the height it
+    /// is now, since the bar grows once a proposal arrives.
+    private func origin(for size: NSSize) -> CGPoint {
+        let screen = NSScreen.screens.first { $0.frame.intersects(anchor) }
+            ?? NSScreen.main
+        let visible = screen?.visibleFrame ?? anchor
+
+        let roomAbove = visible.maxY - anchor.maxY
+        let roomBelow = anchor.minY - visible.minY
+        let needed = size.height + Gap.fromText + Gap.fromScreen
+
+        // Whichever side fits. If neither does, the one with more room, since
+        // covering part of the selection beats hanging off the screen.
+        placedAbove = roomAbove >= needed || roomAbove >= roomBelow
+
+        var point = CGPoint(
+            x: anchor.midX - size.width / 2,
+            y: placedAbove
+                ? anchor.maxY + Gap.fromText
+                : anchor.minY - size.height - Gap.fromText)
+
+        point.x = min(max(point.x, visible.minX + Gap.fromScreen),
+                      visible.maxX - size.width - Gap.fromScreen)
+        point.y = min(max(point.y, visible.minY + Gap.fromScreen),
+                      visible.maxY - size.height - Gap.fromScreen)
+        return point
+    }
+
     private func resize(animated: Bool = true) {
         isPositioning = true
         defer { isPositioning = false }
         contentView?.layoutSubtreeIfNeeded()
         let fitting = contentView?.fittingSize ?? NSSize(width: Metrics.minWidth, height: 36)
         let width = min(max(Metrics.minWidth, fitting.width), Metrics.maxWidth)
-        Theme.resize(self, to: NSSize(width: width, height: ceil(fitting.height)),
-                     animated: animated)
+        let size = NSSize(width: width, height: ceil(fitting.height))
+
+        // Dragged somewhere on purpose, or no selection to avoid: grow from the
+        // top edge as before and leave the position alone.
+        guard !wasMoved, anchor != .zero else {
+            Theme.resize(self, to: size, animated: animated)
+            return
+        }
+
+        // Growing to fit a proposal must move the bar away from the text, not
+        // over it. Pinning the top edge -- which is right for a panel below the
+        // selection -- grows a panel above it straight down onto the words it
+        // is about.
+        let target = NSRect(origin: origin(for: size), size: size)
+        guard animated, isVisible else {
+            setFrame(target, display: true)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Theme.Motion.content
+            context.timingFunction = Theme.Motion.easeOut
+            animator().setFrame(target, display: true)
+        }
     }
 
     // MARK: - Actions

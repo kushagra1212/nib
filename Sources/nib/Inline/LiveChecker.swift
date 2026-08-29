@@ -413,7 +413,11 @@ final class LiveChecker {
             guard !Task.isCancelled, let self, let element = self.element else { return }
 
             let rects = AXGeometry.lineRects(for: range, in: element)
-            guard let anchor = rects.max(by: { $0.maxY < $1.maxY }) else { return }
+            guard !rects.isEmpty else { return }
+            // The whole selection, not its first line. The bar has to know
+            // what it must not cover, and a multi-line selection is covered by
+            // a bar placed clear of only its top line.
+            let anchor = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
 
             self.selectionRange = range
             self.selectionBar.onRewrite = { mode in
