@@ -69,9 +69,51 @@ jobs:
           FILE="dist/nib-${VERSION}.dmg"
           echo "sha256=$(shasum -a 256 "$FILE" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
-      # Publishing the DMG without this leaves `brew install` fetching the
-      # previous release, and the failure is a sha256 mismatch on a stranger's
-      # machine rather than anything visible here.
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Named explicitly. Left to itself this action uses the ref that
+          # triggered the run, which is the tag on a tag push but the branch
+          # on a manual run -- so the recovery path, workflow_dispatch, would
+          # publish a release called "main".
+          tag_name: v${{ steps.version.outputs.version }}
+          files: dist/nib-${{ steps.version.outputs.version }}.dmg
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            ```sh
+            brew install --cask kushagra1212/tap/nib
+            ```
+
+            Or download the DMG below and drag nib to Applications.
+
+            **Installing the DMG by hand needs one extra step.** nib is not
+            notarised, so macOS quarantines it and reports that it is damaged.
+            Clear the flag after copying it across:
+
+            ```sh
+            xattr -cr /Applications/nib.app
+            ```
+
+            Homebrew does this for you, which is why it is the easier route.
+
+            On first launch, approve nib in
+            System Settings → Privacy & Security → Accessibility. It cannot
+            read the text you are editing without that.
+
+            `sha256: ${{ steps.checksum.outputs.sha256 }}`
+
+      # After the release, never before it.
+      #
+      # The cask points at the release's download URL, so updating the tap
+      # first opens a window where `brew install` resolves to a file that has
+      # not been uploaded yet -- a 404 on a stranger's machine. Running it
+      # first also meant a bad token blocked the release itself: the DMG was
+      # built, the step failed, and publishing was skipped.
+      #
+      # Failing here now leaves a complete release with the tap describing the
+      # previous version, which still installs.
       #
       # Casks/nib.rb in this repo is the source. The copy in the tap is
       # generated, so any edit to the cask has to be made here.
@@ -112,33 +154,3 @@ jobs:
           git commit -aqm "nib ${VERSION}"
           git push -q
           echo "Tap updated to ${VERSION}."
-
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/nib-${{ steps.version.outputs.version }}.dmg
-          generate_release_notes: true
-          body: |
-            ## Install
-
-            ```sh
-            brew install --cask kushagra1212/tap/nib
-            ```
-
-            Or download the DMG below and drag nib to Applications.
-
-            **Installing the DMG by hand needs one extra step.** nib is not
-            notarised, so macOS quarantines it and reports that it is damaged.
-            Clear the flag after copying it across:
-
-            ```sh
-            xattr -cr /Applications/nib.app
-            ```
-
-            Homebrew does this for you, which is why it is the easier route.
-
-            On first launch, approve nib in
-            System Settings → Privacy & Security → Accessibility. It cannot
-            read the text you are editing without that.
-
-            `sha256: ${{ steps.checksum.outputs.sha256 }}`
