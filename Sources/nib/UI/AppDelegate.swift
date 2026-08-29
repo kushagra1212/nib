@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var liveMenuItem: NSMenuItem?
     private var loginMenuItem: NSMenuItem?
     private var statusMenuItem: NSMenuItem?
+    private var modelMenuItem: NSMenuItem?
+    /// Built on first use. It owns a window, so it stays on the main actor.
+    @MainActor private lazy var modelSetup = makeModelSetup()
     private var permissionWatch: Task<Void, Never>?
     /// Held between opening the panel and applying, so the result goes back to
     /// the field it came from.
@@ -48,6 +51,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // for fields that cannot show them. Starting this behind a menu toggle
         // meant the app looked like it did nothing until you found the toggle.
         startLiveWhenTrusted()
+
+        // Offers to fetch a model, once, and only when there is none. Someone
+        // who already has one, or who closed this window on a previous launch,
+        // never sees it.
+        modelSetup.showOnFirstLaunchIfNeeded()
+    }
+
+    @MainActor
+    private func makeModelSetup() -> ModelSetupWindow {
+        let setup = ModelSetupWindow()
+        setup.onInstalled = { [weak self] path in self?.adoptModel(at: path) }
+        return setup
+    }
+
+    /// Starts using a model that was just installed, without a restart.
+    ///
+    /// The live checker captured the model checker when it was built, and at
+    /// that point there was no model, so it holds nil. Handing it a new engine
+    /// is not enough -- it has to be rebuilt, or the rewrite bar goes on not
+    /// appearing until the app is next launched.
+    @MainActor
+    private func adoptModel(at path: URL) {
+        guard let server = locateLlamaServer() else { return }
+        rewriter = RewriteEngine(
+            config: .init(serverBinary: server, modelPath: path))
+        Log.write("model installed: \(path.lastPathComponent)")
+
+        if let engine, live?.isRunning == true {
+            live?.stop()
+            live = makeLiveChecker(engine: engine)
+            live?.start()
+        }
+        refreshModelMenuItem()
+    }
+
+    private func refreshModelMenuItem() {
+        modelMenuItem?.title = rewriteConfig(modelName: nil) == nil
+            ? "Set Up AI Rewrite…"
+            : "AI Rewrite: ready"
     }
 
     @MainActor
@@ -144,13 +186,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // AI features are inactive without a model, and silence is the worst
         // way to communicate that.
-        let modelTitle = rewriteConfig(modelName: nil) == nil
-            ? "Add AI Model…"
-            : "AI Model: installed"
-        let modelItem = NSMenuItem(title: modelTitle,
-                                   action: #selector(showModelHelp), keyEquivalent: "")
+        let modelItem = NSMenuItem(title: "",
+                                   action: #selector(showModelSetup), keyEquivalent: "")
         modelItem.target = self
         menu.addItem(modelItem)
+        modelMenuItem = modelItem
+        refreshModelMenuItem()
 
         let loginItem = NSMenuItem(title: "Start at Login",
                                    action: #selector(toggleLoginItem), keyEquivalent: "")
@@ -175,6 +216,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                       action: #selector(diagnoseLive), keyEquivalent: "")
         liveDiagnose.target = self
         menu.addItem(liveDiagnose)
+
+        menu.addItem(withTitle: "Licences…", action: #selector(showLicences),
+                     keyEquivalent: "").target = self
+
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit nib", action: #selector(NSApplication.terminate(_:)),
                      keyEquivalent: "q")
@@ -186,6 +231,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// than whatever was true at launch.
     func menuWillOpen(_ menu: NSMenu) {
         refreshStatusLine()
+        // A model can arrive while the app is running, from this window or
+        // from someone dropping a file into the folder.
+        refreshModelMenuItem()
 
         let running = live?.isRunning == true
         liveMenuItem?.state = running ? .on : .off
@@ -273,73 +321,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         AXAccess.openSettings()
     }
 
-    /// Explains what the AI features need, and opens the folder to put it in.
-    @objc private func showModelHelp() {
-        let folder = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/nib/models")
+    /// Opens the window that downloads and checks a model.
+    ///
+    /// This replaced a wall of instructions telling people to install
+    /// llama.cpp, create a directory and find a GGUF. Every step of that was
+    /// something the app could do, and each one was a place to give up.
+    @MainActor
+    @objc private func showModelSetup() {
+        modelSetup.show()
+    }
 
-        if let config = rewriteConfig(modelName: nil) {
-            let alert = NSAlert()
-            alert.messageText = "AI model installed"
-            alert.informativeText = """
-            Using \(config.modelPath.lastPathComponent).
-
-            Fix, Clearer and Shorter are available, and sentences are checked \
-            for clarity as you type.
-            """
-            alert.addButton(withTitle: "Show in Finder")
-            alert.addButton(withTitle: "Done")
-            if alert.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.activateFileViewerSelecting([config.modelPath])
-            }
+    /// Opens the licences of the binaries nib ships.
+    @objc private func showLicences() {
+        guard let path = Bundle.main.url(forResource: "THIRD-PARTY-LICENSES",
+                                         withExtension: "txt") else {
+            // A checkout run from the command line has no bundle to read from.
+            NSWorkspace.shared.open(
+                URL(string: "https://github.com/kushagra1212/nib/blob/main/THIRD-PARTY-LICENSES.txt")!)
             return
         }
-
-        // nib ships llama-server, so the model is normally the only thing
-        // missing. Saying "install llama.cpp" when it is already inside the
-        // app sends people off to fix something that is not broken.
-        let engine = locateLlamaServer() == nil ? """
-
-
-        llama-server is missing too, which should not happen in an installed \
-        copy. Reinstall nib, or run Scripts/fetch-llama.sh in a checkout.
-        """ : ""
-
-        let alert = NSAlert()
-        alert.messageText = "No AI model installed"
-        alert.informativeText = """
-        Grammar checking works without one. The Fix, Clearer and Shorter \
-        buttons, and the blue clarity underlines, need a local model.
-
-        1. Put a .gguf model in:
-           ~/Library/Application Support/nib/models
-        2. Restart nib.
-
-        Qwen3 0.6B is the smallest that works well. Anything smaller \
-        describes your text instead of correcting it.
-
-        Nothing is uploaded; the model runs on this machine.\(engine)
-        """
-        alert.addButton(withTitle: "Open Models Folder")
-        alert.addButton(withTitle: "Copy Download Command")
-        alert.addButton(withTitle: "Cancel")
-
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
-            try? FileManager.default.createDirectory(
-                at: folder, withIntermediateDirectories: true)
-            NSWorkspace.shared.open(folder)
-        case .alertSecondButtonReturn:
-            let command = """
-            mkdir -p ~/Library/Application\\ Support/nib/models && \
-            curl -L -o ~/Library/Application\\ Support/nib/models/Qwen3-0.6B-Q8_0.gguf \
-            https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
-            """
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(command, forType: .string)
-        default:
-            break
-        }
+        NSWorkspace.shared.open(path)
     }
 
     /// Reports what nib can see in the app that was frontmost.
@@ -495,9 +496,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     suggestions, in: grabbed.selectedText)
             },
             onRewrite: { [weak self] text, mode in
-                guard let rewriter = self?.rewriter else {
-                    throw RewriteError.modelMissing(
-                        "no model installed -- see Add AI Model in the menu")
+                guard let self else {
+                    throw RewriteError.modelMissing("nib is shutting down")
+                }
+                guard let rewriter = self.rewriter else {
+                    // Pressing the button is the clearest statement anyone can
+                    // make that they want this feature, so offer to install it
+                    // rather than reporting that it is missing.
+                    await MainActor.run { self.modelSetup.show() }
+                    throw RewriteError.modelMissing("no model installed")
                 }
                 return try await rewriter.rewrite(text, mode: mode)
             }

@@ -95,20 +95,19 @@ alias nib=/Applications/nib.app/Contents/MacOS/nib
 
 Grammar checking works out of the box and needs no model.
 
-The **Fix / Clearer / Shorter** buttons and the blue clarity underlines run a
-language model locally. nib bundles the engine that runs it but no model — the
-smallest useful one is another 600MB, and it is a choice worth leaving open.
-Nothing leaves your machine either way.
+The **Fix / Clearer / Shorter / Freely** buttons and the blue clarity underlines
+run a language model locally. nib bundles the engine that runs it but no model,
+because the smallest useful one is another 800MB and that is a choice worth
+leaving open. Nothing leaves your machine either way.
 
-**1. Download a model**
+**nib offers to set this up for you.** The first launch with no model installed
+opens a window listing the models it knows, downloads the one you pick, checks
+it loads by running a real correction through it, and switches the features on
+without a restart. It is also under **Set Up AI Rewrite…** in the menu bar. If a
+model is already installed, none of this appears.
 
-```sh
-mkdir -p ~/Library/Application\ Support/nib/models
-curl -L -o ~/Library/Application\ Support/nib/models/Qwen3-0.6B-Q8_0.gguf \
-  https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf
-```
-
-**2. Restart nib.**
+To do it by hand instead, put any `.gguf` in
+`~/Library/Application Support/nib/models` and restart nib.
 
 There is no step for installing llama.cpp: a build of `llama-server` ships
 inside the app, so the model is the only piece you supply. A Homebrew
@@ -117,16 +116,31 @@ in practice means a checkout that has not run `Scripts/fetch-llama.sh`.
 
 ### Which model
 
-**Qwen3 0.6B is the floor.** Tested on a sentence with six errors, it corrected
-every one in all three modes.
+**Qwen3 0.6B is the floor**, and it is the one nib preselects. Measured on four
+sentences of ordinary mistakes, it corrected three: `we was going … buyed` and
+`I have went` both came out right. It leaves homophones alone — `their/there/
+they're` came back untouched — which is harper's job anyway, and those are the
+underlines you get without any model at all.
 
 Gemma 3 270M was tried and is not usable. It fixed only the misspellings, and
 for "clearer" and "shorter" it *described* the sentence — returning
 `"The sentence is too long and wordy."` in 0.04s — instead of rewriting it.
 Anything smaller than 0.6B answers the wrong question.
 
-Larger models work and are slower. Any GGUF llama.cpp can load will do; nib
-prefers the largest known-good one it finds.
+**Bigger is not reliably better here**, which is why the list has one entry.
+
+Qwen3 1.7B at Q4_K_M is 1.6× the size and was worse in every mode tried. It
+corrected two of the four sentences against the 0.6B's three, returning
+`we was going to the store` unchanged; asked to tighten a rambling sentence it
+deleted the word "maybe" and left the rest, where the 0.6B rewrote it properly.
+
+Qwen3 1.7B at Q8_0 is not offered because it could not be tested: at 2.2GB it
+fails to run on a 16GB machine with a browser open, and llama.cpp reports
+`kIOGPUCommandBufferCallbackErrorOutOfMemory`. nib now reports that as
+*"not enough memory to run this model"* rather than as a parse failure.
+
+None of this limits you to the list — **Choose File…** in the same window takes
+any GGUF, and nib prefers the largest of the models it recognises.
 
 ---
 
@@ -219,8 +233,12 @@ Sources/nib/
 
 ## Credits
 
+Both are shipped inside the app, unmodified, and their full licence texts are
+in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt) — also inside the
+bundle, and under **Licences…** in the menu bar.
+
 - [harper](https://github.com/automattic/harper) by Automattic — the grammar engine, Apache-2.0
-- [llama.cpp](https://github.com/ggerganov/llama.cpp) — local inference, MIT
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) — local inference, MIT
 
 ## License
 

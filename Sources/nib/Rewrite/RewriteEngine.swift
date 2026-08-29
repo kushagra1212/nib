@@ -92,16 +92,57 @@ enum RewriteMode: String, CaseIterable {
     }
 }
 
+/// The tail of llama-server's stderr.
+///
+/// Written from the pipe's reader thread and read by the actor, so it holds a
+/// lock rather than relying on either one's isolation. Bounded: a server left
+/// running for an afternoon would otherwise accumulate its whole log in memory
+/// for the sake of the last few lines, which are the only ones ever read.
+final class ServerErrorLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var text = ""
+
+    func append(_ chunk: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        text += chunk
+        if text.count > 8_000 { text = String(text.suffix(4_000)) }
+    }
+
+    var recent: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return text
+    }
+
+    func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        text = ""
+    }
+}
+
 enum RewriteError: Error, CustomStringConvertible {
     case modelMissing(String)
     case serverFailed(String)
     case badResponse
+    /// The server answered, and said no.
+    case rejected(status: Int, detail: String)
+    /// Metal could not find room for the model.
+    case outOfMemory
 
     var description: String {
         switch self {
         case .modelMissing(let path): return "no model at \(path)"
         case .serverFailed(let why): return "llama-server: \(why)"
         case .badResponse: return "could not parse the model's response"
+        case let .rejected(status, detail):
+            return detail.isEmpty
+                ? "llama-server answered \(status)"
+                : "llama-server answered \(status): \(detail)"
+        case .outOfMemory:
+            return "not enough memory to run this model -- try a smaller one, "
+                + "or close some apps"
         }
     }
 }
@@ -134,6 +175,7 @@ actor RewriteEngine {
     private let config: Config
     private var process: Process?
     private var port: UInt16?
+    private let errorLog = ServerErrorLog()
     private var idleTask: Task<Void, Never>?
 
     init(config: Config) {
@@ -181,7 +223,21 @@ actor RewriteEngine {
             "chat_template_kwargs": ["enable_thinking": false],
         ])
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        // Cleared immediately before the request, so anything the server logs
+        // belongs to this one rather than to something that failed earlier.
+        errorLog.clear()
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // A refusal is not a parse problem, and reporting it as one costs an
+        // afternoon: "could not parse the model's response" says nothing about
+        // what to do next, and sends you looking for a parsing bug that is not
+        // there.
+        if let http = response as? HTTPURLResponse,
+           !(200..<300).contains(http.statusCode) {
+            throw Self.failure(status: http.statusCode, body: data,
+                               log: errorLog.recent)
+        }
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
@@ -189,6 +245,29 @@ actor RewriteEngine {
         else { throw RewriteError.badResponse }
 
         return Self.clean(content)
+    }
+
+    /// Turns an error response into something worth reading.
+    ///
+    /// Both halves are needed. The body carries llama.cpp's own message, which
+    /// for a model too large is the unhelpful "Compute error."; the log
+    /// carries the Metal out-of-memory line that says what actually happened.
+    /// Naming that one matters because the fix is a smaller model, not a retry.
+    static func failure(status: Int, body: Data, log: String = "") -> RewriteError {
+        var detail = String(decoding: body, as: UTF8.self)
+        if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+           let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String {
+            detail = message
+        }
+
+        let haystack = (detail + " " + log).lowercased()
+        for marker in ["out of memory", "outofmemory", "insufficient memory"] {
+            if haystack.contains(marker) { return .outOfMemory }
+        }
+        return .rejected(status: status,
+                         detail: String(detail.prefix(200))
+                             .trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// Caps generation to a little more than the input.
@@ -262,7 +341,15 @@ actor RewriteEngine {
             "--port", String(chosen),
             "--host", "127.0.0.1",
             "--ctx-size", String(config.contextSize),
-            "--log-disable",
+
+            // --log-disable is deliberately not passed. It silences the Metal
+            // out-of-memory report along with everything else, which is the
+            // one message worth having: with it on, a model too large for the
+            // machine fails as "Compute error." and nothing else.
+            //
+            // The output is not printed anywhere. It goes to the bounded
+            // buffer above, which is read only to look for that failure and is
+            // never shown to the user, so nothing llama.cpp logs is displayed.
 
             // Offload everything to the GPU. 'auto' is already the default in
             // recent builds, but being explicit means an older llama.cpp does
@@ -293,7 +380,20 @@ actor RewriteEngine {
             "--threads", String(config.threads),
         ]
         proc.standardOutput = FileHandle.nullDevice
-        proc.standardError = FileHandle.nullDevice
+
+        // stderr is kept rather than discarded. When a model is too big for
+        // the GPU, llama.cpp answers the HTTP request with the two words
+        // "Compute error." and writes the actual reason -- an out-of-memory
+        // from Metal -- only here. Throwing this away makes the most common
+        // reason a model will not run impossible to report.
+        let errors = Pipe()
+        proc.standardError = errors
+        let log = errorLog
+        errors.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty else { return }
+            log.append(String(decoding: chunk, as: UTF8.self))
+        }
 
         do {
             try proc.run()
@@ -369,8 +469,12 @@ actor RewriteEngine {
     func shutdown() {
         idleTask?.cancel()
         idleTask = nil
+        if let errors = process?.standardError as? Pipe {
+            errors.fileHandleForReading.readabilityHandler = nil
+        }
         process?.terminate()
         process = nil
         port = nil
+        errorLog.clear()
     }
 }
