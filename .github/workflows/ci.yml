@@ -14,6 +14,14 @@ jobs:
       - name: Fetch harper-ls
         run: Scripts/fetch-harper.sh
 
+      # Both binaries, and before the tests rather than before the packaging
+      # step that needs them: one test walks otool over vendor/llama to check
+      # that every library llama-server loads was fetched, and it skips itself
+      # when the directory is absent. Fetching afterwards would leave that
+      # test permanently skipped on CI, which is the one place it matters.
+      - name: Fetch llama-server
+        run: Scripts/fetch-llama.sh
+
       - name: Test
         run: swift test
 
