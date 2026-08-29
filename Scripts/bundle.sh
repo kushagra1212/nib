@@ -55,6 +55,12 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$BIN" "$APP/Contents/MacOS/nib"
 cp "$ROOT/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 
+# Apache-2.0 section 4 requires shipping the licence with the binary, and
+# harper-ls is Apache-2.0. Both licences travel inside the app, not only in
+# the repository, because the app is what people actually receive.
+cp "$ROOT/THIRD-PARTY-LICENSES.txt" "$APP/Contents/Resources/THIRD-PARTY-LICENSES.txt"
+cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE.txt"
+
 # llama-server and its libraries, kept together in one directory.
 #
 # They have to stay together: llama-server finds the libraries through an
