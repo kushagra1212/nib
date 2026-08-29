@@ -83,22 +83,19 @@ jobs:
             ## Install
 
             ```sh
-            brew install --cask --no-quarantine kushagra1212/tap/nib
-            ```
-
-            Or download the DMG below and drag nib to Applications.
-
-            **`--no-quarantine` is required, and so is the equivalent for a
-            hand-installed DMG.** nib is not notarised, so Gatekeeper refuses
-            to open it and offers only *Move to Trash*. That applies to
-            anything carrying the quarantine attribute, which a browser
-            download and Homebrew both attach.
-
-            After installing the DMG by hand, or if you already hit the dialog:
-
-            ```sh
+            brew install --cask kushagra1212/tap/nib
             xattr -dr com.apple.quarantine /Applications/nib.app
             ```
+
+            Or download the DMG below, drag nib to Applications, and run that
+            same second line.
+
+            **It is not optional.** nib is not notarised, so Gatekeeper refuses
+            to open it and offers only *Move to Trash* -- which deletes the app
+            while Homebrew still records it as installed. The block applies to
+            anything carrying the quarantine attribute, which a browser
+            download and Homebrew both attach, and Homebrew 6 has no flag to
+            skip it.
 
             On first launch, approve nib in
             System Settings → Privacy & Security → Accessibility. It cannot

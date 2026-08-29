@@ -20,28 +20,25 @@ Underlines mistakes in any app, offers the fix on hover, and never sends your te
 ## Install
 
 ```sh
-brew install --cask --no-quarantine kushagra1212/tap/nib
+brew install --cask kushagra1212/tap/nib
+xattr -dr com.apple.quarantine /Applications/nib.app
 ```
 
 Or [download the DMG](https://github.com/kushagra1212/nib/releases/latest), drag
-nib to Applications, and run `xattr -dr com.apple.quarantine /Applications/nib.app`.
+nib to Applications, and run that same second line.
 
-> **Why the extra flag.** nib is not notarised — that needs a paid Apple
-> Developer account — so Gatekeeper refuses to open it and offers only
-> *Move to Trash*, saying it "could not verify nib is free of malware".
+> **The second line is not optional.** nib is not notarised — that needs a paid
+> Apple Developer account — so Gatekeeper refuses to open it, says it "could
+> not verify nib is free of malware", and offers only *Move to Trash*. Press
+> that and the app is deleted while Homebrew still believes it is installed.
 >
-> macOS applies that block to anything carrying the quarantine attribute, which
-> both a browser download **and Homebrew** attach. `--no-quarantine` tells
-> Homebrew not to, which is why it is on the command above.
+> macOS applies the block to anything carrying the quarantine attribute, which
+> a browser download and Homebrew both attach. Homebrew 6 has no flag to skip
+> it — `--no-quarantine` was removed and now fails as an invalid option — so
+> clearing it afterwards is the way.
 >
-> If you have already installed it and hit the dialog, this clears it:
->
-> ```sh
-> xattr -dr com.apple.quarantine /Applications/nib.app
-> ```
->
-> Neither route avoids this on its own. Until nib is notarised, one of these is
-> required whichever way you install.
+> Both routes need it. Until nib is notarised, there is no install that does
+> not.
 
 ### Grant Accessibility permission
 
