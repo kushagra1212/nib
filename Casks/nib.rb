@@ -1,9 +1,11 @@
-# Homebrew cask for nib.
-#
-# Copy this into a tap repository named homebrew-tap, at Casks/nib.rb, so users
-# can run:
+# Homebrew cask for nib. This file is the source; the copy Homebrew reads
+# lives in kushagra1212/homebrew-tap and is written by the release workflow.
 #
 #   brew install --cask kushagra1212/tap/nib
+#
+# Edit this file, not the one in the tap: the next release overwrites that one.
+# The version and sha256 below are placeholders and are replaced with the real
+# ones at release time, so they will look stale here. That is expected.
 #
 # Homebrew clears the quarantine flag on install, which is why this route does
 # not hit the "nib is damaged" warning that a hand-installed DMG does.

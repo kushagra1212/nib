@@ -63,6 +63,50 @@ jobs:
           FILE="dist/nib-${VERSION}.dmg"
           echo "sha256=$(shasum -a 256 "$FILE" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
+      # Publishing the DMG without this leaves `brew install` fetching the
+      # previous release, and the failure is a sha256 mismatch on a stranger's
+      # machine rather than anything visible here.
+      #
+      # Casks/nib.rb in this repo is the source. The copy in the tap is
+      # generated, so any edit to the cask has to be made here.
+      - name: Update the Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TAP_TOKEN:-}" ]]; then
+            echo "::warning title=Tap not updated::TAP_TOKEN is unset, so"\
+                 "kushagra1212/homebrew-tap still points at the previous"\
+                 "release. brew install will fetch the old DMG."
+            exit 0
+          fi
+
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/kushagra1212/homebrew-tap.git" tap
+
+          mkdir -p tap/Casks
+          sed -e "s|^  version .*|  version \"${VERSION}\"|" \
+              -e "s|^  sha256 .*|  sha256 \"${SHA256}\"|" \
+              Casks/nib.rb > tap/Casks/nib.rb
+
+          # Confirm the substitution landed. A silent no-op here would publish
+          # a cask still carrying the placeholder checksum.
+          grep -q "version \"${VERSION}\"" tap/Casks/nib.rb
+          grep -q "sha256 \"${SHA256}\"" tap/Casks/nib.rb
+
+          cd tap
+          if git diff --quiet; then
+            echo "Tap already describes ${VERSION}."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -aqm "nib ${VERSION}"
+          git push -q
+          echo "Tap updated to ${VERSION}."
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
