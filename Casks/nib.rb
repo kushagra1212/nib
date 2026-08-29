@@ -19,7 +19,7 @@ cask "nib" do
   # arm64 only: harper-ls ships an Apple silicon binary and the app is built
   # for arm64.
   depends_on arch: :arm64
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "nib.app"
 
