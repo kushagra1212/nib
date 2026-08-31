@@ -96,14 +96,14 @@ enum Theme {
 
         /// Pompeian red, the pigment on the walls at Herculaneum. Where the
         /// system would use red.
-        static let clay = adaptive(light: hex(0x9B3D33), dark: hex(0xC26A5C))
+        static let clay = hex(0xFF7A7A)
         /// Verdigris, aged bronze. Where the system would use green.
-        static let sage = adaptive(light: hex(0x4E7A6B), dark: hex(0x86AFA0))
+        static let sage = hex(0x4FE3C1)
         /// Wedgwood blue. Where the system would use blue.
-        static let slate = adaptive(light: hex(0x4A6785), dark: hex(0x8AA5C0))
+        static let slate = hex(0x6FB4FF)
         /// Brass. The accent that holds the rest together, used for edges and
         /// selection rather than for fills -- gilding is a line, not a slab.
-        static let taupe = adaptive(light: hex(0x9A7B3F), dark: hex(0xC2A263))
+        static let taupe = hex(0xB48CFF)
         static var brass: NSColor { taupe }
 
         /// Ivory and ink. Never pure white or pure black: marble is warm and
@@ -130,12 +130,14 @@ enum Theme {
         /// Text, in two weights. Warm rather than neutral grey, and never pure
         /// black on white or white on black -- the contrast is what makes a
         /// small floating panel feel like a system alert.
-        static let ink = adaptive(light: hex(0x23211E), dark: hex(0xEDE8DE))
-        static let inkMuted = adaptive(light: hex(0x6B645C), dark: hex(0x9C948A))
+        /// Fixed, not adaptive. The panels carry their own dark base now, so
+        /// text sits on aurora rather than on the system's background, and
+        /// switching to light mode must not turn it dark-on-dark.
+        static let ink = hex(0xF2F5F7)
+        static let inkMuted = hex(0x9FB0BC)
 
         /// The single edge colour. One hairline, one weight, everywhere.
-        static let rule = adaptive(light: hex(0x23211E, alpha: 0.18),
-                                   dark: hex(0xEDE8DE, alpha: 0.16))
+        static let rule = hex(0xFFFFFF, alpha: 0.14)
 
         /// The tint used for a selected control. Replaces the system accent,
         /// which is whatever colour the user picked in System Settings and so
@@ -148,24 +150,14 @@ enum Theme {
         /// which is nearly invisible against a blurred backdrop and left the
         /// capsules looking like hollow outlines.
         static func controlFill(_ opacity: CGFloat) -> NSColor {
-            NSColor(name: nil) { appearance in
-                let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                return dark
-                    ? NSColor(white: 1, alpha: opacity)
-                    : NSColor(white: 0, alpha: opacity * 0.55)
-            }
+            NSColor(white: 1, alpha: opacity)
         }
 
         /// Edge that separates a control from whatever shows through behind it.
         static func controlEdge(_ opacity: CGFloat) -> NSColor {
-            NSColor(name: nil) { appearance in
-                let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                return dark
-                    ? NSColor(white: 1, alpha: opacity)
-                    : NSColor(white: 0, alpha: opacity * 0.7)
-            }
+            NSColor(white: 1, alpha: opacity)
         }
-    }
+}
 
     enum Font {
         /// New York, Apple's serif. The clearest signal of the style and the
@@ -219,6 +211,45 @@ enum Theme {
         // Emphasis darkens the material to mark a focused window. These float
         // above someone else's text and should stay light.
         view.isEmphasized = false
+        view.wantsLayer = true
+        view.layer?.cornerRadius = Radius.window
+        view.layer?.cornerCurve = .continuous
+        view.layer?.masksToBounds = true
+
+        // The aurora goes inside the blur, beneath whatever the caller adds
+        // next. Every panel gets it from this one call, so no surface can be
+        // left on the old flat backdrop by omission.
+        let aurora = makeAurora()
+        aurora.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(aurora)
+        NSLayoutConstraint.activate([
+            aurora.topAnchor.constraint(equalTo: view.topAnchor),
+            aurora.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            aurora.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            aurora.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
+        return view
+    }
+
+    /// The aurora itself: a dark base with three coloured lights behind the
+    /// glass.
+    ///
+    /// Aurora needs a dark base to glow against -- over a light background
+    /// there is nothing for the colour to read as light against, and it dies.
+    /// nib's panels float over other people's documents, which may be any
+    /// colour, so each panel supplies its own base rather than relying on
+    /// what is behind it. That is also what makes this work in light mode.
+    ///
+    /// Three hues, not more. Overlapping gradients mix subtractively on screen
+    /// and a fourth or fifth turns the whole thing brown, which is the usual
+    /// way this effect is got wrong.
+    ///
+    /// Static, deliberately. The style is normally animated over eight to
+    /// twelve seconds, and a slow colour drift behind a bar that sits on top of
+    /// a sentence someone is writing is movement in the corner of the eye with
+    /// nothing to say.
+    static func makeAurora() -> NSView {
+        let view = AuroraBackground()
         view.wantsLayer = true
         view.layer?.cornerRadius = Radius.window
         view.layer?.cornerCurve = .continuous

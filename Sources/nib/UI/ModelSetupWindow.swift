@@ -59,7 +59,10 @@ final class ModelSetupWindow: NSObject, NSWindowDelegate {
         body.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
         body.translatesAutoresizingMaskIntoConstraints = false
 
-        let content = NSView()
+        // The aurora, same as every floating panel. This window built a plain
+        // NSView and so was the one surface the backdrop never reached -- and
+        // it is the one a new user spends longest looking at.
+        let content = Theme.makeAurora()
         content.addSubview(body)
         NSLayoutConstraint.activate([
             body.topAnchor.constraint(equalTo: content.topAnchor),
