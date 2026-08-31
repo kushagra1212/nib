@@ -1,8 +1,8 @@
 Third-party licences
 ====================
 
-nib ships two binaries it did not write. Both are included in the app bundle,
-and their licences are reproduced in full below.
+nib ships three pieces of software it did not write. All are included in the
+app bundle, and their licences are reproduced in full below.
 
 nib's own licence is MIT and is in LICENSE, next to this file.
 
@@ -237,6 +237,49 @@ is downloaded separately and is not part of this app.
 
 Shipped as Contents/Resources/llama/, unmodified, from the project's own build
 b10400.
+
+
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+-------------------------------------------------------------------------------
+whisper.cpp  --  MIT License
+-------------------------------------------------------------------------------
+
+The speech engine behind dictation. Linked into the app rather than run as a
+subprocess: whisper.cpp publishes no macOS command-line build, only an
+XCFramework, and linking it removes the subprocess, the port and the loose
+libraries that the inference engine below still needs.
+
+  Copyright (c) 2023-2026 The ggml authors
+  https://github.com/ggml-org/whisper.cpp
+
+Shipped as Contents/Frameworks/whisper.framework, unmodified, from the
+project's own build b4938. The published XCFramework carries six platforms and
+their debug symbols; nib keeps the macOS slice and discards the rest.
+
+The speech model itself is downloaded separately, is not part of this app, and
+is not covered by this licence.
 
 
 MIT License

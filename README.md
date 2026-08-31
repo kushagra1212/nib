@@ -5,7 +5,8 @@
 # nib
 
 **An offline writing assistant for macOS.**
-Underlines mistakes in any app, offers the fix on hover, and never sends your text anywhere.
+Underlines mistakes in any app, rewrites what you select, types what you say —
+and never sends any of it anywhere.
 
 [![CI](https://github.com/kushagra1212/nib/actions/workflows/ci.yml/badge.svg)](https://github.com/kushagra1212/nib/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kushagra1212/nib)](https://github.com/kushagra1212/nib/releases/latest)
@@ -81,11 +82,13 @@ The menu bar icon has **Check Selection** for the same thing without the hotkey.
 ### Command line
 
 ```sh
-nib --lint "Their is many erors"     # check text and print suggestions
-nib --rewrite "text to improve"      # run the three rewrite modes
-nib --bench 2000                     # measure lint latency
-nib --ax-probe 5                     # report what the focused field exposes
-nib --live-probe 20                  # trace the inline pipeline
+nib --lint "Their is many erors"        # check text and print suggestions
+nib --rewrite "text to improve"         # run all four rewrite modes
+nib --whisper-probe                     # report the speech engine and GPU
+nib --whisper-probe model.bin audio.wav # transcribe a file, no microphone
+nib --bench 2000                        # measure lint latency
+nib --ax-probe 5                        # report what the focused field exposes
+nib --live-probe 20                     # trace the inline pipeline
 ```
 
 Handy once installed:
@@ -149,6 +152,63 @@ any GGUF, and nib prefers the largest of the models it recognises.
 
 ---
 
+## Dictation (optional)
+
+Press **⌃⌥D**, talk, press it again. The words appear where your cursor is, in
+whatever app you are typing in.
+
+Nothing runs until you press the key: no microphone open, no model resident, no
+background process. That is the whole design. A speech model is hundreds of
+megabytes and is loaded when you stop speaking, then released.
+
+**Setup.** Put a whisper `.bin` model in
+`~/Library/Application Support/nib/speech`, then press ⌃⌥D. Whisper small is a
+reasonable start:
+
+```sh
+mkdir -p ~/Library/Application\ Support/nib/speech
+curl -L -o ~/Library/Application\ Support/nib/speech/ggml-small-q5_1.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin
+```
+
+macOS will ask for the microphone the first time. Audio is transcribed on this
+machine, is never written to disk, and is discarded when the transcript is
+inserted.
+
+### Teach it your words
+
+The single largest improvement to accuracy, and the one most people never find.
+
+Speech models replace any name they have never seen with the nearest real word.
+Measured here on Indian-accented English:
+
+| said | heard |
+|---|---|
+| `The useMemo hook is causing a re-render` | The **Usamimohuk** is causing a re-render |
+| `The Hasura metadata needs refreshing` | The **Azure** metadata needs refreshing |
+
+Ordinary sentences were already correct. Only the names failed — and no accent
+handling fixes that, because "Hasura" is not a word in any accent.
+
+**Dictation Words…** in the menu opens a list nib primes the model with. Add
+your project names, your libraries, your colleagues. Both examples above then
+transcribe exactly. Edits apply to the next sentence; no restart.
+
+Keep it short — it is a nudge, not a dictionary, and a long list dilutes it.
+
+### What it will not do
+
+- **Type sound effects.** Whisper writes `[BLANK_AUDIO]` for silence and
+  `(upbeat music)` for a hum. Those are stripped, and silence is refused before
+  the model is even loaded, because whisper invents words for it — four seconds
+  of a silent file transcribes as "you".
+- **Run for ever.** A forgotten toggle stops itself after ten minutes and
+  transcribes what it heard rather than discarding it.
+- **Stream.** The transcript arrives when you stop, not word by word. One burst
+  of work instead of continuous inference, which is where the CPU goes.
+
+---
+
 ## How it works
 
 Three passes, ordered by cost, each superseding the last:
@@ -197,8 +257,20 @@ swift test
 swift Scripts/make-icon.swift
 iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
 Scripts/bundle.sh                # dist/nib.app
+Scripts/install.sh               # move it to /Applications, leaving one copy
 Scripts/make-dmg.sh              # dist/nib-<version>.dmg
 ```
+
+`install.sh` rather than copying by hand. macOS ties Accessibility and
+microphone permission to one specific app, identified by its code signature, so
+two copies of nib is a trap: launch the wrong one and it is listed and switched
+on in System Settings while refusing to work. The script deletes `dist/nib.app`
+after installing, and clears both permissions when the signature has changed —
+a stale grant does not fail loudly, it just never works.
+
+Ad-hoc signing means every rebuild changes that signature. A real certificate
+makes the requirement the identity rather than the hash, and the permissions
+survive.
 
 Needs Swift 5.9+ and Xcode command line tools.
 
@@ -221,6 +293,7 @@ Sources/nib/
   AX/        Accessibility read and write
   UI/        menu bar, hotkey, panel
   Rewrite/   llama.cpp lifecycle
+  Dictation/ audio capture, whisper, the recording overlay
 ```
 
 ---
@@ -235,16 +308,29 @@ Sources/nib/
   one box for the whole span. The panel still offers the fix.
 - **Fields over 4000 characters are skipped**, because measuring thousands of
   ranges per keystroke stalls the app you are typing in.
-- **English only**, which is a harper limitation.
+- **English only** for underlines, which is a harper limitation. Dictation is
+  multilingual, though it is told to expect English unless you change that.
+- **Dictation and rewrite share the GPU.** Whisper holds its memory for about
+  three minutes after transcribing, so a rewrite in that window can report
+  running out of memory. It says so plainly rather than pretending the model is
+  missing.
 
 ## Credits
 
-Both are shipped inside the app, unmodified, and their full licence texts are
-in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt) — also inside the
+All three are shipped inside the app, unmodified, and their full licence texts
+are in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt) — also inside the
 bundle, and under **Licences…** in the menu bar.
 
 - [harper](https://github.com/automattic/harper) by Automattic — the grammar engine, Apache-2.0
-- [llama.cpp](https://github.com/ggml-org/llama.cpp) — local inference, MIT
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) — rewriting, MIT
+- [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — dictation, MIT
+
+Models are downloaded by you and are not part of this repository or the app.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Short version: measure before claiming,
+explain why rather than what, and make failures say what to do about them.
 
 ## License
 
