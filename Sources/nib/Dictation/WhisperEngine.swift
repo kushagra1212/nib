@@ -34,6 +34,14 @@ actor WhisperEngine {
         }
     }
 
+    /// Above this, a segment is treated as silence and dropped.
+    ///
+    /// Whisper's own default for the same judgement is 0.6. Kept there rather
+    /// than tightened: raising it lets hallucinations through, and lowering it
+    /// starts discarding quiet speech, which is the worse of the two failures
+    /// for someone who just spoke a sentence.
+    static let noSpeechLimit: Float = 0.6
+
     private var context: OpaquePointer?
     private let modelPath: URL
 
@@ -43,6 +51,43 @@ actor WhisperEngine {
 
     deinit {
         if let context { whisper_free(context) }
+    }
+
+    /// Removes whisper's descriptions of sounds it heard but could not
+    /// transcribe.
+    ///
+    /// Silence produces "[BLANK_AUDIO]", music produces "(upbeat music)", and
+    /// a cough produces "*coughs*". These are annotations for a transcript,
+    /// not words anyone said, and dictation types its result straight into
+    /// somebody's document -- so a pause before speaking put "[BLANK_AUDIO]"
+    /// into a message.
+    ///
+    /// Square brackets and asterisks go unconditionally: whisper never uses
+    /// them for speech. Parentheses only when what they hold looks like a
+    /// sound rather than an aside, because a dictated sentence can legitimately
+    /// contain one.
+    nonisolated static func clean(_ raw: String) -> String {
+        var text = raw
+
+        for pattern in [#"\[[^\]]*\]"#, #"\*[^*]*\*"#] {
+            text = text.replacingOccurrences(of: pattern, with: " ",
+                                             options: .regularExpression)
+        }
+
+        // "(laughs)", "(upbeat music)", "(wind blowing)" -- a short phrase of
+        // plain words describing a sound. Anything with digits, punctuation or
+        // more than three words is left alone as dictated speech.
+        text = text.replacingOccurrences(
+            of: #"\((?:[A-Za-z]+ ){0,2}[A-Za-z]+\)"#,
+            with: " ", options: .regularExpression)
+
+        text = text.replacingOccurrences(of: #"\s+"#, with: " ",
+                                         options: .regularExpression)
+        // Whitespace before punctuation, left behind when a marker sat mid
+        // sentence: "Hello [BLANK_AUDIO], there" would otherwise end "Hello ,".
+        text = text.replacingOccurrences(of: #" ([,.!?;:])"#, with: "$1",
+                                         options: .regularExpression)
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// What whisper reports about the hardware it will use.
@@ -95,6 +140,9 @@ actor WhisperEngine {
     ///   recogniser writes them as ordinary words.
     func transcribe(samples: [Float], prompt: String? = nil) throws -> String {
         guard !samples.isEmpty else { throw Failure.noAudio }
+        // Asked before the model is loaded, so an accidental toggle costs
+        // nothing at all rather than a model load and an invented sentence.
+        guard !AudioSamples.isSilent(samples) else { return "" }
         let context = try ensureLoaded()
 
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
@@ -106,6 +154,12 @@ actor WhisperEngine {
         params.no_context = true
         params.single_segment = false
         params.suppress_blank = true
+        // Stop the model emitting sound descriptions. Left on, a pause
+        // produces "[BLANK_AUDIO]" and a hum produces "(upbeat music)", and
+        // both get typed into whatever field is focused as though they were
+        // words. The output is filtered as well, because this flag reduces
+        // them rather than removing them.
+        params.suppress_nst = true
         // Half the cores, matching the rewrite engine: a transcription should
         // not compete with whatever the user is doing while it runs.
         params.n_threads = Int32(max(2, ProcessInfo.processInfo
@@ -130,8 +184,19 @@ actor WhisperEngine {
 
         var text = ""
         for segment in 0..<whisper_full_n_segments(context) {
+            // Whisper invents words for silence. Four seconds of a silent WAV
+            // transcribes as "you", and "Thank you." is the other common one --
+            // artefacts of its training data, not sounds in the room. Stripping
+            // the [BLANK_AUDIO] marker alone made this worse by hiding the
+            // obvious case and leaving the plausible one.
+            //
+            // The model's own estimate that a segment contains no speech is
+            // the only thing that separates a hallucinated "you" from a spoken
+            // one.
+            let silence = whisper_full_get_segment_no_speech_prob(context, segment)
+            guard silence < Self.noSpeechLimit else { continue }
             text += String(cString: whisper_full_get_segment_text(context, segment))
         }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Self.clean(text)
     }
 }

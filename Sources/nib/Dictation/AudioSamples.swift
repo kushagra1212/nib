@@ -90,4 +90,32 @@ enum AudioSamples {
     static func duration(of samples: [Float]) -> Double {
         Double(samples.count) / sampleRate
     }
+
+    /// Loudest moment in the recording, as a level from 0 to 1.
+    static func peak(of samples: [Float]) -> Float {
+        samples.reduce(0) { max($0, abs($1)) }
+    }
+
+    /// Whether this is quiet enough that nobody spoke.
+    ///
+    /// Whisper invents words for silence rather than returning nothing: four
+    /// seconds of a silent file transcribes as "you", and it reports that
+    /// segment as speech, so its own no-speech estimate does not catch it.
+    /// Refusing to ask the question is more reliable than filtering the answer.
+    ///
+    /// Measured with ffmpeg's volumedetect on this machine:
+    ///
+    ///     digital silence   -91.0 dB peak
+    ///     spoken sentence    -1.8 dB peak, -16.4 dB mean
+    ///
+    /// The threshold sits at -50 dB, far above the silence and far below any
+    /// speech: room tone through a microphone lands around -60 to -45 dB, so
+    /// an empty room does not clear it and a mumble does. Peak rather than
+    /// average, because a sentence with long pauses averages low while its
+    /// loudest syllable is unmistakable.
+    static let silenceThreshold: Float = 0.00316   // -50 dB
+
+    static func isSilent(_ samples: [Float]) -> Bool {
+        peak(of: samples) < silenceThreshold
+    }
 }
