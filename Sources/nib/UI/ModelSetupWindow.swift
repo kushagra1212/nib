@@ -228,7 +228,7 @@ final class ModelSetupWindow: NSObject, NSWindowDelegate {
         let label = NSTextField(labelWithString:
             "Loading it and asking it to correct one sentence.")
         label.font = Theme.Font.body
-        label.textColor = .secondaryLabelColor
+        label.textColor = Theme.Colour.inkMuted
         let row = NSStackView(views: [spinner, label])
         row.spacing = 8
         body.addArrangedSubview(row)
@@ -346,7 +346,7 @@ final class ModelSetupWindow: NSObject, NSWindowDelegate {
     private func add(caption: String) {
         let label = NSTextField(wrappingLabelWithString: caption)
         label.font = Theme.Font.body
-        label.textColor = .secondaryLabelColor
+        label.textColor = Theme.Colour.inkMuted
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         body.addArrangedSubview(label)
         label.widthAnchor.constraint(equalTo: body.widthAnchor,
@@ -400,21 +400,21 @@ private final class ModelRow: NSView {
         dot.image = NSImage(
             systemSymbolName: selected ? "largecircle.fill.circle" : "circle",
             accessibilityDescription: selected ? "Selected" : "Not selected")
-        dot.contentTintColor = selected ? .controlAccentColor : .tertiaryLabelColor
+        dot.contentTintColor = selected ? Theme.Colour.selection : Theme.Colour.inkMuted
 
         let name = NSTextField(labelWithString: model.title)
         name.font = .systemFont(ofSize: 13, weight: .medium)
 
         let size = NSTextField(labelWithString: model.sizeLabel)
         size.font = Theme.Font.caption
-        size.textColor = .secondaryLabelColor
+        size.textColor = Theme.Colour.inkMuted
 
         let heading = NSStackView(views: [name, size])
         heading.spacing = 8
 
         let detail = NSTextField(wrappingLabelWithString: model.detail)
         detail.font = Theme.Font.caption
-        detail.textColor = .secondaryLabelColor
+        detail.textColor = Theme.Colour.inkMuted
 
         let text = NSStackView(views: [heading, detail])
         text.orientation = .vertical
@@ -444,10 +444,10 @@ private final class ModelRow: NSView {
 
     private func refreshColours() {
         layer?.borderColor = selected
-            ? NSColor.controlAccentColor.cgColor
+            ? Theme.Colour.selection.cgColor
             : Theme.Colour.controlEdge(0.12).cgColor
         layer?.backgroundColor = selected
-            ? NSColor.controlAccentColor.withAlphaComponent(0.08).cgColor
+            ? Theme.Colour.selection.withAlphaComponent(0.08).cgColor
             : NSColor.clear.cgColor
     }
 

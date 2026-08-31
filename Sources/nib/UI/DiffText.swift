@@ -64,15 +64,15 @@ enum DiffText {
                 return [.foregroundColor: NSColor.labelColor,
                         .font: NSFont.systemFont(ofSize: size)]
             case .removed:
-                return [.foregroundColor: NSColor.systemRed,
+                return [.foregroundColor: Theme.Colour.removed,
                         .font: NSFont.systemFont(ofSize: size),
                         .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                        .strikethroughColor: NSColor.systemRed]
+                        .strikethroughColor: Theme.Colour.removed]
             case .added:
-                return [.foregroundColor: NSColor.systemGreen,
+                return [.foregroundColor: Theme.Colour.added,
                         .font: NSFont.systemFont(ofSize: size, weight: .semibold),
                         .underlineStyle: NSUnderlineStyle.single.rawValue,
-                        .underlineColor: NSColor.systemGreen.withAlphaComponent(0.6)]
+                        .underlineColor: Theme.Colour.added.withAlphaComponent(0.6)]
             }
         }
     }

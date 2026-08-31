@@ -84,13 +84,15 @@ final class DictationOverlay {
 
         let caption = NSTextField(labelWithString: "Listening")
         caption.font = Theme.Font.control
-        caption.textColor = .secondaryLabelColor
+        caption.textColor = Theme.Colour.inkMuted
         label = caption
 
-        let stop = NSButton(title: "Stop", target: self, action: #selector(cancelled))
-        stop.bezelStyle = .rounded
-        stop.controlSize = .small
-        stop.font = Theme.Font.control
+        // The same control the rewrite bar uses. Two floating panels from the
+        // same app with two different button styles is the thing that makes an
+        // interface feel assembled rather than designed.
+        let stop = PillButton(title: "Stop", emphasis: .secondary,
+                              icon: "stop.fill", iconTint: Theme.Colour.clay,
+                              target: self, action: #selector(cancelled))
 
         let row = NSStackView(views: [dot, caption, stop])
         row.spacing = 10
@@ -194,7 +196,7 @@ private final class LevelMeter: NSView {
         let size = bounds.width * scale
         let rect = NSRect(x: bounds.midX - size / 2, y: bounds.midY - size / 2,
                           width: size, height: size)
-        NSColor.systemRed.withAlphaComponent(0.35 + CGFloat(smoothed) * 0.65)
+        Theme.Colour.listening.withAlphaComponent(0.35 + CGFloat(smoothed) * 0.65)
             .setFill()
         NSBezierPath(ovalIn: rect).fill()
     }

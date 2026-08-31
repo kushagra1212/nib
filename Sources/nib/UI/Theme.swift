@@ -38,18 +38,72 @@ enum Theme {
         }
     }
 
+    /// Japandi: Japanese restraint, Scandinavian warmth.
+    ///
+    /// Every surface nib draws sits on top of somebody else's work, most of it
+    /// text. The system palette is built to be noticed -- systemRed and
+    /// systemBlue at full saturation next to a paragraph pull the eye off the
+    /// sentence being written, which is the one thing these surfaces must not
+    /// do.
+    ///
+    /// So: muted earth pigments on warm neutrals, no pure black, no pure white,
+    /// and four accents rather than the six that had accumulated. Meaning is
+    /// carried by hue, not by loudness -- clay still reads as wrong and slate
+    /// still reads as suggestion, at a fraction of the volume.
     enum Colour {
-        static let correction = NSColor.systemRed
-        static let clarity = NSColor.systemBlue
-        static let accept = NSColor.systemGreen
-        static let removed = NSColor.systemRed
-        static let added = NSColor.systemGreen
+        /// Builds a colour that shifts with the system appearance.
+        private static func adaptive(light: NSColor, dark: NSColor) -> NSColor {
+            NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                    ? dark : light
+            }
+        }
+
+        private static func hex(_ value: UInt32, alpha: CGFloat = 1) -> NSColor {
+            NSColor(srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
+                    green: CGFloat((value >> 8) & 0xFF) / 255,
+                    blue: CGFloat(value & 0xFF) / 255,
+                    alpha: alpha)
+        }
+
+        // MARK: - Pigments
+
+        /// Burnt clay. Where the system would use red.
+        static let clay = adaptive(light: hex(0xA85C48), dark: hex(0xC97F6B))
+        /// Soft sage. Where the system would use green.
+        static let sage = adaptive(light: hex(0x6F7F5C), dark: hex(0x9DAE88))
+        /// Cool slate. Where the system would use blue.
+        static let slate = adaptive(light: hex(0x5C7180), dark: hex(0x8FA6B5))
+        /// Warm taupe, for the third mode.
+        static let taupe = adaptive(light: hex(0x8A7A6D), dark: hex(0xB4A392))
+
+        // MARK: - Meaning
+
+        static let correction = clay
+        static let clarity = slate
+        static let accept = sage
+        static let removed = clay
+        static let added = sage
+        /// The recording indicator. Clay rather than red: it has to be
+        /// unmissable without being an alarm.
+        static let listening = clay
 
         /// Per-mode icon colour, so the row is distinguishable at a glance and
-        /// carries some warmth rather than reading as three grey chips.
-        static let fix = NSColor.systemGreen
-        static let rewrite = NSColor.systemBlue
-        static let condense = NSColor.systemPurple
+        /// carries some warmth rather than reading as four grey chips.
+        static let fix = sage
+        static let rewrite = slate
+        static let condense = taupe
+
+        /// Text, in two weights. Warm rather than neutral grey, and never pure
+        /// black on white or white on black -- the contrast is what makes a
+        /// small floating panel feel like a system alert.
+        static let ink = adaptive(light: hex(0x2E2A26), dark: hex(0xE8E3DB))
+        static let inkMuted = adaptive(light: hex(0x7A7168), dark: hex(0x9E958B))
+
+        /// The tint used for a selected control. Replaces the system accent,
+        /// which is whatever colour the user picked in System Settings and so
+        /// cannot be made to sit with anything else.
+        static let selection = slate
 
         /// Fill for a quiet control.
         ///

@@ -26,6 +26,9 @@ final class SelectionBar: NSPanel {
     private let proposalView = ProposalView()
     private var modeButtons: [PillButton] = []
     private var proposal: String?
+    /// Which mode produced what is on screen, so changing the dial can ask the
+    /// same question again rather than leaving a stale answer or none at all.
+    private var lastMode: RewriteMode?
     private var autoTask: Task<Void, Never>?
     /// The selected text, used to tell a real suggestion from an echo of the
     /// input.
@@ -96,7 +99,7 @@ final class SelectionBar: NSPanel {
         glyph.imageScaling = .scaleProportionallyUpOrDown
 
         status.font = Theme.Font.caption
-        status.textColor = .secondaryLabelColor
+        status.textColor = Theme.Colour.inkMuted
         status.isHidden = true
 
         dots.isHidden = true
@@ -213,7 +216,7 @@ final class SelectionBar: NSPanel {
 
         modeButtons.forEach { $0.isEnabled = false }
         status.stringValue = "reading"
-        status.textColor = .secondaryLabelColor
+        status.textColor = Theme.Colour.inkMuted
         status.isHidden = false
         dots.start()
         resize()
@@ -357,6 +360,10 @@ final class SelectionBar: NSPanel {
     func dismiss() {
         autoTask?.cancel()
         wasMoved = false
+        // Forgotten with the selection it belonged to. Otherwise moving the
+        // dial against a fresh selection would rerun whatever the last one
+        // asked for, unprompted.
+        lastMode = nil
         guard isVisible else { return }
         dots.stop()
         Theme.dismiss(self)
@@ -453,13 +460,27 @@ final class SelectionBar: NSPanel {
         proposal = nil
         proposalView.isHidden = true
         status.isHidden = true
-        resize()
+
+        // Ask again at the new setting, rather than clearing the bar and
+        // waiting. Moving the dial is a request for a different answer, and
+        // the old behaviour left nothing on screen until a mode button was
+        // pressed a second time -- which read as the dial doing nothing.
+        if let lastMode {
+            run(lastMode)
+        } else {
+            resize()
+        }
     }
 
     @objc private func runMode(_ sender: NSButton) {
-        guard let onRewrite, sender.tag < RewriteMode.allCases.count else { return }
-        let mode = RewriteMode.allCases[sender.tag]
+        guard sender.tag < RewriteMode.allCases.count else { return }
+        run(RewriteMode.allCases[sender.tag])
+    }
+
+    private func run(_ mode: RewriteMode) {
+        guard let onRewrite else { return }
         autoTask?.cancel()
+        lastMode = mode
 
         modeButtons.forEach { $0.isEnabled = false }
         proposalView.isHidden = true
@@ -476,7 +497,7 @@ final class SelectionBar: NSPanel {
             do {
                 let result = try await onRewrite(mode)
                 guard !result.isEmpty else {
-                    self.show(status: "nothing to change", tint: .secondaryLabelColor)
+                    self.show(status: "nothing to change", tint: Theme.Colour.inkMuted)
                     return
                 }
                 self.present(proposal: result)

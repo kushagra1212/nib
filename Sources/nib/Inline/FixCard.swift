@@ -33,8 +33,8 @@ final class FixCard: NSPanel {
         static let width: CGFloat = 360
         static let padding: CGFloat = 14
         static let corner: CGFloat = 10
-        static let removed = NSColor.systemRed
-        static let added = NSColor.systemGreen
+        static let removed = Theme.Colour.removed
+        static let added = Theme.Colour.added
         /// Motion is kept under a fifth of a second: perceptible, never a wait.
         static let appearDuration: TimeInterval = 0.14
         static let dismissDuration: TimeInterval = 0.10
@@ -62,7 +62,7 @@ final class FixCard: NSPanel {
         contentView = background
 
         explanation.font = .systemFont(ofSize: 12)
-        explanation.textColor = .secondaryLabelColor
+        explanation.textColor = Theme.Colour.inkMuted
         explanation.lineBreakMode = .byWordWrapping
         explanation.maximumNumberOfLines = 2
         explanation.preferredMaxLayoutWidth = Style.width - Style.padding * 2
@@ -84,7 +84,7 @@ final class FixCard: NSPanel {
         configureStepper(nextButton, symbol: "chevron.right", action: #selector(stepForward))
 
         counter.font = .systemFont(ofSize: 11)
-        counter.textColor = .tertiaryLabelColor
+        counter.textColor = Theme.Colour.inkMuted
 
         let actions = NSStackView(views: [
             acceptButton, dismissButton, NSView(),
@@ -117,7 +117,7 @@ final class FixCard: NSPanel {
         button.configure(title: "", emphasis: .plain, target: self, action: action)
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         button.imagePosition = .imageOnly
-        button.contentTintColor = .secondaryLabelColor
+        button.contentTintColor = Theme.Colour.inkMuted
     }
 
     // MARK: - Content
@@ -245,7 +245,7 @@ final class FixCard: NSPanel {
         let out = NSMutableAttributedString()
         if source == .model { out.append(Theme.aiTag()) }
         out.append(NSAttributedString(string: message, attributes: [
-            .foregroundColor: NSColor.secondaryLabelColor,
+            .foregroundColor: Theme.Colour.inkMuted,
             .font: NSFont.systemFont(ofSize: 12),
         ]))
         return out
@@ -258,7 +258,7 @@ final class FixCard: NSPanel {
     /// than like nib having nothing to offer.
     static func noFixText() -> NSAttributedString {
         NSAttributedString(string: "No suggested fix — flagged only.", attributes: [
-            .foregroundColor: NSColor.tertiaryLabelColor,
+            .foregroundColor: Theme.Colour.inkMuted,
             .font: NSFont.systemFont(ofSize: 13),
         ])
     }

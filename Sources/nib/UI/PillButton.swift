@@ -191,7 +191,7 @@ final class PillButton: NSButton {
     }
 
     private var textColour: NSColor {
-        guard isEnabled else { return .tertiaryLabelColor }
+        guard isEnabled else { return Theme.Colour.inkMuted }
         return emphasis == .primary ? .white : .labelColor
     }
 
@@ -254,7 +254,7 @@ final class Pill: NSView {
         }
     }
 
-    var tint: NSColor = .secondaryLabelColor {
+    var tint: NSColor = Theme.Colour.inkMuted {
         didSet {
             layer?.backgroundColor = tint.withAlphaComponent(0.14).cgColor
             layer?.borderColor = tint.withAlphaComponent(0.22).cgColor
@@ -267,11 +267,11 @@ final class Pill: NSView {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         layer?.borderWidth = 1
-        layer?.backgroundColor = NSColor.secondaryLabelColor
+        layer?.backgroundColor = Theme.Colour.inkMuted
             .withAlphaComponent(0.14).cgColor
 
         label.font = Theme.Font.title
-        label.textColor = .secondaryLabelColor
+        label.textColor = Theme.Colour.inkMuted
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
 

@@ -82,7 +82,7 @@ final class ProposalView: NSView {
         expander.imagePosition = .imageOnly
         expander.image = NSImage(systemSymbolName: "chevron.down",
                                  accessibilityDescription: "Show all")
-        expander.contentTintColor = .secondaryLabelColor
+        expander.contentTintColor = Theme.Colour.inkMuted
         expander.target = self
         expander.action = #selector(toggleExpanded)
         expander.toolTip = "Show the whole suggestion"
@@ -92,7 +92,7 @@ final class ProposalView: NSView {
         // A return glyph, so the affordance is legible without a caption.
         hint.image = NSImage(systemSymbolName: "return",
                              accessibilityDescription: "Accept")
-        hint.contentTintColor = .tertiaryLabelColor
+        hint.contentTintColor = Theme.Colour.inkMuted
         hint.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hint)
 
@@ -163,6 +163,6 @@ final class ProposalView: NSView {
                 ? tint.withAlphaComponent(0.55)
                 : NSColor.clear).cgColor
         }
-        hint.contentTintColor = hovering ? tint : .tertiaryLabelColor
+        hint.contentTintColor = hovering ? tint : Theme.Colour.inkMuted
     }
 }

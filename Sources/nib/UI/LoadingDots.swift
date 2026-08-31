@@ -11,7 +11,7 @@ final class LoadingDots: NSView {
     private let radius: CGFloat = 3
     private let gap: CGFloat = 5
 
-    var tint: NSColor = .secondaryLabelColor {
+    var tint: NSColor = Theme.Colour.inkMuted {
         didSet { dots.forEach { $0.backgroundColor = tint.cgColor } }
     }
 

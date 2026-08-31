@@ -56,7 +56,7 @@ final class SuggestionPanel: NSPanel {
 
         // Header: what this is, and how it is going.
         titleLabel.font = Theme.Font.title
-        titleLabel.textColor = .secondaryLabelColor
+        titleLabel.textColor = Theme.Colour.inkMuted
 
         spinner.style = .spinning
         spinner.controlSize = .small
@@ -105,7 +105,7 @@ final class SuggestionPanel: NSPanel {
         rowsStack.spacing = 2
 
         overflowLabel.font = Theme.Font.caption
-        overflowLabel.textColor = .tertiaryLabelColor
+        overflowLabel.textColor = Theme.Colour.inkMuted
         overflowLabel.isHidden = true
 
         // Actions.
@@ -181,7 +181,7 @@ final class SuggestionPanel: NSPanel {
         textView.string = text
         suggestions = []
         renderRows()
-        setStatus("checking", tint: .secondaryLabelColor)
+        setStatus("checking", tint: Theme.Colour.inkMuted)
         spinner.startAnimation(nil)
 
         resize(animated: false)
@@ -308,13 +308,13 @@ final class SuggestionPanel: NSPanel {
         if suggestion.replacements.isEmpty {
             let note = NSTextField(labelWithString: suggestion.message)
             note.font = Theme.Font.caption
-            note.textColor = .secondaryLabelColor
+            note.textColor = Theme.Colour.inkMuted
             note.lineBreakMode = .byTruncatingTail
             row.addArrangedSubview(note)
         } else {
             let arrow = NSTextField(labelWithString: "→")
             arrow.font = Theme.Font.caption
-            arrow.textColor = .tertiaryLabelColor
+            arrow.textColor = Theme.Colour.inkMuted
             row.addArrangedSubview(arrow)
 
             for fix in suggestion.replacements.prefix(2) {
@@ -359,7 +359,7 @@ final class SuggestionPanel: NSPanel {
 
         rewriteButtons.forEach { $0.isEnabled = false }
         spinner.startAnimation(nil)
-        setStatus(mode.shortTitle.lowercased() + "…", tint: .secondaryLabelColor)
+        setStatus(mode.shortTitle.lowercased() + "…", tint: Theme.Colour.inkMuted)
 
         Task { @MainActor in
             defer {
@@ -390,7 +390,7 @@ final class SuggestionPanel: NSPanel {
         textView.string = previous
         textBeforeRewrite = nil
         undoButton.isHidden = true
-        setStatus("reverted", tint: .secondaryLabelColor)
+        setStatus("reverted", tint: Theme.Colour.inkMuted)
         resize()
     }
 
