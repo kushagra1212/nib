@@ -185,6 +185,12 @@ enum Theme {
         static let control = serif(11, .medium)
         static let caption = serif(11)
         static let title = serif(11, .semibold)
+        /// A window heading. The only size above body text, and still serif --
+        /// a sans-serif heading over serif prose is the drift this file exists
+        /// to prevent, and a screenshot caught it doing exactly that.
+        static let heading = serif(15, .semibold)
+        /// A row's name, one step up from body.
+        static let rowTitle = serif(13, .medium)
     }
 
     /// The mark that says a model wrote what follows.

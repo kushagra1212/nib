@@ -339,7 +339,7 @@ final class ModelSetupWindow: NSObject, NSWindowDelegate {
 
     private func add(title: String) {
         let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 15, weight: .semibold)
+        label.font = Theme.Font.heading
         body.addArrangedSubview(label)
     }
 
@@ -406,7 +406,7 @@ private final class ModelRow: NSView {
         dot.contentTintColor = selected ? Theme.Colour.selection : Theme.Colour.inkMuted
 
         let name = NSTextField(labelWithString: model.title)
-        name.font = .systemFont(ofSize: 13, weight: .medium)
+        name.font = Theme.Font.rowTitle
 
         let size = NSTextField(labelWithString: model.sizeLabel)
         size.font = Theme.Font.caption
