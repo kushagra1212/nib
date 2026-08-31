@@ -35,7 +35,7 @@ file exists to patch in technical terms.
 | Question | Answer |
 |---|---|
 | Where does it live | Inside nib |
-| How is it triggered | Hotkey toggles on, hotkey toggles off |
+| How is it triggered | `⌃⌥D` toggles on, `⌃⌥D` toggles off |
 | When does text appear | All at once, after you stop |
 | Is the text cleaned up | No. Insert exactly what was heard |
 | What is dictated | English prose, technical terms, long passages; Hindi occasionally |
@@ -45,6 +45,19 @@ file exists to patch in technical terms.
 Hold-to-talk is cheaper still, but it is unusable for the long dictation this
 has to support. The cost of toggle is a state you can forget you are in, so
 the microphone being live has to be visible without looking for it.
+
+### Why `⌃⌥D`
+
+`RegisterEventHotKey` takes a combination system-wide, so whatever it grabs is
+gone from every other app for as long as nib runs. `⌘E` was considered and
+rejected on those grounds: it is Eject in the Finder and "Use Selection for
+Find" in every standard text view, and dictation is not worth losing both
+everywhere.
+
+`⌃⌥D` is awkward to press and owned by nothing, which is the trade being made.
+It joins the existing preference list in `HotkeyMonitor` -- `⌥Space` for the
+panel, `⌘⇧G` as its fallback -- and registration failure has to degrade the
+same way theirs does rather than leaving dictation silently unavailable.
 
 ### Why no cleanup pass
 
@@ -214,5 +227,7 @@ mechanism exists, but exposing it is a later decision.
 
 ## Open questions
 
-1. Which model becomes the default. Answered by measurement, not by argument.
-2. Which hotkey. It must not collide with `⌥Space`, already taken by the panel.
+1. Which model becomes the default. Answered by measurement, not by argument:
+   `--dictate-bench` over `small`, `medium` and `large-v3-turbo` on real speech
+   from this machine, comparing accuracy, wall-clock and peak memory. Nothing
+   is written into the catalogue as recommended before that has been run.
