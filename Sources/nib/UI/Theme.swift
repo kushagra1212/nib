@@ -6,12 +6,38 @@ import AppKit
 /// same product seen three ways, and they had drifted into three different
 /// paddings, radii and button styles.
 enum Theme {
+    /// Neoclassical: order, proportion, and no ornament that is not structural.
+    ///
+    /// The style is not paint. Classical architecture is built from a small set
+    /// of repeated members at fixed proportions, and the equivalent here is one
+    /// control height, one radius, one hairline, one face -- so a button in the
+    /// rewrite bar and a button in the setup window are the same object rather
+    /// than two things that happen to be the same colour.
+    ///
+    /// Capsules are gone with the rest of it. A pill is a shape from a different
+    /// tradition, and it was also the reason the strength dial could never be
+    /// made to match its neighbours: AppKit has no capsule segmented control.
+    enum Metric {
+        /// Every control is this tall. No exceptions -- a row of differing
+        /// heights is what made the old bar read as assembled parts.
+        static let control: CGFloat = 24
+        /// Padding inside a control, left and right.
+        static let controlPadding: CGFloat = 12
+        /// One hairline, everywhere something needs an edge.
+        static let hairline: CGFloat = 1
+        /// Gap between a glyph and its label.
+        static let glyphGap: CGFloat = 5
+    }
+
     enum Radius {
-        /// Generous, because a small radius on a translucent panel reads as a
-        /// cut-out rather than as a floating surface.
-        static let window: CGFloat = 14
-        static let control: CGFloat = 7
-        static let pill: CGFloat = 9
+        /// Shallow, and the same on every surface. Classical corners are close
+        /// to square; the small radius is a concession to the display, not a
+        /// style choice.
+        static let window: CGFloat = 6
+        static let control: CGFloat = 3
+        /// Retained under its old name so nothing has to be renamed to be
+        /// corrected. It is no longer a pill.
+        static let pill: CGFloat = 3
     }
 
     enum Space {
@@ -38,7 +64,7 @@ enum Theme {
         }
     }
 
-    /// Japandi: Japanese restraint, Scandinavian warmth.
+    /// Pigments, not system colours.
     ///
     /// Every surface nib draws sits on top of somebody else's work, most of it
     /// text. The system palette is built to be noticed -- systemRed and
@@ -46,10 +72,10 @@ enum Theme {
     /// sentence being written, which is the one thing these surfaces must not
     /// do.
     ///
-    /// So: muted earth pigments on warm neutrals, no pure black, no pure white,
-    /// and four accents rather than the six that had accumulated. Meaning is
-    /// carried by hue, not by loudness -- clay still reads as wrong and slate
-    /// still reads as suggestion, at a fraction of the volume.
+    /// So the accents are named after where they come from: Pompeian red,
+    /// verdigris, Wedgwood blue, brass. Meaning is carried by hue rather than
+    /// by loudness -- red still reads as wrong and blue still reads as
+    /// suggestion, at a fraction of the volume.
     enum Colour {
         /// Builds a colour that shifts with the system appearance.
         private static func adaptive(light: NSColor, dark: NSColor) -> NSColor {
@@ -68,14 +94,21 @@ enum Theme {
 
         // MARK: - Pigments
 
-        /// Burnt clay. Where the system would use red.
-        static let clay = adaptive(light: hex(0xA85C48), dark: hex(0xC97F6B))
-        /// Soft sage. Where the system would use green.
-        static let sage = adaptive(light: hex(0x6F7F5C), dark: hex(0x9DAE88))
-        /// Cool slate. Where the system would use blue.
-        static let slate = adaptive(light: hex(0x5C7180), dark: hex(0x8FA6B5))
-        /// Warm taupe, for the third mode.
-        static let taupe = adaptive(light: hex(0x8A7A6D), dark: hex(0xB4A392))
+        /// Pompeian red, the pigment on the walls at Herculaneum. Where the
+        /// system would use red.
+        static let clay = adaptive(light: hex(0x9B3D33), dark: hex(0xC26A5C))
+        /// Verdigris, aged bronze. Where the system would use green.
+        static let sage = adaptive(light: hex(0x4E7A6B), dark: hex(0x86AFA0))
+        /// Wedgwood blue. Where the system would use blue.
+        static let slate = adaptive(light: hex(0x4A6785), dark: hex(0x8AA5C0))
+        /// Brass. The accent that holds the rest together, used for edges and
+        /// selection rather than for fills -- gilding is a line, not a slab.
+        static let taupe = adaptive(light: hex(0x9A7B3F), dark: hex(0xC2A263))
+        static var brass: NSColor { taupe }
+
+        /// Ivory and ink. Never pure white or pure black: marble is warm and
+        /// printer's ink is not carbon.
+        static let ivory = adaptive(light: hex(0xF6F2E9), dark: hex(0x1C1B19))
 
         // MARK: - Meaning
 
@@ -97,13 +130,17 @@ enum Theme {
         /// Text, in two weights. Warm rather than neutral grey, and never pure
         /// black on white or white on black -- the contrast is what makes a
         /// small floating panel feel like a system alert.
-        static let ink = adaptive(light: hex(0x2E2A26), dark: hex(0xE8E3DB))
-        static let inkMuted = adaptive(light: hex(0x7A7168), dark: hex(0x9E958B))
+        static let ink = adaptive(light: hex(0x23211E), dark: hex(0xEDE8DE))
+        static let inkMuted = adaptive(light: hex(0x6B645C), dark: hex(0x9C948A))
+
+        /// The single edge colour. One hairline, one weight, everywhere.
+        static let rule = adaptive(light: hex(0x23211E, alpha: 0.18),
+                                   dark: hex(0xEDE8DE, alpha: 0.16))
 
         /// The tint used for a selected control. Replaces the system accent,
         /// which is whatever colour the user picked in System Settings and so
         /// cannot be made to sit with anything else.
-        static let selection = slate
+        static let selection = taupe
 
         /// Fill for a quiet control.
         ///
@@ -131,12 +168,23 @@ enum Theme {
     }
 
     enum Font {
-        static let body = NSFont.systemFont(ofSize: 13)
-        static let diff = NSFont.systemFont(ofSize: 14)
-        static let diffEmphasis = NSFont.boldSystemFont(ofSize: 14)
-        static let control = NSFont.systemFont(ofSize: 11, weight: .medium)
-        static let caption = NSFont.systemFont(ofSize: 11)
-        static let title = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        /// New York, Apple's serif. The clearest signal of the style and the
+        /// cheapest: it ships with the system, so nothing is bundled and
+        /// nothing falls back to Times.
+        private static func serif(_ size: CGFloat,
+                                  _ weight: NSFont.Weight = .regular) -> NSFont {
+            let base = NSFont.systemFont(ofSize: size, weight: weight)
+            guard let descriptor = base.fontDescriptor
+                .withDesign(.serif) else { return base }
+            return NSFont(descriptor: descriptor, size: size) ?? base
+        }
+
+        static let body = serif(13)
+        static let diff = serif(14)
+        static let diffEmphasis = serif(14, .semibold)
+        static let control = serif(11, .medium)
+        static let caption = serif(11)
+        static let title = serif(11, .semibold)
     }
 
     /// The mark that says a model wrote what follows.

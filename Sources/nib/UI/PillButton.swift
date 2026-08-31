@@ -1,12 +1,16 @@
 import AppKit
 
-/// A capsule control that lifts under the pointer and dips when pressed.
+/// The control. Every pressable thing nib draws is one of these.
 ///
 /// AppKit's bezels look like a settings dialog at this size, and a flat fill on
-/// a blurred backdrop reads as disabled. Every part here exists to say
-/// "pressable": a capsule silhouette, a gradient so it catches light from
-/// above, a hairline edge so it separates from the blur behind it, and a shadow
-/// that grows on hover.
+/// a blurred backdrop reads as disabled. What says "pressable" here is a
+/// hairline edge, a gradient that catches light from above, and a shadow that
+/// grows on hover.
+///
+/// Its geometry comes from Theme.Metric rather than from itself, so it cannot
+/// drift from the segmented control beside it -- which is exactly what happened
+/// when this was a capsule and its neighbour was an AppKit segmented control
+/// that has no capsule form.
 final class PillButton: NSButton {
     enum Emphasis {
         /// Filled with the tint. One per surface, at most.
@@ -22,6 +26,12 @@ final class PillButton: NSButton {
     /// Colour of the leading icon, separate from the fill so a quiet button
     /// can still carry a bright glyph.
     private var iconTint: NSColor?
+    /// Marked as the current choice, for a button standing in a SegmentedRow.
+    ///
+    /// Held here rather than in the row so the selected segment is drawn by the
+    /// same code as every other state -- one place decides what a control looks
+    /// like, which is the whole point of there being one control.
+    private var selected = false { didSet { refresh(animated: true) } }
     private var hovering = false { didSet { refresh(animated: true) } }
     private var pressing = false { didSet { refresh(animated: true) } }
     private var tracking: NSTrackingArea?
@@ -30,9 +40,9 @@ final class PillButton: NSButton {
     private var iconName: String?
 
     private enum Metrics {
-        static let height: CGFloat = 26
-        static let horizontalPadding: CGFloat = 13
-        static let iconSpacing: CGFloat = 5
+        static let height = Theme.Metric.control
+        static let horizontalPadding = Theme.Metric.controlPadding
+        static let iconSpacing = Theme.Metric.glyphGap
         /// How far the button rises under the pointer.
         static let lift: CGFloat = 1
     }
@@ -86,7 +96,7 @@ final class PillButton: NSButton {
         }
         fillLayer.startPoint = CGPoint(x: 0.5, y: 0)
         fillLayer.endPoint = CGPoint(x: 0.5, y: 1)
-        fillLayer.borderWidth = 1
+        fillLayer.borderWidth = Theme.Metric.hairline
         fillLayer.cornerCurve = .continuous
 
         layer?.shadowOffset = CGSize(width: 0, height: -1)
@@ -109,7 +119,7 @@ final class PillButton: NSButton {
         super.layout()
         // A true capsule: the radius tracks the height rather than a constant,
         // so the shape stays right if the metrics change.
-        let radius = bounds.height / 2
+        let radius = Theme.Radius.control
         fillLayer.frame = bounds
         fillLayer.cornerRadius = radius
         layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: radius,
@@ -162,6 +172,15 @@ final class PillButton: NSButton {
             let flat = NSColor.controlColor.withAlphaComponent(0.18)
             return (flat, flat)
         }
+        // Gilding is a line, not a slab: the chosen segment is washed with the
+        // accent and edged in it, rather than flooded. Solid brass behind small
+        // serif type is unreadable, and it also shouts across a row that is
+        // meant to read as one object.
+        if selected {
+            let wash = pressing ? 0.30 : (hovering ? 0.26 : 0.20)
+            return (tint.withAlphaComponent(wash),
+                    tint.withAlphaComponent(wash * 0.7))
+        }
         switch emphasis {
         case .primary:
             let base = pressing ? tint.shaded(0.16) : tint
@@ -178,8 +197,15 @@ final class PillButton: NSButton {
         }
     }
 
+    /// Marks this as the chosen one of a set.
+    func setSelected(_ isSelected: Bool, tint: NSColor) {
+        self.tint = tint
+        selected = isSelected
+    }
+
     private var borderColour: NSColor {
         guard isEnabled else { return .clear }
+        if selected { return tint.withAlphaComponent(0.55) }
         switch emphasis {
         case .primary:
             return tint.shaded(0.22).withAlphaComponent(0.9)
@@ -192,7 +218,8 @@ final class PillButton: NSButton {
 
     private var textColour: NSColor {
         guard isEnabled else { return Theme.Colour.inkMuted }
-        return emphasis == .primary ? .white : .labelColor
+        if selected { return Theme.Colour.ink }
+        return emphasis == .primary ? Theme.Colour.ivory : Theme.Colour.ink
     }
 
     /// Tinting the whole button would recolour the label too, so the icon
@@ -266,7 +293,7 @@ final class Pill: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1
+        layer?.borderWidth = Theme.Metric.hairline
         layer?.backgroundColor = Theme.Colour.inkMuted
             .withAlphaComponent(0.14).cgColor
 
@@ -286,7 +313,7 @@ final class Pill: NSView {
 
     override func layout() {
         super.layout()
-        layer?.cornerRadius = bounds.height / 2
+        layer?.cornerRadius = Theme.Radius.control
     }
 
     override var intrinsicContentSize: NSSize {

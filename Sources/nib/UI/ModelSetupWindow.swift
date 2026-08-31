@@ -353,15 +353,18 @@ final class ModelSetupWindow: NSObject, NSWindowDelegate {
                                      constant: -44).isActive = true
     }
 
+    /// The same control as the rewrite bar and the dictation overlay.
+    ///
+    /// This window used AppKit's rounded bezel, which is a different height, a
+    /// different radius and a different typeface from everything else nib
+    /// draws -- so the one window a new user meets first looked like it came
+    /// from another application.
     private func button(_ title: String, action: Selector,
                         primary: Bool = false) -> NSView {
-        let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .rounded
-        if primary {
-            button.keyEquivalent = "\r"
-            button.hasDestructiveAction = false
-        }
-        return button
+        PillButton(title: title,
+                   emphasis: primary ? .primary : .secondary,
+                   tint: Theme.Colour.brass,
+                   target: self, action: action)
     }
 
     private func addRow(_ views: [NSView]) {

@@ -15,7 +15,9 @@ final class SelectionBar: NSPanel {
     var onAccept: ((String) -> Void)?
 
     private let glyph = NSImageView()
-    private let strengthDial = NSSegmentedControl()
+    private lazy var strengthDial = SegmentedRow(
+        titles: RewriteStrength.allCases.map(\.title),
+        selected: RewriteStrength.allCases.firstIndex(of: RewriteStrength.current) ?? 1)
     private lazy var diffButton = PillButton(
         title: "Diff", emphasis: .secondary, icon: "plusminus",
         iconTint: Theme.Colour.accept, target: self, action: #selector(toggleDiff))
@@ -128,17 +130,8 @@ final class SelectionBar: NSPanel {
         // more buttons: the mode is what you want done, the dial is how much,
         // and folding twelve combinations into one row would read as twelve
         // unrelated actions.
-        strengthDial.segmentStyle = .rounded
-        strengthDial.segmentCount = RewriteStrength.allCases.count
-        strengthDial.controlSize = .small
-        strengthDial.font = Theme.Font.control
-        strengthDial.target = self
-        strengthDial.action = #selector(strengthChanged)
-        for (index, strength) in RewriteStrength.allCases.enumerated() {
-            strengthDial.setLabel(strength.title, forSegment: index)
-            if strength == RewriteStrength.current {
-                strengthDial.selectedSegment = index
-            }
+        strengthDial.onSelect = { [weak self] index in
+            self?.strengthChanged(to: index)
         }
         strengthDial.toolTip = "How far a rewrite may stray from what you wrote"
 
@@ -448,8 +441,7 @@ final class SelectionBar: NSPanel {
 
     // MARK: - Actions
 
-    @objc private func strengthChanged() {
-        let index = strengthDial.selectedSegment
+    private func strengthChanged(to index: Int) {
         guard RewriteStrength.allCases.indices.contains(index) else { return }
         let strength = RewriteStrength.allCases[index]
         RewriteStrength.current = strength
