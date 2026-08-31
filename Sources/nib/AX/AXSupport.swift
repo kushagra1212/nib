@@ -19,6 +19,18 @@ enum AXAccess {
             "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
         NSWorkspace.shared.open(url)
     }
+
+    /// The microphone pane, for dictation.
+    ///
+    /// Its own entry point rather than a parameter: these are two different
+    /// permissions that fail at different moments, and a dialog about the
+    /// microphone that opens the Accessibility list is worse than one that
+    /// opens nothing.
+    static func openMicrophoneSettings() {
+        let url = URL(string:
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+        NSWorkspace.shared.open(url)
+    }
 }
 
 /// Thin typed wrapper over the AXUIElement C API.

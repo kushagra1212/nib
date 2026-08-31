@@ -156,16 +156,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // A dialog that names a permission and offers only OK is a dead end:
         // it leaves the reader to find a settings pane nib can open in one
-        // line. The transcript survives on the clipboard either way, so this
-        // is the only thing standing between them and the fix.
-        let needsAccessibility = !AXAccess.isTrusted
-        if needsAccessibility {
+        // line.
+        //
+        // Which pane depends on which permission failed, and dictation needs
+        // two. A microphone refusal that opens the Accessibility list sends
+        // someone to a switch that is already on, to fix something else.
+        enum Missing { case microphone, accessibility, neither }
+        let missing: Missing = why.contains("microphone")
+            ? .microphone
+            : (AXAccess.isTrusted ? .neither : .accessibility)
+
+        switch missing {
+        case .microphone:
+            alert.addButton(withTitle: "Open Microphone Settings")
+        case .accessibility:
             alert.addButton(withTitle: "Open Accessibility Settings")
+        case .neither:
+            break
         }
         alert.addButton(withTitle: "OK")
 
-        if alert.runModal() == .alertFirstButtonReturn, needsAccessibility {
-            AXAccess.openSettings()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        switch missing {
+        case .microphone:    AXAccess.openMicrophoneSettings()
+        case .accessibility: AXAccess.openSettings()
+        case .neither:       break
         }
     }
 

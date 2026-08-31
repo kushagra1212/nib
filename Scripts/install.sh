@@ -53,13 +53,20 @@ echo "installed $INSTALLED"
 echo "  dist/nib.app removed -- there is now one nib"
 
 if [[ -n "$previous" && "$previous" != "$incoming" ]]; then
+  # Cleared rather than reported, because a stale decision does not fail
+  # loudly. macOS keeps its answer against the old signature: Accessibility
+  # stays switched on in System Settings while doing nothing, and
+  # requestAccess for the microphone returns false without ever showing a
+  # prompt -- so the app says "not allowed" and offers no way to allow it.
+  #
+  # Resetting puts both back to "not yet asked", which is the only state that
+  # produces a prompt.
   echo
-  echo "  The code signature changed, so the Accessibility grant no longer"
-  echo "  matches. macOS will leave nib switched on in System Settings while"
-  echo "  it does nothing, which is not a state you can toggle your way out"
-  echo "  of. Clear it and approve once:"
-  echo
-  echo "    tccutil reset Accessibility com.kushagra.nib"
+  echo "  Signature changed; clearing the permissions tied to the old one."
+  tccutil reset Accessibility com.kushagra.nib >/dev/null 2>&1 || true
+  tccutil reset Microphone com.kushagra.nib >/dev/null 2>&1 || true
+  echo "  Approve nib once in System Settings > Privacy & Security >"
+  echo "  Accessibility. The microphone will prompt on the first dictation."
   echo
   echo "  Signing with a real certificate is what ends this: the requirement"
   echo "  becomes the identity rather than the hash, and survives rebuilds."
