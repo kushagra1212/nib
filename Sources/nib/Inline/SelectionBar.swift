@@ -263,20 +263,38 @@ final class SelectionBar: NSPanel {
     /// Neither is true when the model never ran, and green in particular reads
     /// as "checked, and clean" when nothing was checked at all.
     private func showFailure(_ error: Error) {
-        let text: String
+        Log.write("selection rewrite failed: \(error)")
+        show(status: Self.message(for: error), tint: .systemRed)
+    }
+
+    /// Turns a rewrite failure into the line shown in the bar.
+    ///
+    /// Static and nonisolated so every case can be checked without building a
+    /// window. The default branch is a last resort: anything reaching it is a
+    /// failure nib knows about and is describing as though it does not.
+    static func message(for error: Error) -> String {
         switch error {
         case RewriteError.modelMissing:
-            text = "no model installed"
+            return "no model installed"
         case RewriteError.serverFailed:
-            text = "model would not start"
+            return "model would not start"
         case RewriteError.badResponse:
-            text = "model gave no answer"
+            return "model gave no answer"
+        // Out of memory is the one failure with an obvious cause and an
+        // obvious fix, and it was landing in the default branch -- telling
+        // someone with a working model that it was "unavailable". Dictation
+        // makes this common: whisper holds its GPU memory for 180 seconds
+        // after transcribing, so a rewrite in that window can fail purely
+        // because the two are sharing a card.
+        case RewriteError.outOfMemory:
+            return "not enough memory -- try again in a moment"
+        case RewriteError.rejected(let status, _):
+            return "model refused (\(status))"
         default:
-            text = "model unavailable"
+            return "model unavailable"
         }
-        Log.write("selection rewrite failed: \(error)")
-        show(status: text, tint: .systemRed)
     }
+
 
     @objc private func toggleDiff() {
         guard let proposal else { return }

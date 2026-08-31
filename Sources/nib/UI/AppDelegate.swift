@@ -153,7 +153,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let alert = NSAlert()
         alert.messageText = "Dictation stopped"
         alert.informativeText = why
-        alert.runModal()
+
+        // A dialog that names a permission and offers only OK is a dead end:
+        // it leaves the reader to find a settings pane nib can open in one
+        // line. The transcript survives on the clipboard either way, so this
+        // is the only thing standing between them and the fix.
+        let needsAccessibility = !AXAccess.isTrusted
+        if needsAccessibility {
+            alert.addButton(withTitle: "Open Accessibility Settings")
+        }
+        alert.addButton(withTitle: "OK")
+
+        if alert.runModal() == .alertFirstButtonReturn, needsAccessibility {
+            AXAccess.openSettings()
+        }
     }
 
     @MainActor
