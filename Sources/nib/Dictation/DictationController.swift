@@ -118,7 +118,11 @@ final class DictationController {
 
         transcription = Task { [weak self] in
             do {
-                let text = try await engine.transcribe(samples: samples)
+                // The vocabulary is read per dictation, so editing the file
+                // takes effect on the next sentence rather than the next
+                // launch.
+                let text = try await engine.transcribe(
+                    samples: samples, prompt: SpeechVocabulary.prompt())
                 guard !Task.isCancelled else { return }
                 self?.handle(.transcribed(text))
             } catch {

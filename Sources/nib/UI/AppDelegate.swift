@@ -353,6 +353,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         liveDiagnose.target = self
         menu.addItem(liveDiagnose)
 
+        menu.addItem(withTitle: "Dictation Words…",
+                     action: #selector(editVocabulary),
+                     keyEquivalent: "").target = self
+
         menu.addItem(withTitle: "Licences…", action: #selector(showLicences),
                      keyEquivalent: "").target = self
 
@@ -466,6 +470,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @MainActor
     @objc private func showModelSetup() {
         modelSetup.show()
+    }
+
+    /// Opens the list of words dictation should expect.
+    ///
+    /// Whisper replaces any name it has never seen with the nearest real word,
+    /// so "Hasura" arrives as "Azure" until it is listed. This is the fix for
+    /// that, and it has to be reachable or nobody will know it exists.
+    @MainActor
+    @objc private func editVocabulary() {
+        NSWorkspace.shared.open(SpeechVocabulary.createFileIfNeeded())
     }
 
     /// Opens the licences of the binaries nib ships.

@@ -42,6 +42,22 @@ actor WhisperEngine {
     /// for someone who just spoke a sentence.
     static let noSpeechLimit: Float = 0.6
 
+    /// Overridable so a single factor can be measured at a time. Defaults are
+    /// what ships; the environment variables exist for --whisper-probe.
+    static var usesBeamSearch: Bool {
+        ProcessInfo.processInfo.environment["NIB_WHISPER_GREEDY"] == nil
+    }
+
+    static var beamWidth: Int {
+        Int(ProcessInfo.processInfo.environment["NIB_WHISPER_BEAM"] ?? "") ?? 5
+    }
+
+    /// English by default. A second language is a setting nib does not have
+    /// yet; "auto" restores detection for anyone who needs it today.
+    static var language: String {
+        ProcessInfo.processInfo.environment["NIB_WHISPER_LANG"] ?? "en"
+    }
+
     private var context: OpaquePointer?
     private let modelPath: URL
 
@@ -145,7 +161,36 @@ actor WhisperEngine {
         guard !AudioSamples.isSilent(samples) else { return "" }
         let context = try ensureLoaded()
 
-        var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
+        // Beam search rather than greedy.
+        //
+        // Greedy takes the most likely next token and never reconsiders, which
+        // is where an unfamiliar accent goes wrong: one early mistake commits
+        // the rest of the sentence to it. Beam search keeps several candidate
+        // transcriptions alive and picks the best whole sentence, so a vowel it
+        // guessed badly can still be outvoted by the words after it.
+        //
+        // Slower, and worth it for a finished dictation nobody is watching
+        // stream in.
+        let strategy = Self.usesBeamSearch
+            ? WHISPER_SAMPLING_BEAM_SEARCH : WHISPER_SAMPLING_GREEDY
+        var params = whisper_full_default_params(strategy)
+        if Self.usesBeamSearch {
+            params.beam_search.beam_size = Int32(Self.beamWidth)
+        }
+
+        // Told it is English rather than left to guess.
+        //
+        // Whisper detects the language from the first seconds of audio, and on
+        // a short accented clip it guesses wrong often enough to matter -- an
+        // English sentence decoded as Hindi comes back as confident nonsense.
+        // Naming the language removes the guess.
+        // Held for the duration of the call, not borrowed inside a closure.
+        // withCString hands out a pointer that dies when the closure returns,
+        // and whisper reads params.language later -- which is a dangling
+        // pointer, and the kind that usually works until it does not.
+        let languageBuffer = strdup(Self.language)
+        params.language = UnsafePointer(languageBuffer)
+        defer { free(languageBuffer) }
         params.print_realtime = false
         params.print_progress = false
         params.print_timestamps = false
@@ -169,6 +214,7 @@ actor WhisperEngine {
         // Swift String's storage is not guaranteed to outlive the expression
         // it appears in.
         let promptBuffer: UnsafeMutablePointer<CChar>?
+        let prompt = prompt ?? ProcessInfo.processInfo.environment["NIB_WHISPER_PROMPT"]
         if let prompt, !prompt.isEmpty {
             promptBuffer = strdup(prompt)
             params.initial_prompt = UnsafePointer(promptBuffer)

@@ -43,12 +43,16 @@ func runWhisperProbe(model: String?, audio: String?) async -> Int32 {
     print("\naudio: \(String(format: "%.1fs", AudioSamples.duration(of: samples)))"
         + ", \(samples.count) samples at 16kHz")
     print("model: \(modelURL.lastPathComponent)")
+    print("words: \(SpeechVocabulary.terms().count) in the vocabulary")
 
     let clock = ContinuousClock()
     do {
         var transcript = ""
         let elapsed = try await clock.measure {
-            transcript = try await engine.transcribe(samples: samples)
+            // The same prompt the app sends. A probe that skips it measures
+            // a path nothing takes.
+            transcript = try await engine.transcribe(
+                samples: samples, prompt: SpeechVocabulary.prompt())
         }
         await engine.release()
 
