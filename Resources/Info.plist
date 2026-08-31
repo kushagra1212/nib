@@ -25,5 +25,7 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT licensed</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>nib turns what you say into text in the app you are typing in. Audio is transcribed on this machine and never uploaded or saved.</string>
 </dict>
 </plist>

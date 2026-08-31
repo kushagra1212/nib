@@ -92,6 +92,37 @@ else
   echo "  no icon; run: swift Scripts/make-icon.swift && iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns"
 fi
 
+# Runs codesign with a deadline, reporting which way it ended.
+#
+# macOS ships no `timeout`, so the signing runs in the background with a
+# watchdog beside it. Sets SIGN_FAILURE to whichever happened, because "it was
+# refused" and "it never answered" call for different fixes: the first is a
+# certificate problem, the second is a keychain waiting on a human.
+sign_with_timeout () { # seconds identity app
+  local seconds="$1" identity="$2" app="$3"
+  codesign --force --deep --sign "$identity" "$app" 2>/dev/null &
+  local signer=$!
+
+  ( sleep "$seconds"; kill -TERM "$signer" 2>/dev/null ) &
+  local watchdog=$!
+
+  if wait "$signer" 2>/dev/null; then
+    kill "$watchdog" 2>/dev/null || true
+    wait "$watchdog" 2>/dev/null || true
+    return 0
+  fi
+
+  # Killed by the watchdog, or exited on its own with an error.
+  if kill -0 "$watchdog" 2>/dev/null; then
+    kill "$watchdog" 2>/dev/null || true
+    SIGN_FAILURE="identity refused"
+  else
+    SIGN_FAILURE="keychain did not answer in ${seconds}s"
+  fi
+  wait "$watchdog" 2>/dev/null || true
+  return 1
+}
+
 # Sign with a real identity when the machine has one.
 #
 # An ad-hoc signature ("-") has no identity behind it, so macOS derives the
@@ -109,9 +140,21 @@ SIGN_IDENTITY="${SIGN_IDENTITY:-$(
 )}"
 
 if [[ -n "$SIGN_IDENTITY" ]]; then
-  codesign --force --deep --sign "$SIGN_IDENTITY" "$APP" 2>/dev/null \
-    && SIGNED_WITH="identity $SIGN_IDENTITY" \
-    || { codesign --force --deep --sign - "$APP" 2>/dev/null; SIGNED_WITH="ad-hoc (identity failed)"; }
+  # Bounded, because this can block forever rather than fail.
+  #
+  # Signing with a real identity needs the private key, and the keychain asks
+  # permission for that with a dialog. Where no dialog can appear -- a CI
+  # runner, a locked keychain, an editor's terminal -- codesign sits waiting
+  # for an answer that will never come. It hung a build here for fifteen
+  # minutes before anyone looked at the process list.
+  #
+  # Twenty seconds is far longer than signing takes when it is going to work.
+  if sign_with_timeout 20 "$SIGN_IDENTITY" "$APP"; then
+    SIGNED_WITH="identity $SIGN_IDENTITY"
+  else
+    codesign --force --deep --sign - "$APP" 2>/dev/null
+    SIGNED_WITH="ad-hoc ($SIGN_FAILURE)"
+  fi
 else
   codesign --force --deep --sign - "$APP" 2>/dev/null
   SIGNED_WITH="ad-hoc (no certificate found)"

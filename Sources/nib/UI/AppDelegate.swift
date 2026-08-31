@@ -13,6 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var loginMenuItem: NSMenuItem?
     private var statusMenuItem: NSMenuItem?
     private var modelMenuItem: NSMenuItem?
+    private var dictationMenuItem: NSMenuItem?
+    private let dictationHotkey = HotkeyMonitor(identifier: 2)
+    /// Both own main-actor state, so they are built on first use there.
+    @MainActor private lazy var dictation = makeDictation()
+    @MainActor private lazy var dictationOverlay = makeDictationOverlay()
     /// Built on first use. It owns a window, so it stays on the main actor.
     @MainActor private lazy var modelSetup = makeModelSetup()
     private var permissionWatch: Task<Void, Never>?
@@ -56,6 +61,115 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // who already has one, or who closed this window on a previous launch,
         // never sees it.
         modelSetup.showOnFirstLaunchIfNeeded()
+
+        startDictation()
+    }
+
+    // MARK: - Dictation
+
+    @MainActor
+    private func startDictation() {
+        let combo = dictationHotkey.start(preferring: [.controlOptionD]) {
+            [weak self] in self?.dictation.toggle()
+        }
+        if combo == nil {
+            Log.write("dictation hotkey unavailable -- something else holds it")
+        }
+        // Compiles whisper's Metal shaders now rather than during the first
+        // dictation, where the wait would be half a minute.
+        if SpeechModelCatalog.installed() != nil {
+            DictationController.warmUpMetal()
+        }
+    }
+
+    @MainActor
+    private func makeDictation() -> DictationController {
+        let controller = DictationController()
+        controller.onStateChange = { [weak self] state in
+            self?.dictationOverlay.show(state)
+            self?.updateDictationMenuItem()
+            if case .failed(let why) = state { self?.reportDictation(why) }
+        }
+        // Whisper and llama-server both want the GPU, and this machine has
+        // already been measured failing to hold two models at once.
+        controller.willTranscribe = { [weak self] in
+            guard let rewriter = self?.rewriter else { return }
+            Task { await rewriter.shutdown() }
+        }
+        controller.onNeedsModel = { [weak self] in self?.offerSpeechModel() }
+        return controller
+    }
+
+    @MainActor
+    private func makeDictationOverlay() -> DictationOverlay {
+        let overlay = DictationOverlay()
+        overlay.sample = { [weak self] in
+            guard let self else { return (0, 0) }
+            return (self.dictation.level, self.dictation.elapsed)
+        }
+        overlay.onCancel = { [weak self] in self?.dictation.cancel() }
+        return overlay
+    }
+
+    @MainActor
+    private func offerSpeechModel() {
+        let alert = NSAlert()
+        alert.messageText = "No speech model installed"
+        alert.informativeText = """
+        Dictation needs a speech model, which runs on this machine. Nothing \
+        you say is uploaded.
+
+        Put a whisper .bin model in:
+           ~/Library/Application Support/nib/speech
+
+        Whisper small is a good starting point at 190MB.
+        """
+        alert.addButton(withTitle: "Open Folder")
+        alert.addButton(withTitle: "Copy Download Command")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            let folder = SpeechModelCatalog.installDirectory
+            try? FileManager.default.createDirectory(
+                at: folder, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(folder)
+        case .alertSecondButtonReturn:
+            let model = SpeechModelCatalog.recommended
+            let command = """
+            mkdir -p ~/Library/Application\\ Support/nib/speech && \
+            curl -L -o ~/Library/Application\\ Support/nib/speech/\(model.filename) \
+            \(model.url.absoluteString)
+            """
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+        default:
+            break
+        }
+    }
+
+    @MainActor
+    private func reportDictation(_ why: String) {
+        let alert = NSAlert()
+        alert.messageText = "Dictation stopped"
+        alert.informativeText = why
+        alert.runModal()
+    }
+
+    @MainActor
+    private func updateDictationMenuItem() {
+        guard let item = dictationMenuItem else { return }
+        let combo = dictationHotkey.active?.label ?? "unavailable"
+        switch dictation.state {
+        case .recording:    item.title = "Stop Dictating  (\(combo))"
+        case .transcribing: item.title = "Transcribing…"
+        default:            item.title = "Dictate  (\(combo))"
+        }
+    }
+
+    @MainActor
+    @objc private func toggleDictation() {
+        dictation.toggle()
     }
 
     @MainActor
@@ -142,6 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         engine?.stop()
         hotkey.stop()
+        dictationHotkey.stop()
     }
 
     // MARK: - Menu bar
@@ -193,6 +308,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         modelMenuItem = modelItem
         refreshModelMenuItem()
 
+        let dictateItem = NSMenuItem(title: "Dictate",
+                                     action: #selector(toggleDictation),
+                                     keyEquivalent: "")
+        dictateItem.target = self
+        menu.addItem(dictateItem)
+        dictationMenuItem = dictateItem
+        MainActor.assumeIsolated { updateDictationMenuItem() }
+
         let loginItem = NSMenuItem(title: "Start at Login",
                                    action: #selector(toggleLoginItem), keyEquivalent: "")
         loginItem.target = self
@@ -234,6 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A model can arrive while the app is running, from this window or
         // from someone dropping a file into the folder.
         refreshModelMenuItem()
+        MainActor.assumeIsolated { updateDictationMenuItem() }
 
         let running = live?.isRunning == true
         liveMenuItem?.state = running ? .on : .off

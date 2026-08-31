@@ -25,11 +25,35 @@ final class HotkeyMonitor {
             modifiers: UInt32(cmdKey | shiftKey),
             label: "⌘⇧G"
         )
+
+        /// Dictation. Awkward to press and owned by nothing.
+        ///
+        /// ⌘E was the obvious choice and is a trap: RegisterEventHotKey takes a
+        /// combination system-wide, and ⌘E is Eject in the Finder and "Use
+        /// Selection for Find" in every standard text view. Dictation is not
+        /// worth losing both everywhere.
+        static let controlOptionD = Combo(
+            keyCode: UInt32(kVK_ANSI_D),
+            modifiers: UInt32(controlKey | optionKey),
+            label: "⌃⌥D"
+        )
     }
 
     private var handler: EventHandlerRef?
     private var hotKey: EventHotKeyRef?
     private var onFire: (() -> Void)?
+
+    /// Distinguishes this monitor's hotkey from any other nib registers.
+    ///
+    /// Carbon delivers every hotkey press to every installed handler, so
+    /// without an identity to compare against, a second monitor fires for the
+    /// first one's key as well -- pressing the panel hotkey would also start a
+    /// dictation. The handler now checks this before firing.
+    private let identifier: UInt32
+
+    init(identifier: UInt32 = 1) {
+        self.identifier = identifier
+    }
 
     private(set) var active: Combo?
 
@@ -42,7 +66,8 @@ final class HotkeyMonitor {
 
         for combo in combos {
             var ref: EventHotKeyRef?
-            let id = EventHotKeyID(signature: OSType(0x6E696220), id: 1) // 'nib '
+            let id = EventHotKeyID(signature: OSType(0x6E696220), // 'nib '
+                                   id: identifier)
             let status = RegisterEventHotKey(
                 combo.keyCode, combo.modifiers, id, GetApplicationEventTarget(), 0, &ref
             )
@@ -70,10 +95,22 @@ final class HotkeyMonitor {
         let context = Unmanaged.passUnretained(self).toOpaque()
         InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData in
+            { _, event, userData in
                 guard let userData else { return noErr }
                 let monitor = Unmanaged<HotkeyMonitor>
                     .fromOpaque(userData).takeUnretainedValue()
+
+                // Which key was pressed. Without this every monitor answers
+                // for every hotkey.
+                var pressed = EventHotKeyID()
+                let status = GetEventParameter(
+                    event, EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID), nil,
+                    MemoryLayout<EventHotKeyID>.size, nil, &pressed)
+                guard status == noErr, pressed.id == monitor.identifier else {
+                    return noErr
+                }
+
                 DispatchQueue.main.async { monitor.onFire?() }
                 return noErr
             },
