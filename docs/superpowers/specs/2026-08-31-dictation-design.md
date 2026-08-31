@@ -158,6 +158,35 @@ One owner. The overlay renders state and never drives it; the hotkey posts
 events and never touches audio. Every transition is testable without a
 microphone or a model.
 
+## Found while building
+
+Two things the design did not anticipate, both measured.
+
+**Metal shaders compile once, and it takes half a minute.** The first run of a
+freshly built binary reports:
+
+    ggml_metal_library_init: loaded in 31.201 sec
+
+Every run after that: `0.009 sec`. macOS caches the compiled library per
+binary, so the cost lands once per install -- on a new user's first dictation,
+which is the worst moment for it. The bundled app paid it again at 20.3s,
+because a different binary is a different cache entry.
+
+Dictation must warm this at install time, not on first use: after the speech
+model is fetched, initialise the engine once in the background. The setup
+window already waits on a download, which is the natural place to hide it.
+
+**The framework wants macOS 13.3, and nib claims 13.0.**
+
+    ld: warning: building for macOS-13.0, but linking with dylib
+    '@rpath/whisper.framework/...' which was built for newer version 13.3
+
+The cask says `depends_on macos: :ventura`, which includes 13.0 through 13.2 --
+where this framework may not load. SwiftPM's platform list has no point
+releases, so this cannot be expressed in Package.swift. Unresolved: either the
+cask's floor rises, or dictation is gated at runtime on the OS version. It is
+not a build error and does not affect anyone on 13.3 or later.
+
 ## Resource conflict
 
 Measured this session: a 2.2GB model failed to run on this 16GB machine with a

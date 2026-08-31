@@ -365,6 +365,11 @@ if args.first == "--bench" {
     exit(await runBench(words: words, iterations: 10))
 }
 
+if args.first == "--whisper-probe" {
+    exit(await runWhisperProbe(model: args.count > 1 ? args[1] : nil,
+                               audio: args.count > 2 ? args[2] : nil))
+}
+
 if args.first == "--lint" {
     let text = args.count > 1
         ? args[1]

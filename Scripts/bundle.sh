@@ -35,6 +35,11 @@ if [[ ! -x "$ROOT/vendor/llama/llama-server" ]]; then
   echo "llama-server missing -- run: Scripts/fetch-llama.sh" >&2
   exit 1
 fi
+WHISPER="$ROOT/vendor/whisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework"
+if [[ ! -d "$WHISPER" ]]; then
+  echo "whisper.xcframework missing -- run: Scripts/fetch-whisper.sh" >&2
+  exit 1
+fi
 
 # Stop it before deleting the bundle it is running from.
 #
@@ -53,6 +58,19 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$BIN" "$APP/Contents/MacOS/nib"
+
+# The speech engine is a linked framework, not a subprocess, so it goes in
+# Contents/Frameworks where macOS expects one.
+#
+# The binary asks for it as @rpath/whisper.framework/... and is built with an
+# rpath of @loader_path -- correct in .build/release, where SwiftPM puts the
+# framework beside the executable, and wrong in a bundle, where the executable
+# is one directory deeper than Frameworks. The extra rpath is added here rather
+# than at link time so Package.swift stays free of unsafeFlags.
+mkdir -p "$APP/Contents/Frameworks"
+cp -R "$WHISPER" "$APP/Contents/Frameworks/whisper.framework"
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+  "$APP/Contents/MacOS/nib" 2>/dev/null || true
 cp "$ROOT/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 
 # Apache-2.0 section 4 requires shipping the licence with the binary, and

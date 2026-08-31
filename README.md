@@ -190,6 +190,7 @@ cd nib
 
 Scripts/fetch-harper.sh          # prebuilt harper-ls, no Rust toolchain needed
 Scripts/fetch-llama.sh           # llama-server and the libraries it loads
+Scripts/fetch-whisper.sh         # the speech engine; required before any build
 swift build -c release
 swift test
 

@@ -22,6 +22,11 @@ jobs:
       - name: Fetch llama-server
         run: Scripts/fetch-llama.sh
 
+      # Not only for packaging: Package.swift declares the XCFramework as a
+      # binaryTarget, so nothing builds at all until it is on disk.
+      - name: Fetch whisper
+        run: Scripts/fetch-whisper.sh
+
       - name: Test
         run: swift test
 
