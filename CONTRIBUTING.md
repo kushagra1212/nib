@@ -8,14 +8,17 @@ is negotiable.
 ```sh
 Scripts/fetch-harper.sh          # grammar engine
 Scripts/fetch-llama.sh           # rewrite engine
-Scripts/fetch-whisper.sh         # speech engine
+Scripts/fetch-whisper.sh         # dictation engine
+Scripts/fetch-espeak.sh          # phonemiser, for speaking aloud
 swift build -c release
 swift test
 ```
 
-All three fetches are required. `Package.swift` declares the whisper
-XCFramework as a binary target, so nothing builds until it is on disk — that is
-the one step whose absence produces a confusing error rather than a clear one.
+`Package.swift` declares the whisper XCFramework as a binary target, so nothing
+builds until that one is on disk — the only step whose absence produces a
+confusing error rather than a clear one. espeak is loaded with `dlopen` rather
+than linked, so the build succeeds without it and the tests that need it skip
+and say so.
 
 To run what you built:
 
