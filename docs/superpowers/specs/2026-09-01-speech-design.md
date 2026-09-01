@@ -2,8 +2,9 @@
 
 Select text, press a key, hear it. Local, offline, and idle when unused.
 
-Status: design written 2026-09-01. The engine is built and verified against the
-Python one end to end; the interface around it is not.
+Status: done, 2026-09-02. Built, verified against the Python engine end to end,
+and in use -- the Node server and its worker are stopped, the shell integration
+is off, and nib speaks.
 
 ## Why
 
@@ -110,9 +111,17 @@ New, under `Sources/nib/Speech/`:
 | `NumpyLayout.swift` | parses a .npy header, refusing anything not `<f4` — done |
 | `ZipDirectory.swift` | finds a stored member's bytes without unpacking — done |
 | `VoiceCatalog.swift` | the two files to fetch, and where they live — done |
-| `SpeechController.swift` | state machine: idle, speaking, stopping |
-| `SpeechPlayer.swift` | plays the samples, and stops on demand |
-| `VoiceMenu.swift` | the picker in the menu bar |
+| `SpeechController.swift` | state machine: idle, speaking, stopping — done |
+| `SpeechPlayer.swift` | plays the samples, and stops on demand — done |
+| `SpeechSynthesizer.swift` | the whole pipeline, text to samples — done |
+| `AudioTrim.swift` | removes the silence the model pads with — done |
+| `SpeechState.swift` | what may follow what — done |
+| `VoiceNames.swift` | af_heart to "Heart — American, female" — done |
+| `SpeechProbe.swift` | `nib --speak`, for when it goes wrong — done |
+| `UI/VoiceSetupWindow.swift` | fetches the two files — done |
+
+The voice picker went in the existing menu rather than a `VoiceMenu.swift` of
+its own: 54 voices grouped by accent is a submenu, not a component.
 
 Reused: `HotkeyMonitor` (a third id), the selection reader, `Log`,
 `ModelInstaller` and the setup window for fetching models.
@@ -191,3 +200,26 @@ figure is Python's, and the decision should wait for nib's own.
 
 Streaming as it synthesises. Speaking whole documents. The piper engine.
 Anything the current setup does not already do.
+
+## What replaced what
+
+Retired 2026-09-02, once nib had spoken the same sentence:
+
+    node server.js on 41777      stopped
+    kokoro_worker.py             stopped
+    shell/voice.zsh in .zshrc    commented out
+    /opt/homebrew/bin/voice      removed
+
+The `cloudcli` wrapper in that shell file started the server on every
+invocation, which is why it had been up eight days. Removing the line is what
+makes the retirement stick; killing the process alone would not have.
+
+The worker had used 1300 minutes of CPU over those eight days -- about a ninth
+of a core, permanently, to wait for a keypress. nib runs nothing between
+presses except a loaded model, and that is 0.6s of load it saves rather than a
+process.
+
+Not removed: `~/code/per/voice-server-cloudci` itself, 882MB. It is not a git
+repository and has no remote, so deleting it cannot be undone, and it is where
+every fixture in `Tests/Fixtures` was captured from. That is a decision to take
+deliberately rather than as part of a port.

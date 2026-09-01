@@ -209,6 +209,37 @@ Keep it short — it is a nudge, not a dictionary, and a long list dilutes it.
 
 ---
 
+## Reading aloud (optional)
+
+Select text anywhere, press **⌃⌘N**, and nib reads it. **⌃⇧H** stops. With
+nothing selected it falls back to whatever is on the clipboard.
+
+54 voices, picked from nib's menu under **Voice** — American, British, Spanish,
+French, Hindi, Italian, Japanese, Portuguese and Chinese, in both registers.
+
+**Setup.** Open **Voices…** from nib's menu and press Download. It fetches two
+files into `~/Library/Application Support/nib/voice`: the Kokoro model (326MB)
+and the voice pack (28MB). Both stay on this machine.
+
+The speech runs entirely on the CPU, on two threads. That is a measured choice
+rather than a default: on a 12-core machine one thread synthesises at 1.9x real
+time, two at 3.5x, four at 4.9x — so the second thread earns its place and the
+third does not, and nib leaves the rest of the machine alone. It also means
+speech never competes with dictation for the GPU.
+
+The model is held between presses, which costs about half a second the first
+time and nothing after. Nothing else runs while it sits there.
+
+**When it does not work**, ask it directly:
+
+```sh
+/Applications/nib.app/Contents/MacOS/nib --speak "testing one two three"
+```
+
+That prints every stage — where espeak was found, which runtime loaded, the
+phonemes, the token count, the sample count and the peak — so a failure names
+itself instead of being silence.
+
 ## How it works
 
 Three passes, ordered by cost, each superseding the last:
