@@ -101,7 +101,10 @@ New, under `Sources/nib/Speech/`:
 |---|---|
 | `KokoroEngine.swift` | actor over the C shim: load, synthesise, release |
 | `KokoroShim.cpp` | ONNX Runtime and espeak-ng, behind a C interface |
-| `VoicePack.swift` | reads voices-v1.0.bin, lists and indexes the 54 voices |
+| `VoicePack.swift` | reads voices-v1.0.bin, lists and indexes the 54 voices — done |
+| `NumpyLayout.swift` | parses a .npy header, refusing anything not `<f4` — done |
+| `ZipDirectory.swift` | finds a stored member's bytes without unpacking — done |
+| `VoiceCatalog.swift` | the two files to fetch, and where they live — done |
 | `SpeechController.swift` | state machine: idle, speaking, stopping |
 | `SpeechPlayer.swift` | plays the samples, and stops on demand |
 | `VoiceMenu.swift` | the picker in the menu bar |
@@ -130,9 +133,30 @@ ids it produced, and a hash of the audio. The Swift tokeniser produces the same
 symbol in a real transcript is known, since an unknown one is dropped and a
 word simply goes missing.
 
-What is still unverified is everything after tokenisation: the ONNX call and
-the voice pack. The fixture already carries `sha256_float32_le` and
-`sample_count` for that comparison when the engine exists.
+**~~The voice pack is unread.~~ Closed, 2026-09-01.**
+
+`VoicePack.swift` reads `voices-v1.0.bin` without unpacking it. Every entry is
+stored rather than deflated, so a style vector is a seek and a 1KB read out of
+28MB, and nothing stays resident between presses.
+
+The same shape of check as the tokeniser, for the same reason: a style from the
+neighbouring row is the right voice with the wrong intonation, which gets blamed
+on the model. `Scripts/capture-voice-golden.py` records three rows from the
+Python engine -- the one the golden sentence uses, the first row of another
+voice, and the last -- and Swift returns the same 256 floats for all three.
+
+The numpy header is checked rather than assumed, because every field in it can
+be wrong while still producing plausible numbers: big-endian read as
+little-endian, float64 as float32, column-major as row-major.
+
+Worth keeping: the data offset comes from the local file header, not the central
+directory. The two carry separate extra fields, and computing from the central
+one lands a few bytes into the array.
+
+**What is still unverified is the ONNX call.** The fixture carries
+`sha256_float32_le` and `sample_count` for 64000 samples at 24000 Hz, so the
+comparison is ready the moment there is an engine to run. Tokens in, style in,
+audio out -- the two ends are now known good and the middle is not.
 
 **Two engines will want the GPU.** Whisper already holds Metal memory for 180
 seconds after transcribing, and a rewrite in that window fails. Adding a third
