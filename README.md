@@ -336,9 +336,11 @@ explain why rather than what, and make failures say what to do about them.
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
 
-nib was MIT through v1.0.3. Building speech synthesis in changed that: piper
-and the espeak-ng phonemiser it needs are GPL-3.0, and linking them makes the
-whole application a derivative work. Keeping piper at arm's length as a
+nib was MIT through v1.0.3. Building speech synthesis in changed that. The
+engine, Kokoro, is Apache-2.0 — but it phonemises through phonemizer and
+espeak-ng, which are GPL-3.0, and linking that chain in makes the whole
+application a derivative work. piper reaches espeak-ng too, so there is no
+route to speech here that avoids it. Keeping the engine at arm's length as a
 separate process would have preserved MIT, and was rejected in favour of one
 self-contained binary.
 

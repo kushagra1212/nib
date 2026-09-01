@@ -696,11 +696,17 @@ Public License instead of this License.  But first, please read
     ---------------------------
 
     nib was MIT through v1.0.3. It changed when speech synthesis was built
-    in: piper and the espeak-ng phonemiser it depends on are GPL-3.0, and
-    linking them into the application makes the whole of it a derivative
-    work. Shipping that under MIT would not have been permitted.
+    in. The engine is Kokoro, which is itself Apache-2.0 -- but it turns
+    text into phonemes through phonemizer and espeak-ng, and both of those
+    are GPL-3.0. Linking that chain into the application makes the whole of
+    it a derivative work, and shipping it under MIT would not have been
+    permitted.
 
-    The alternative was to keep piper at arm's length as a separate
+    The same is true of piper, the other engine available here, for the
+    same reason: it reaches espeak-ng too. There is no route to speech
+    synthesis in this project that avoids it.
+
+    The alternative was to keep the engine at arm's length as a separate
     process, which would have preserved MIT. That was considered and
     rejected in favour of one self-contained binary.
 

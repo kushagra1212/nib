@@ -85,11 +85,15 @@ force-unwrapping outside tests.
 
 nib is GPL-3.0-or-later. Contributions are accepted under the same terms.
 
-It was MIT until speech synthesis was built in; piper and espeak-ng are
-GPL-3.0 and linking them made the whole application a derivative work. If you
-add a dependency, check its licence is compatible before writing against it --
-that check is cheaper than the alternative, which is discovering it after the
-code exists.
+It was MIT until speech synthesis was built in. The engine is Apache-2.0, but
+it phonemises through espeak-ng, which is GPL-3.0, and linking that chain in
+made the whole application a derivative work.
+
+Worth learning from: the first reading of this blamed piper, which is not even
+the engine in use. The licence was right and the reason was wrong. Check what
+the code actually runs, not what the directory listing suggests -- and check a
+dependency's licence before writing against it, which is cheaper than
+discovering it afterwards.
 
 ## Reporting a bug
 
