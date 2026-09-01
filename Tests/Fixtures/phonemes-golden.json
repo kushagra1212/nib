@@ -1,0 +1,2220 @@
+{
+  "language": "en-us",
+  "espeak_version": "1.52.0",
+  "with_stress": true,
+  "preserve_punctuation": true,
+  "punctuation_marks": ";:,.!?¡¿—…\"«»“”(){}[]",
+  "entries": [
+    {
+      "name": "plain",
+      "text": "The quick brown fox jumps over the lazy dog.",
+      "espeak_only": "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+      "preserved_chunks": [
+        "The quick brown fox jumps over the lazy dog"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ"
+      ],
+      "phonemizer": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ",
+      "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ.",
+      "batches": [
+        {
+          "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ.",
+          "token_ids": [
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 53
+    },
+    {
+      "name": "no-marks",
+      "text": "the quick brown fox",
+      "espeak_only": "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s",
+      "preserved_chunks": [
+        "the quick brown fox"
+      ],
+      "marks": [],
+      "chunk_phonemes": [
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s"
+      ],
+      "phonemizer": "ðə kwˈɪk bɹˈaʊn fˈɑːks ",
+      "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks",
+      "batches": [
+        {
+          "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks",
+          "token_ids": [
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61
+          ],
+          "pause_after": 0.0
+        }
+      ],
+      "token_count": 22
+    },
+    {
+      "name": "full-stop",
+      "text": "Hello.",
+      "espeak_only": "h_ə_l_ˈoʊ",
+      "preserved_chunks": [
+        "Hello"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "h_ə_l_ˈoʊ"
+      ],
+      "phonemizer": "həlˈoʊ. ",
+      "phonemes": "həlˈoʊ.",
+      "batches": [
+        {
+          "phonemes": "həlˈoʊ.",
+          "token_ids": [
+            50,
+            83,
+            54,
+            156,
+            57,
+            135,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 7
+    },
+    {
+      "name": "question",
+      "text": "Is it working?",
+      "espeak_only": "ɪ_z ɪ_t w_ˈɜː_k_ɪ_ŋ",
+      "preserved_chunks": [
+        "Is it working"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "?",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ɪ_z ɪ_t w_ˈɜː_k_ɪ_ŋ"
+      ],
+      "phonemizer": "ɪz ɪt wˈɜːkɪŋ? ",
+      "phonemes": "ɪz ɪt wˈɜːkɪŋ?",
+      "batches": [
+        {
+          "phonemes": "ɪz ɪt wˈɜːkɪŋ?",
+          "token_ids": [
+            102,
+            68,
+            16,
+            102,
+            62,
+            16,
+            65,
+            156,
+            87,
+            158,
+            53,
+            102,
+            112,
+            6
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 14
+    },
+    {
+      "name": "exclamation",
+      "text": "Stop!",
+      "espeak_only": "s_t_ˈɑː_p",
+      "preserved_chunks": [
+        "Stop"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "!",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "s_t_ˈɑː_p"
+      ],
+      "phonemizer": "stˈɑːp! ",
+      "phonemes": "stˈɑːp!",
+      "batches": [
+        {
+          "phonemes": "stˈɑːp!",
+          "token_ids": [
+            61,
+            62,
+            156,
+            69,
+            158,
+            58,
+            5
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 7
+    },
+    {
+      "name": "comma",
+      "text": "Hello, world.",
+      "espeak_only": "h_ə_l_ˈoʊ w_ˈɜː_l_d",
+      "preserved_chunks": [
+        "Hello",
+        "world"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ", ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "h_ə_l_ˈoʊ",
+        "w_ˈɜː_l_d"
+      ],
+      "phonemizer": "həlˈoʊ, wˈɜːld. ",
+      "phonemes": "həlˈoʊ, wˈɜːld.",
+      "batches": [
+        {
+          "phonemes": "həlˈoʊ, wˈɜːld.",
+          "token_ids": [
+            50,
+            83,
+            54,
+            156,
+            57,
+            135,
+            3,
+            16,
+            65,
+            156,
+            87,
+            158,
+            54,
+            46,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 15
+    },
+    {
+      "name": "semicolon",
+      "text": "First; second: third.",
+      "espeak_only": "f_ˈɜː_s_t s_ˈɛ_k_ə_n_d θ_ˈɜː_d",
+      "preserved_chunks": [
+        "First",
+        "second",
+        "third"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "; ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ": ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "f_ˈɜː_s_t",
+        "s_ˈɛ_k_ə_n_d",
+        "θ_ˈɜː_d"
+      ],
+      "phonemizer": "fˈɜːst; sˈɛkənd: θˈɜːd. ",
+      "phonemes": "fˈɜːst; sˈɛkənd: θˈɜːd.",
+      "batches": [
+        {
+          "phonemes": "fˈɜːst; sˈɛkənd: θˈɜːd.",
+          "token_ids": [
+            48,
+            156,
+            87,
+            158,
+            61,
+            62,
+            1,
+            16,
+            61,
+            156,
+            86,
+            53,
+            83,
+            56,
+            46,
+            2,
+            16,
+            119,
+            156,
+            87,
+            158,
+            46,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 23
+    },
+    {
+      "name": "many-sentences",
+      "text": "One. Two. Three.",
+      "espeak_only": "w_ˌʌ_n t_ˈuː θ_ɹ_ˈiː",
+      "preserved_chunks": [
+        "One",
+        "Two",
+        "Three"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "w_ˌʌ_n",
+        "t_ˈuː",
+        "θ_ɹ_ˈiː"
+      ],
+      "phonemizer": "wˌʌn. tˈuː. θɹˈiː. ",
+      "phonemes": "wˌʌn. tˈuː. θɹˈiː.",
+      "batches": [
+        {
+          "phonemes": "wˌʌn. tˈuː. θɹˈiː.",
+          "token_ids": [
+            65,
+            157,
+            138,
+            56,
+            4,
+            16,
+            62,
+            156,
+            63,
+            158,
+            4,
+            16,
+            119,
+            123,
+            156,
+            51,
+            158,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 18
+    },
+    {
+      "name": "mixed-marks",
+      "text": "Really? Yes! Of course.",
+      "espeak_only": "ɹ_ˈiə_l_i j_ˈɛ_s ʌ_v k_ˈɔːɹ_s",
+      "preserved_chunks": [
+        "Really",
+        "Yes",
+        "Of course"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "? ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "! ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ɹ_ˈiə_l_i",
+        "j_ˈɛ_s",
+        "ʌ_v k_ˈɔːɹ_s"
+      ],
+      "phonemizer": "ɹˈiəli? jˈɛs! ʌv kˈɔːɹs. ",
+      "phonemes": "ɹˈiəli? jˈɛs! ʌv kˈɔːɹs.",
+      "batches": [
+        {
+          "phonemes": "ɹˈiəli? jˈɛs! ʌv kˈɔːɹs.",
+          "token_ids": [
+            123,
+            156,
+            51,
+            83,
+            54,
+            51,
+            6,
+            16,
+            52,
+            156,
+            86,
+            61,
+            5,
+            16,
+            138,
+            64,
+            16,
+            53,
+            156,
+            76,
+            158,
+            123,
+            61,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 24
+    },
+    {
+      "name": "leading-mark",
+      "text": "...and then it stopped.",
+      "espeak_only": "æ_n_d ð_ˈɛ_n ɪ_t s_t_ˈɑː_p_t",
+      "preserved_chunks": [
+        "and then it stopped"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "...",
+          "position": "B"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "æ_n_d ð_ˈɛ_n ɪ_t s_t_ˈɑː_p_t"
+      ],
+      "phonemizer": "...ænd ðˈɛn ɪt stˈɑːpt. ",
+      "phonemes": "...ænd ðˈɛn ɪt stˈɑːpt.",
+      "batches": [
+        {
+          "phonemes": "...ænd ðˈɛn ɪt stˈɑːpt.",
+          "token_ids": [
+            4,
+            4,
+            4,
+            72,
+            56,
+            46,
+            16,
+            81,
+            156,
+            86,
+            56,
+            16,
+            102,
+            62,
+            16,
+            61,
+            62,
+            156,
+            69,
+            158,
+            58,
+            62,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 23
+    },
+    {
+      "name": "only-marks",
+      "text": "...",
+      "espeak_only": "",
+      "preserved_chunks": [],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "...",
+          "position": "A"
+        }
+      ],
+      "chunk_phonemes": [],
+      "phonemizer": "...",
+      "phonemes": "...",
+      "batches": [
+        {
+          "phonemes": "...",
+          "token_ids": [
+            4,
+            4,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 3
+    },
+    {
+      "name": "only-mark-single",
+      "text": "?",
+      "espeak_only": "",
+      "preserved_chunks": [],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "?",
+          "position": "A"
+        }
+      ],
+      "chunk_phonemes": [],
+      "phonemizer": "?",
+      "phonemes": "?",
+      "batches": [
+        {
+          "phonemes": "?",
+          "token_ids": [
+            6
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 1
+    },
+    {
+      "name": "decimal-comma",
+      "text": "It costs 19,99 euro.",
+      "espeak_only": "ɪ_t k_ˈɔ_s_t_s n_ˈaɪ_n_t_iː_n n_ˈaɪ_n_t_i n_ˈaɪ_n j_ˈʊɹ_ɹ_oʊ",
+      "preserved_chunks": [
+        "It costs 19,99 euro"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ɪ_t k_ˈɔ_s_t_s n_ˈaɪ_n_t_iː_n n_ˈaɪ_n_t_i n_ˈaɪ_n j_ˈʊɹ_ɹ_oʊ"
+      ],
+      "phonemizer": "ɪt kˈɔsts nˈaɪntiːn nˈaɪnti nˈaɪn jˈʊɹɹoʊ. ",
+      "phonemes": "ɪt kˈɔsts nˈaɪntiːn nˈaɪnti nˈaɪn jˈʊɹɹoʊ.",
+      "batches": [
+        {
+          "phonemes": "ɪt kˈɔsts nˈaɪntiːn nˈaɪnti nˈaɪn jˈʊɹɹoʊ.",
+          "token_ids": [
+            102,
+            62,
+            16,
+            53,
+            156,
+            76,
+            61,
+            62,
+            61,
+            16,
+            56,
+            156,
+            43,
+            102,
+            56,
+            62,
+            51,
+            158,
+            56,
+            16,
+            56,
+            156,
+            43,
+            102,
+            56,
+            62,
+            51,
+            16,
+            56,
+            156,
+            43,
+            102,
+            56,
+            16,
+            52,
+            156,
+            135,
+            123,
+            123,
+            57,
+            135,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 42
+    },
+    {
+      "name": "decimal-point",
+      "text": "Pi is 3.14 exactly.",
+      "espeak_only": "p_ˈaɪ ɪ_z θ_ɹ_ˈiː p_ɔɪ_n_t w_ˈʌ_n f_ˈɔː_ɹ ɛ_ɡ_z_ˈæ_k_t_l_i",
+      "preserved_chunks": [
+        "Pi is 3",
+        "14 exactly."
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "p_ˈaɪ ɪ_z θ_ɹ_ˈiː",
+        "f_ˈɔːɹ_t_iː_n ɛ_ɡ_z_ˈæ_k_t_l_i"
+      ],
+      "phonemizer": "pˈaɪ ɪz θɹˈiː. \nfˈɔːɹtiːn ɛɡzˈæktli ",
+      "phonemes": "pˈaɪ ɪz θɹˈiː. fˈɔːɹtiːn ɛɡzˈæktli",
+      "batches": [
+        {
+          "phonemes": "pˈaɪ ɪz θɹˈiː. fˈɔːɹtiːn ɛɡzˈæktli",
+          "token_ids": [
+            58,
+            156,
+            43,
+            102,
+            16,
+            102,
+            68,
+            16,
+            119,
+            123,
+            156,
+            51,
+            158,
+            4,
+            16,
+            48,
+            156,
+            76,
+            158,
+            123,
+            62,
+            51,
+            158,
+            56,
+            16,
+            86,
+            92,
+            68,
+            156,
+            72,
+            53,
+            62,
+            54,
+            51
+          ],
+          "pause_after": 0.0
+        }
+      ],
+      "token_count": 34
+    },
+    {
+      "name": "thousands",
+      "text": "That is 1,000,000 rows.",
+      "espeak_only": "ð_æ_t ɪ_z w_ˈʌ_n m_ˈɪ_l_iə_n ɹ_ˈoʊ_z",
+      "preserved_chunks": [
+        "That is 1,000,000 rows"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ð_æ_t ɪ_z w_ˈʌ_n m_ˈɪ_l_iə_n ɹ_ˈoʊ_z"
+      ],
+      "phonemizer": "ðæt ɪz wˈʌn mˈɪliən ɹˈoʊz. ",
+      "phonemes": "ðæt ɪz wˈʌn mˈɪliən ɹˈoʊz.",
+      "batches": [
+        {
+          "phonemes": "ðæt ɪz wˈʌn mˈɪliən ɹˈoʊz.",
+          "token_ids": [
+            81,
+            72,
+            62,
+            16,
+            102,
+            68,
+            16,
+            65,
+            156,
+            138,
+            56,
+            16,
+            55,
+            156,
+            102,
+            54,
+            51,
+            83,
+            56,
+            16,
+            123,
+            156,
+            57,
+            135,
+            68,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 26
+    },
+    {
+      "name": "dash-ellipsis",
+      "text": "A long pause—then more… and done.",
+      "espeak_only": "ɐ l_ˈɔ_ŋ p_ˈɔː_z__ ð_ˈɛ_n m_ˈɔːɹ æ_n_d d_ˈʌ_n",
+      "preserved_chunks": [
+        "A long pause",
+        "then more",
+        "and done"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "—",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "… ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ɐ l_ˈɔ_ŋ p_ˈɔː_z",
+        "ð_ˈɛ_n m_ˈɔːɹ",
+        "æ_n_d d_ˈʌ_n"
+      ],
+      "phonemizer": "ɐ lˈɔŋ pˈɔːz—ðˈɛn mˈɔːɹ… ænd dˈʌn. ",
+      "phonemes": "ɐ lˈɔŋ pˈɔːz—ðˈɛn mˈɔːɹ… ænd dˈʌn.",
+      "batches": [
+        {
+          "phonemes": "ɐ lˈɔŋ pˈɔːz—ðˈɛn mˈɔːɹ… ænd dˈʌn.",
+          "token_ids": [
+            70,
+            16,
+            54,
+            156,
+            76,
+            112,
+            16,
+            58,
+            156,
+            76,
+            158,
+            68,
+            9,
+            81,
+            156,
+            86,
+            56,
+            16,
+            55,
+            156,
+            76,
+            158,
+            123,
+            10,
+            16,
+            72,
+            56,
+            46,
+            16,
+            46,
+            156,
+            138,
+            56,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 34
+    },
+    {
+      "name": "quotes",
+      "text": "He said \"yes\" and left.",
+      "espeak_only": "h_iː s_ˈɛ_d__ j_ˈɛ_s__ æ_n_d l_ˈɛ_f_t",
+      "preserved_chunks": [
+        "He said",
+        "yes",
+        "and left"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": " \"",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "\" ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "h_iː s_ˈɛ_d",
+        "j_ˈɛ_s",
+        "æ_n_d l_ˈɛ_f_t"
+      ],
+      "phonemizer": "hiː sˈɛd \"jˈɛs\" ænd lˈɛft. ",
+      "phonemes": "hiː sˈɛd \"jˈɛs\" ænd lˈɛft.",
+      "batches": [
+        {
+          "phonemes": "hiː sˈɛd \"jˈɛs\" ænd lˈɛft.",
+          "token_ids": [
+            50,
+            51,
+            158,
+            16,
+            61,
+            156,
+            86,
+            46,
+            16,
+            11,
+            52,
+            156,
+            86,
+            61,
+            11,
+            16,
+            72,
+            56,
+            46,
+            16,
+            54,
+            156,
+            86,
+            48,
+            62,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 26
+    },
+    {
+      "name": "brackets",
+      "text": "Parentheses (like this) and [brackets] and {braces}.",
+      "espeak_only": "p_ɚ_ɹ_ˈɛ_n_θ_ə_s_ˌiː_z__ l_ˈaɪ_k ð_ɪ_s__ æ_n_d__ b_ɹ_ˈæ_k_ɪ_t_s__ æ_n_d__ b_ɹ_ˈeɪ_s_ᵻ_z",
+      "preserved_chunks": [
+        "Parentheses",
+        "like this",
+        "and",
+        "brackets",
+        "and",
+        "braces"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": " (",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ") ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": " [",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "] ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": " {",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "}.",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "p_ɚ_ɹ_ˈɛ_n_θ_ə_s_ˌiː_z",
+        "l_ˈaɪ_k ð_ˈɪ_s",
+        "æ_n_d",
+        "b_ɹ_ˈæ_k_ɪ_t_s",
+        "æ_n_d",
+        "b_ɹ_ˈeɪ_s_ᵻ_z"
+      ],
+      "phonemizer": "pɚɹˈɛnθəsˌiːz (lˈaɪk ðˈɪs) ænd [bɹˈækɪts] ænd {bɹˈeɪsᵻz}. ",
+      "phonemes": "pɚɹˈɛnθəsˌiːz (lˈaɪk ðˈɪs) ænd bɹˈækɪts ænd bɹˈeɪsᵻz.",
+      "batches": [
+        {
+          "phonemes": "pɚɹˈɛnθəsˌiːz (lˈaɪk ðˈɪs) ænd bɹˈækɪts ænd bɹˈeɪsᵻz.",
+          "token_ids": [
+            58,
+            85,
+            123,
+            156,
+            86,
+            56,
+            119,
+            83,
+            61,
+            157,
+            51,
+            158,
+            68,
+            16,
+            12,
+            54,
+            156,
+            43,
+            102,
+            53,
+            16,
+            81,
+            156,
+            102,
+            61,
+            13,
+            16,
+            72,
+            56,
+            46,
+            16,
+            44,
+            123,
+            156,
+            72,
+            53,
+            102,
+            62,
+            61,
+            16,
+            72,
+            56,
+            46,
+            16,
+            44,
+            123,
+            156,
+            47,
+            102,
+            61,
+            177,
+            68,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 53
+    },
+    {
+      "name": "inverted",
+      "text": "¡Hola! ¿Qué tal?",
+      "espeak_only": "ˈoʊ_l_æ k_w_ˈeɪ t_ˈæ_l",
+      "preserved_chunks": [
+        "Hola",
+        "Qué tal"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": "¡",
+          "position": "B"
+        },
+        {
+          "line": 0,
+          "mark": "! ¿",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "?",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ˈoʊ_l_æ",
+        "k_w_ˈeɪ t_ˈæ_l"
+      ],
+      "phonemizer": "¡ˈoʊlæ! ¿kwˈeɪ tˈæl? ",
+      "phonemes": "ˈoʊlæ! kwˈeɪ tˈæl?",
+      "batches": [
+        {
+          "phonemes": "ˈoʊlæ! kwˈeɪ tˈæl?",
+          "token_ids": [
+            156,
+            57,
+            135,
+            54,
+            72,
+            5,
+            16,
+            53,
+            65,
+            156,
+            47,
+            102,
+            16,
+            62,
+            156,
+            72,
+            54,
+            6
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 18
+    },
+    {
+      "name": "padded",
+      "text": "   leading and trailing   ",
+      "espeak_only": "l_ˈiː_d_ɪ_ŋ æ_n_d t_ɹ_ˈeɪ_l_ɪ_ŋ",
+      "preserved_chunks": [
+        "   leading and trailing   "
+      ],
+      "marks": [],
+      "chunk_phonemes": [
+        "l_ˈiː_d_ɪ_ŋ æ_n_d t_ɹ_ˈeɪ_l_ɪ_ŋ"
+      ],
+      "phonemizer": "lˈiːdɪŋ ænd tɹˈeɪlɪŋ ",
+      "phonemes": "lˈiːdɪŋ ænd tɹˈeɪlɪŋ",
+      "batches": [
+        {
+          "phonemes": "lˈiːdɪŋ ænd tɹˈeɪlɪŋ",
+          "token_ids": [
+            54,
+            156,
+            51,
+            158,
+            46,
+            102,
+            112,
+            16,
+            72,
+            56,
+            46,
+            16,
+            62,
+            123,
+            156,
+            47,
+            102,
+            54,
+            102,
+            112
+          ],
+          "pause_after": 0.0
+        }
+      ],
+      "token_count": 20
+    },
+    {
+      "name": "newline",
+      "text": "line one\nline two.",
+      "espeak_only": "l_ˈaɪ_n w_ˈʌ_n l_ˈaɪ_n t_ˈuː",
+      "preserved_chunks": [
+        "line one",
+        "line two"
+      ],
+      "marks": [
+        {
+          "line": 1,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "l_ˈaɪ_n w_ˌʌ_n",
+        "l_ˈaɪ_n t_ˈuː"
+      ],
+      "phonemizer": "lˈaɪn wˌʌn \nlˈaɪn tˈuː. ",
+      "phonemes": "lˈaɪn wˌʌn lˈaɪn tˈuː.",
+      "batches": [
+        {
+          "phonemes": "lˈaɪn wˌʌn lˈaɪn tˈuː.",
+          "token_ids": [
+            54,
+            156,
+            43,
+            102,
+            56,
+            16,
+            65,
+            157,
+            138,
+            56,
+            16,
+            54,
+            156,
+            43,
+            102,
+            56,
+            16,
+            62,
+            156,
+            63,
+            158,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 22
+    },
+    {
+      "name": "double-space",
+      "text": "two  spaces  here.",
+      "espeak_only": "t_ˈuː s_p_ˈeɪ_s_ᵻ_z h_ˈɪɹ",
+      "preserved_chunks": [
+        "two  spaces  here"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "t_ˈuː s_p_ˈeɪ_s_ᵻ_z h_ˈɪɹ"
+      ],
+      "phonemizer": "tˈuː spˈeɪsᵻz hˈɪɹ. ",
+      "phonemes": "tˈuː spˈeɪsᵻz hˈɪɹ.",
+      "batches": [
+        {
+          "phonemes": "tˈuː spˈeɪsᵻz hˈɪɹ.",
+          "token_ids": [
+            62,
+            156,
+            63,
+            158,
+            16,
+            61,
+            58,
+            156,
+            47,
+            102,
+            61,
+            177,
+            68,
+            16,
+            50,
+            156,
+            102,
+            123,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 19
+    },
+    {
+      "name": "apostrophes",
+      "text": "don't can't won't it's",
+      "espeak_only": "d_ˈoʊ_n_t k_ˈæ_n_t w_ˈoʊ_n_t ɪ_t_s",
+      "preserved_chunks": [
+        "don't can't won't it's"
+      ],
+      "marks": [],
+      "chunk_phonemes": [
+        "d_ˈoʊ_n_t k_ˈæ_n_t w_ˈoʊ_n_t ɪ_t_s"
+      ],
+      "phonemizer": "dˈoʊnt kˈænt wˈoʊnt ɪts ",
+      "phonemes": "dˈoʊnt kˈænt wˈoʊnt ɪts",
+      "batches": [
+        {
+          "phonemes": "dˈoʊnt kˈænt wˈoʊnt ɪts",
+          "token_ids": [
+            46,
+            156,
+            57,
+            135,
+            56,
+            62,
+            16,
+            53,
+            156,
+            72,
+            56,
+            62,
+            16,
+            65,
+            156,
+            57,
+            135,
+            56,
+            62,
+            16,
+            102,
+            62,
+            61
+          ],
+          "pause_after": 0.0
+        }
+      ],
+      "token_count": 23
+    },
+    {
+      "name": "hyphens",
+      "text": "e-mail re-do well-known",
+      "espeak_only": "ˈiː_m_ˈeɪ_l ɹ_ˌiː_d_ˈuː w_ˈɛ_l_n_ˈoʊ_n",
+      "preserved_chunks": [
+        "e-mail re-do well-known"
+      ],
+      "marks": [],
+      "chunk_phonemes": [
+        "ˈiː_m_ˈeɪ_l ɹ_ˌiː_d_ˈuː w_ˈɛ_l_n_ˈoʊ_n"
+      ],
+      "phonemizer": "ˈiːmˈeɪl ɹˌiːdˈuː wˈɛlnˈoʊn ",
+      "phonemes": "ˈiːmˈeɪl ɹˌiːdˈuː wˈɛlnˈoʊn",
+      "batches": [
+        {
+          "phonemes": "ˈiːmˈeɪl ɹˌiːdˈuː wˈɛlnˈoʊn",
+          "token_ids": [
+            156,
+            51,
+            158,
+            55,
+            156,
+            47,
+            102,
+            54,
+            16,
+            123,
+            157,
+            51,
+            158,
+            46,
+            156,
+            63,
+            158,
+            16,
+            65,
+            156,
+            86,
+            54,
+            56,
+            156,
+            57,
+            135,
+            56
+          ],
+          "pause_after": 0.0
+        }
+      ],
+      "token_count": 27
+    },
+    {
+      "name": "technical",
+      "text": "The useMemo hook and the Hasura metadata.",
+      "espeak_only": "ð_ə j_ˈuː_s m_ˈɛ_m_oʊ h_ˈʊ_k__ æ_n_d ð_ə h_ˈæ_s_ɜː_ɹ_ə m_ˌɛ_ɾ_ə_d_ˈeɪ_ɾ_ə",
+      "preserved_chunks": [
+        "The useMemo hook and the Hasura metadata"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ð_ə j_ˈuː_s m_ˈɛ_m_oʊ h_ˈʊ_k__ æ_n_d ð_ə h_ˈæ_s_ɜː_ɹ_ə m_ˌɛ_ɾ_ə_d_ˈeɪ_ɾ_ə"
+      ],
+      "phonemizer": "ðə jˈuːs mˈɛmoʊ hˈʊk ænd ðə hˈæsɜːɹə mˌɛɾədˈeɪɾə. ",
+      "phonemes": "ðə jˈuːs mˈɛmoʊ hˈʊk ænd ðə hˈæsɜːɹə mˌɛɾədˈeɪɾə.",
+      "batches": [
+        {
+          "phonemes": "ðə jˈuːs mˈɛmoʊ hˈʊk ænd ðə hˈæsɜːɹə mˌɛɾədˈeɪɾə.",
+          "token_ids": [
+            81,
+            83,
+            16,
+            52,
+            156,
+            63,
+            158,
+            61,
+            16,
+            55,
+            156,
+            86,
+            55,
+            57,
+            135,
+            16,
+            50,
+            156,
+            135,
+            53,
+            16,
+            72,
+            56,
+            46,
+            16,
+            81,
+            83,
+            16,
+            50,
+            156,
+            72,
+            61,
+            87,
+            158,
+            123,
+            83,
+            16,
+            55,
+            157,
+            86,
+            125,
+            83,
+            46,
+            156,
+            47,
+            102,
+            125,
+            83,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 49
+    },
+    {
+      "name": "empty",
+      "text": "",
+      "espeak_only": "",
+      "preserved_chunks": [],
+      "marks": [],
+      "chunk_phonemes": [],
+      "phonemizer": "",
+      "phonemes": "",
+      "batches": [],
+      "token_count": 0
+    },
+    {
+      "name": "space-only",
+      "text": "   ",
+      "espeak_only": "",
+      "preserved_chunks": [],
+      "marks": [],
+      "chunk_phonemes": [],
+      "phonemizer": "",
+      "phonemes": "",
+      "batches": [],
+      "token_count": 0
+    },
+    {
+      "name": "long",
+      "text": "the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog.",
+      "espeak_only": "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+      "preserved_chunks": [
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog"
+      ],
+      "marks": [
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
+      "chunk_phonemes": [
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ"
+      ],
+      "phonemizer": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ",
+      "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ.",
+      "batches": [
+        {
+          "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ.",
+          "token_ids": [
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4
+          ],
+          "pause_after": 0.25
+        },
+        {
+          "phonemes": "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ. ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ.",
+          "token_ids": [
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4,
+            16,
+            81,
+            83,
+            16,
+            53,
+            65,
+            156,
+            102,
+            53,
+            16,
+            44,
+            123,
+            156,
+            43,
+            135,
+            56,
+            16,
+            48,
+            156,
+            69,
+            158,
+            53,
+            61,
+            16,
+            46,
+            147,
+            156,
+            138,
+            55,
+            58,
+            61,
+            16,
+            157,
+            57,
+            135,
+            64,
+            85,
+            16,
+            81,
+            83,
+            16,
+            54,
+            156,
+            47,
+            102,
+            68,
+            51,
+            16,
+            46,
+            156,
+            69,
+            158,
+            92,
+            4
+          ],
+          "pause_after": 0.25
+        }
+      ],
+      "token_count": 646
+    }
+  ]
+}
