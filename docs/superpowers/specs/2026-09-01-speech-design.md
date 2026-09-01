@@ -111,11 +111,28 @@ Reused: `HotkeyMonitor` (a third id), the selection reader, `Log`,
 
 ## What is unresolved
 
-**The tokeniser is the risk.** `DEFAULT_VOCAB` and the chunking rules live in
-Python. Porting them is mechanical but exact: one wrong id produces speech that
-is subtly wrong rather than obviously broken, which is the hardest kind to
-notice. The first test should be a fixed sentence compared against the Python
-worker's output, sample for sample.
+**~~The tokeniser is the risk.~~ Closed, 2026-09-01.**
+
+It turned out not to need porting by hand at all. The table is not Python code
+-- `DEFAULT_VOCAB` is read from `kokoro_onnx/config.json`, 114 entries in 2351
+bytes of data. `Scripts/generate-vocab.py` reads it and writes
+`KokoroVocab.swift`, so transcription is out of the process entirely and the
+source hash is embedded to catch an engine upgrade changing it.
+
+The rule that uses it is four lines: map each Character through the table and
+drop what is missing, which is exactly what Python's
+`[i for i in map(self.vocab.get, phonemes) if i is not None]` does.
+
+Verified rather than assumed. `Tests/Fixtures/kokoro-golden.json` holds one
+sentence run through the Python engine on this machine -- its phonemes, the 53
+ids it produced, and a hash of the audio. The Swift tokeniser produces the same
+53 ids from the same phonemes. Eleven tests cover it, including that every
+symbol in a real transcript is known, since an unknown one is dropped and a
+word simply goes missing.
+
+What is still unverified is everything after tokenisation: the ONNX call and
+the voice pack. The fixture already carries `sha256_float32_le` and
+`sample_count` for that comparison when the engine exists.
 
 **Two engines will want the GPU.** Whisper already holds Metal memory for 180
 seconds after transcribing, and a rewrite in that window fails. Adding a third
