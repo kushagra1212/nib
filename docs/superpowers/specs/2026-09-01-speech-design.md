@@ -2,7 +2,8 @@
 
 Select text, press a key, hear it. Local, offline, and idle when unused.
 
-Status: design written 2026-09-01. Not implemented.
+Status: design written 2026-09-01. The engine is built and verified against the
+Python one end to end; the interface around it is not.
 
 ## Why
 
@@ -99,8 +100,12 @@ New, under `Sources/nib/Speech/`:
 
 | File | Responsibility |
 |---|---|
-| `KokoroEngine.swift` | actor over the C shim: load, synthesise, release |
-| `KokoroShim.cpp` | ONNX Runtime and espeak-ng, behind a C interface |
+| `KokoroEngine.swift` | over the C shim: load, synthesise, release — done |
+| `CKokoro/kokoro_shim.c` | ONNX Runtime behind four C functions — done |
+| `EspeakLibrary.swift` | espeak-ng through dlopen — done |
+| `Phonemizer.swift` | text to phonemes, punctuation included — done |
+| `PhonemePunctuation.swift` | hides marks from espeak, puts them back — done |
+| `PhonemeChunker.swift` | 510 phonemes a pass, balanced — done |
 | `VoicePack.swift` | reads voices-v1.0.bin, lists and indexes the 54 voices — done |
 | `NumpyLayout.swift` | parses a .npy header, refusing anything not `<f4` — done |
 | `ZipDirectory.swift` | finds a stored member's bytes without unpacking — done |
@@ -153,20 +158,34 @@ Worth keeping: the data offset comes from the local file header, not the central
 directory. The two carry separate extra fields, and computing from the central
 one lands a few bytes into the array.
 
-**What is still unverified is the ONNX call.** The fixture carries
-`sha256_float32_le` and `sample_count` for 64000 samples at 24000 Hz, so the
-comparison is ready the moment there is an engine to run. Tokens in, style in,
-audio out -- the two ends are now known good and the middle is not.
+**~~The ONNX call is unverified.~~ Closed, 2026-09-01.**
 
-**Two engines will want the GPU.** Whisper already holds Metal memory for 180
-seconds after transcribing, and a rewrite in that window fails. Adding a third
-model makes that worse, and the mitigation used so far -- shut one down before
-starting another -- does not obviously extend to three.
+Tokens and style in, samples out, identical to onnxruntime in Python. Bit for
+bit: 79200 samples, same hash, same peak.
 
-**Not measured yet:** how long a cold Kokoro load takes, and how that compares
-to the warm worker. That number decides whether the model is held between
-presses or released like whisper's, and it should be measured before the
-decision is made rather than after.
+`Tests/Fixtures/audio-golden.json` deliberately does not use
+`kokoro-golden.json`. That one records `kokoro.create()`, which is inference
+plus trimming plus pauses -- three things behind one hash. This runs
+onnxruntime directly on the same 53 tokens and the same style row, so a
+disagreement can only be the inference.
+
+Thread count turned out not to be a tuning knob. It changes the order
+reductions happen in, so it changes the samples; the first run differed from
+the fixture and the cause was two threads against Python's default of four.
+Capturing at 1, 2 and 4 confirmed it -- two threads in Python gives exactly the
+hash Swift produced. It is now explicit and recorded in the fixture.
+
+Two, by measurement: on 12 cores, one thread runs at 1.9x real time, two at
+3.5x, three at 4.6x, four at 4.9x, the default at 5.2x.
+
+**Three models, one GPU: resolved, and not by scheduling.** Kokoro runs on
+ONNX Runtime's CPU provider, so it never asks for Metal. whisper keeps the GPU
+to itself and the contention the design worried about does not arise. If a
+CoreML execution provider is ever added for speed, this comes back.
+
+**Not measured yet:** cold load. `CreateSession` takes about 0.3s in Python,
+which suggests holding the model between presses is unnecessary -- but that
+figure is Python's, and the decision should wait for nib's own.
 
 ## Out of scope
 
