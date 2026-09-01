@@ -370,6 +370,25 @@ if args.first == "--whisper-probe" {
                                audio: args.count > 2 ? args[2] : nil))
 }
 
+// The speech path from a terminal, which is the only way to see it fail with
+// a reason. Pressing the hotkey needs Accessibility, a selection and an audio
+// device -- four things to eliminate before reaching the one that broke.
+if args.first == "--speak" {
+    let text = args.count > 1
+        ? args[1]
+        : String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
+    let voice = args.count > 2 ? args[2] : nil
+    exit(await SpeechProbe.run(text: text, voice: voice, play: true))
+}
+
+// The same without the audio device, for a machine with no speakers and for
+// checking a bundle over ssh.
+if args.first == "--speak-silent" {
+    let text = args.count > 1 ? args[1] : "The quick brown fox jumps over the lazy dog."
+    exit(await SpeechProbe.run(text: text, voice: args.count > 2 ? args[2] : nil,
+                               play: false))
+}
+
 if args.first == "--lint" {
     let text = args.count > 1
         ? args[1]

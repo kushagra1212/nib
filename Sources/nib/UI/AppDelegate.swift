@@ -15,6 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var modelMenuItem: NSMenuItem?
     private var dictationMenuItem: NSMenuItem?
     private let dictationHotkey = HotkeyMonitor(identifier: 2)
+
+    private var speechMenuItem: NSMenuItem?
+    private var voiceMenuItem: NSMenuItem?
+    // Two monitors, two identifiers. Carbon delivers every press to every
+    // handler, so sharing one would make hush start speech as well.
+    private let speakHotkey = HotkeyMonitor(identifier: 3)
+    private let hushHotkey = HotkeyMonitor(identifier: 4)
+    @MainActor private lazy var speech = makeSpeech()
     /// Both own main-actor state, so they are built on first use there.
     @MainActor private lazy var dictation = makeDictation()
     @MainActor private lazy var dictationOverlay = makeDictationOverlay()
@@ -69,6 +77,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func startDictation() {
+        // Both carried over from the setup nib replaces, so the keys already
+        // in people's fingers keep working once the server is gone.
+        if speakHotkey.start(preferring: [.controlCommandN],
+                             onFire: { [weak self] in self?.speech.toggle() }) == nil {
+            Log.write("speak hotkey unavailable -- something else holds ⌃⌘N")
+        }
+        if hushHotkey.start(preferring: [.controlShiftH],
+                            onFire: { [weak self] in self?.speech.hush() }) == nil {
+            Log.write("hush hotkey unavailable -- something else holds ⌃⇧H")
+        }
+
         let combo = dictationHotkey.start(preferring: [.controlOptionD]) {
             [weak self] in self?.dictation.toggle()
         }
@@ -201,6 +220,100 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @MainActor
+    private func makeSpeech() -> SpeechController {
+        let controller = SpeechController()
+        controller.onStateChange = { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateSpeechMenuItem() }
+        }
+        return controller
+    }
+
+    @MainActor
+    private func updateSpeechMenuItem() {
+        guard let item = speechMenuItem else { return }
+        let combo = speakHotkey.active?.label ?? "unavailable"
+        switch speech.state {
+        case .speaking:
+            let stop = hushHotkey.active?.label ?? combo
+            item.title = "Stop Speaking  (\(stop))"
+        case .preparing, .synthesising:
+            item.title = speech.state.label
+        case .failed(let why):
+            item.title = "Speak Selection  — \(why.prefix(40))"
+        case .idle:
+            item.title = VoiceCatalog.isInstalled
+                ? "Speak Selection  (\(combo))"
+                : "Speak Selection  — download the voice first"
+        }
+    }
+
+    /// The 54 voices, grouped by the prefix kokoro names them with.
+    ///
+    /// Flat, a list of 54 is unreadable; grouped, it is nine short menus. The
+    /// prefixes are the model's own: "af" is American female, "bm" British
+    /// male, and so on.
+    @MainActor
+    private func rebuildVoiceMenu() {
+        guard let voiceItem = voiceMenuItem else { return }
+
+        guard let pack = VoiceCatalog.installedVoicePack,
+              let voices = try? VoicePack(url: pack) else {
+            voiceItem.submenu = nil
+            voiceItem.isEnabled = false
+            voiceItem.title = "Voice  — download the voice first"
+            return
+        }
+
+        voiceItem.isEnabled = true
+        voiceItem.title = "Voice"
+        let menu = NSMenu()
+        var lastPrefix = ""
+        for name in voices.names {
+            let prefix = String(name.prefix(2))
+            if prefix != lastPrefix {
+                if !lastPrefix.isEmpty { menu.addItem(.separator()) }
+                lastPrefix = prefix
+            }
+            let item = NSMenuItem(title: VoiceNames.title(for: name),
+                                  action: #selector(chooseVoice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = name
+            item.state = name == speech.voice ? .on : .off
+            menu.addItem(item)
+        }
+        voiceItem.submenu = menu
+    }
+
+    @MainActor private lazy var voiceSetup: VoiceSetupWindow = {
+        let setup = VoiceSetupWindow()
+        setup.onInstalled = { [weak self] in
+            MainActor.assumeIsolated {
+                self?.rebuildVoiceMenu()
+                self?.updateSpeechMenuItem()
+            }
+        }
+        return setup
+    }()
+
+    @MainActor
+    @objc private func showVoiceSetup() {
+        voiceSetup.show()
+    }
+
+    @MainActor
+    @objc private func toggleSpeech() {
+        speech.toggle()
+    }
+
+    @MainActor
+    @objc private func chooseVoice(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        speech.voice = name
+        Log.write("speech: voice set to \(name)")
+        rebuildVoiceMenu()
+    }
+
+    @MainActor
     private func makeModelSetup() -> ModelSetupWindow {
         let setup = ModelSetupWindow()
         setup.onInstalled = { [weak self] path in self?.adoptModel(at: path) }
@@ -285,6 +398,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         engine?.stop()
         hotkey.stop()
         dictationHotkey.stop()
+        speakHotkey.stop()
+        hushHotkey.stop()
     }
 
     // MARK: - Menu bar
@@ -343,6 +458,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(dictateItem)
         dictationMenuItem = dictateItem
         MainActor.assumeIsolated { updateDictationMenuItem() }
+
+        let speakItem = NSMenuItem(title: "Speak Selection",
+                                   action: #selector(toggleSpeech), keyEquivalent: "")
+        speakItem.target = self
+        menu.addItem(speakItem)
+        speechMenuItem = speakItem
+
+        // A submenu rather than a window: 54 voices is a list to scroll, not a
+        // thing to configure, and the menu is already where nib's settings are.
+        let voiceSetupItem = NSMenuItem(title: "Voices…",
+                                        action: #selector(showVoiceSetup),
+                                        keyEquivalent: "")
+        voiceSetupItem.target = self
+        menu.addItem(voiceSetupItem)
+
+        let voiceItem = NSMenuItem(title: "Voice", action: nil, keyEquivalent: "")
+        menu.addItem(voiceItem)
+        voiceMenuItem = voiceItem
+        MainActor.assumeIsolated {
+            updateSpeechMenuItem()
+            rebuildVoiceMenu()
+        }
 
         let loginItem = NSMenuItem(title: "Start at Login",
                                    action: #selector(toggleLoginItem), keyEquivalent: "")

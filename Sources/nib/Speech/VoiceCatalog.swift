@@ -68,6 +68,18 @@ enum VoiceCatalog {
         installedModel != nil && installedVoicePack != nil
     }
 
+    /// What still has to be downloaded, largest first.
+    ///
+    /// The model goes first deliberately: it is 326MB against the pack's 28MB,
+    /// so starting it while the window still has attention is better than
+    /// finishing the small one and then appearing to stall.
+    static var needed: [CatalogModel] {
+        var wanted: [CatalogModel] = []
+        if installedModel == nil { wanted.append(models[0]) }
+        if installedVoicePack == nil { wanted.append(voicePack) }
+        return wanted
+    }
+
     private static func exists(_ filename: String) -> URL? {
         let url = installDirectory.appendingPathComponent(filename)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil

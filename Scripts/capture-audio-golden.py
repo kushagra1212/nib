@@ -76,6 +76,16 @@ def main() -> int:
     })
     audio = np.asarray(outputs[0], dtype=np.float32).ravel()
 
+    # And what survives trimming, which is the only post-processing that runs.
+    #
+    # kokoro also has insert_pauses(), but it needs per-phoneme timings and this
+    # export has one output, "audio", with no "duration" beside it -- so
+    # has_timings is False and pause insertion returns the audio untouched.
+    # Checked rather than assumed, because porting it would have been a day.
+    from kokoro_onnx.trim import trim as trim_audio
+    trimmed, (start, end) = trim_audio(audio)
+    trimmed = np.ascontiguousarray(trimmed)
+
     fixture = {
         "onnxruntime_version": ort.__version__,
         "intra_op_threads": INTRA_OP_THREADS,
@@ -94,6 +104,18 @@ def main() -> int:
         "first_8": [float(x) for x in audio[:8]],
         "last_8": [float(x) for x in audio[-8:]],
         "peak": float(np.max(np.abs(audio))),
+        "has_duration_output": "duration" in {o.name for o in session.get_outputs()},
+        "trimmed": {
+            "sample_count": int(trimmed.size),
+            "start": int(start),
+            "end": int(end),
+            "sha256_float32_le": hashlib.sha256(trimmed.tobytes()).hexdigest(),
+            "first_8": [float(x) for x in trimmed[:8]],
+            "last_8": [float(x) for x in trimmed[-8:]],
+            "top_db": 60,
+            "frame_length": 2048,
+            "hop_length": 512,
+        },
     }
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -103,6 +125,7 @@ def main() -> int:
     print(f"  onnxruntime {ort.__version__}, input {token_input}, "
           f"{INTRA_OP_THREADS} threads")
     print(f"  {audio.size} samples, peak {fixture['peak']:.4f}")
+    print(f"  {trimmed.size} after trimming, from {start} to {end}")
     print(f"  sha256 {fixture['sha256_float32_le'][:16]}…")
     return 0
 

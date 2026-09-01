@@ -37,6 +37,24 @@ final class HotkeyMonitor {
             modifiers: UInt32(controlKey | optionKey),
             label: "⌃⌥D"
         )
+
+        /// Speak the selection. Carried over unchanged from the setup nib
+        /// replaces, so the keys people already have in their fingers still
+        /// work after the Node server is gone.
+        static let controlCommandN = Combo(
+            keyCode: UInt32(kVK_ANSI_N),
+            modifiers: UInt32(controlKey | cmdKey),
+            label: "⌃⌘N"
+        )
+
+        /// Stop speaking. Separate from the toggle on purpose: the reason to
+        /// reach for it is that something is talking and you want it to stop,
+        /// and at that moment a key that might also start speech is wrong.
+        static let controlShiftH = Combo(
+            keyCode: UInt32(kVK_ANSI_H),
+            modifiers: UInt32(controlKey | shiftKey),
+            label: "⌃⇧H"
+        )
     }
 
     private var handler: EventHandlerRef?

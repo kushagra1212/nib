@@ -31,6 +31,14 @@ if [[ ! -x "$ROOT/vendor/harper-ls" ]]; then
   echo "harper-ls missing -- run: Scripts/fetch-harper.sh" >&2
   exit 1
 fi
+if [[ ! -f "$ROOT/vendor/espeak/libespeak-ng.dylib" ]]; then
+  echo "espeak-ng missing -- run: Scripts/fetch-espeak.sh" >&2
+  exit 1
+fi
+if [[ ! -f "$ROOT/vendor/onnx/libonnxruntime.dylib" ]]; then
+  echo "onnxruntime missing -- run: Scripts/fetch-onnx.sh" >&2
+  exit 1
+fi
 if [[ ! -x "$ROOT/vendor/llama/llama-server" ]]; then
   echo "llama-server missing -- run: Scripts/fetch-llama.sh" >&2
   exit 1
@@ -85,6 +93,26 @@ cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE.txt"
 # rpath of @loader_path, which means "beside me". Move the binary out on its
 # own and it fails in dyld before it reaches main().
 cp -R "$ROOT/vendor/llama" "$APP/Contents/Resources/llama"
+
+# The speech engine: the phonemiser, its dictionaries, and the runtime.
+#
+# Both are opened with dlopen from Resources rather than linked, so they need
+# no rpath -- EspeakLibrary and KokoroEngine look here first and fall back to
+# vendor/ in a checkout.
+#
+# The dictionaries are 19MB and are not optional. espeak with no data phonemises
+# English as nothing, which reaches the model as an empty token list and speaks
+# silence -- a failure with no error attached to it.
+cp -R "$ROOT/vendor/espeak" "$APP/Contents/Resources/espeak"
+mkdir -p "$APP/Contents/Resources/onnx"
+cp "$ROOT/vendor/onnx/libonnxruntime.dylib" "$APP/Contents/Resources/onnx/"
+cp "$ROOT/vendor/onnx/LICENSE" "$APP/Contents/Resources/onnx/LICENSE"
+cp "$ROOT/vendor/onnx/ThirdPartyNotices.txt" \
+   "$APP/Contents/Resources/onnx/ThirdPartyNotices.txt"
+
+# Drop the fetch marker; it says which wheel the files came from, which is
+# useful in a checkout and noise in a shipped app.
+rm -f "$APP/Contents/Resources/espeak/.version"
 
 if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
   cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"

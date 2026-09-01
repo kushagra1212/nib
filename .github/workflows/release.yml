@@ -37,6 +37,12 @@ jobs:
       - name: Fetch whisper
         run: Scripts/fetch-whisper.sh
 
+      - name: Fetch espeak-ng
+        run: Scripts/fetch-espeak.sh
+
+      - name: Fetch ONNX Runtime
+        run: Scripts/fetch-onnx.sh
+
       - name: Test
         run: swift test
 
