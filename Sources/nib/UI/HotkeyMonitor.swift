@@ -104,6 +104,16 @@ final class HotkeyMonitor {
         active = nil
     }
 
+    /// What a handler must return for a press with this id.
+    ///
+    /// Pulled out of the C callback so it can be tested. Getting it wrong does
+    /// not fail visibly: the hotkey registers, the menu shows its combo, and
+    /// pressing it does nothing at all.
+    static func response(forPressed pressed: UInt32,
+                         ours identifier: UInt32) -> OSStatus {
+        pressed == identifier ? noErr : OSStatus(eventNotHandledErr)
+    }
+
     private func installHandlerIfNeeded() {
         guard handler == nil else { return }
         var spec = EventTypeSpec(
@@ -114,7 +124,19 @@ final class HotkeyMonitor {
         InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, userData in
-                guard let userData else { return noErr }
+                // Not ours means not handled, and the difference matters.
+                //
+                // Carbon reads noErr as "handled, stop here" and only passes
+                // the event to the next handler on eventNotHandledErr. Every
+                // monitor installs a handler on the same target, so returning
+                // noErr for a key belonging to another monitor swallows it:
+                // whichever handler runs first answers for all four hotkeys,
+                // and the other three never fire.
+                //
+                // That is exactly how ⌃⌘N and ⌃⇧H came to register
+                // successfully and do nothing.
+                let notOurs = OSStatus(eventNotHandledErr)
+                guard let userData else { return notOurs }
                 let monitor = Unmanaged<HotkeyMonitor>
                     .fromOpaque(userData).takeUnretainedValue()
 
@@ -125,8 +147,10 @@ final class HotkeyMonitor {
                     event, EventParamName(kEventParamDirectObject),
                     EventParamType(typeEventHotKeyID), nil,
                     MemoryLayout<EventHotKeyID>.size, nil, &pressed)
-                guard status == noErr, pressed.id == monitor.identifier else {
-                    return noErr
+                guard status == noErr else { return notOurs }
+                guard HotkeyMonitor.response(forPressed: pressed.id,
+                                             ours: monitor.identifier) == noErr else {
+                    return notOurs
                 }
 
                 DispatchQueue.main.async { monitor.onFire?() }

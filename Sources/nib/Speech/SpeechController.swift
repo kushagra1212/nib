@@ -53,7 +53,11 @@ final class SpeechController {
 
     /// `⌃⌘N`. Starts if idle, stops if not.
     func toggle() {
-        guard let next = state.next(for: .toggled) else { return }
+        Log.write("speech: toggle pressed, state=\(state)")
+        guard let next = state.next(for: .toggled) else {
+            Log.write("speech: toggle ignored in \(state)")
+            return
+        }
         if next == .idle {
             cancel()
         } else {
@@ -86,10 +90,13 @@ final class SpeechController {
     // MARK: - Doing it
 
     private func begin() {
-        guard let text = readSelection() ?? readClipboard() else {
+        let selected = readSelection()
+        guard let text = selected ?? readClipboard() else {
             fail("Nothing selected, and nothing on the clipboard.")
             return
         }
+        Log.write("speech: \(selected != nil ? "selection" : "clipboard"), "
+            + "\(text.count) characters")
         guard VoiceCatalog.isInstalled else {
             fail("The voice is not downloaded yet. Open Voices… to get it.")
             return

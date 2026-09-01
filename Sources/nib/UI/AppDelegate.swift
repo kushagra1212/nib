@@ -79,12 +79,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func startDictation() {
         // Both carried over from the setup nib replaces, so the keys already
         // in people's fingers keep working once the server is gone.
-        if speakHotkey.start(preferring: [.controlCommandN],
-                             onFire: { [weak self] in self?.speech.toggle() }) == nil {
+        // Logged on success too, not only on failure. Registering silently
+        // meant "it worked" and "this line never ran" looked identical in the
+        // log, which is the state this was debugged from.
+        if let speak = speakHotkey.start(preferring: [.controlCommandN],
+                                         onFire: { [weak self] in self?.speech.toggle() }) {
+            Log.write("speak hotkey registered on \(speak.label)")
+        } else {
             Log.write("speak hotkey unavailable -- something else holds ⌃⌘N")
         }
-        if hushHotkey.start(preferring: [.controlShiftH],
-                            onFire: { [weak self] in self?.speech.hush() }) == nil {
+        if let hush = hushHotkey.start(preferring: [.controlShiftH],
+                                       onFire: { [weak self] in self?.speech.hush() }) {
+            Log.write("hush hotkey registered on \(hush.label)")
+        } else {
             Log.write("hush hotkey unavailable -- something else holds ⌃⇧H")
         }
 
