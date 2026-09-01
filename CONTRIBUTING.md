@@ -81,6 +81,16 @@ in prose and comments, American in API names where the platform uses it
 (`color` in AppKit calls, `colour` in a sentence about them). Four spaces. No
 force-unwrapping outside tests.
 
+## Licensing
+
+nib is GPL-3.0-or-later. Contributions are accepted under the same terms.
+
+It was MIT until speech synthesis was built in; piper and espeak-ng are
+GPL-3.0 and linking them made the whole application a derivative work. If you
+add a dependency, check its licence is compatible before writing against it --
+that check is cheaper than the alternative, which is discovering it after the
+code exists.
+
 ## Reporting a bug
 
 The useful ones so far have arrived as a screenshot plus what was expected.

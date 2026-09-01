@@ -10,7 +10,7 @@ and never sends any of it anywhere.
 
 [![CI](https://github.com/kushagra1212/nib/actions/workflows/ci.yml/badge.svg)](https://github.com/kushagra1212/nib/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kushagra1212/nib)](https://github.com/kushagra1212/nib/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 <img src="media/nib-demo.gif" width="640" alt="nib correcting a sentence as it is typed, then rewriting a selected sentence">
 
@@ -334,4 +334,13 @@ explain why rather than what, and make failures say what to do about them.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+GPL-3.0-or-later. See [LICENSE](LICENSE).
+
+nib was MIT through v1.0.3. Building speech synthesis in changed that: piper
+and the espeak-ng phonemiser it needs are GPL-3.0, and linking them makes the
+whole application a derivative work. Keeping piper at arm's length as a
+separate process would have preserved MIT, and was rejected in favour of one
+self-contained binary.
+
+The bundled engines stay compatible — harper-ls is Apache-2.0, llama.cpp and
+whisper.cpp are MIT, and all three may be combined into a GPL-3.0 work.

@@ -4,7 +4,8 @@ Third-party licences
 nib ships three pieces of software it did not write. All are included in the
 app bundle, and their licences are reproduced in full below.
 
-nib's own licence is MIT and is in LICENSE, next to this file.
+nib's own licence is GPL-3.0-or-later and is in LICENSE, next to this file.
+Every licence below is compatible with combining into a GPL-3.0 work.
 
 
 -------------------------------------------------------------------------------
