@@ -10,15 +10,19 @@ Scripts/fetch-harper.sh          # grammar engine
 Scripts/fetch-llama.sh           # rewrite engine
 Scripts/fetch-whisper.sh         # dictation engine
 Scripts/fetch-espeak.sh          # phonemiser, for speaking aloud
+Scripts/fetch-onnx.sh            # runs the speech model
 swift build -c release
 swift test
 ```
 
 `Package.swift` declares the whisper XCFramework as a binary target, so nothing
 builds until that one is on disk — the only step whose absence produces a
-confusing error rather than a clear one. espeak is loaded with `dlopen` rather
-than linked, so the build succeeds without it and the tests that need it skip
-and say so.
+confusing error rather than a clear one. espeak and ONNX Runtime are loaded with
+`dlopen` rather than linked, so the build succeeds without them and the tests
+that need them skip and say so.
+
+The speech tests also want the 326MB Kokoro model. Point them at one with
+`NIB_KOKORO_MODEL` and `NIB_VOICE_PACK`, or let them skip.
 
 To run what you built:
 

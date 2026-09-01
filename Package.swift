@@ -15,9 +15,24 @@ let package = Package(
             name: "whisper",
             path: "vendor/whisper/whisper.xcframework"
         ),
+        // Kokoro inference, kept in C.
+        //
+        // ONNX Runtime's C API is a struct of several hundred function
+        // pointers. Restating that in Swift would make one member out of order
+        // undefined behaviour rather than a compile error, so the headers stay
+        // here and Swift sees four functions.
+        //
+        // The runtime itself is opened with dlopen, not linked, so this builds
+        // wherever Scripts/fetch-onnx.sh has not been run.
+        .target(
+            name: "CKokoro",
+            path: "Sources/CKokoro",
+            exclude: ["onnxruntime/LICENSE"],
+            publicHeadersPath: "include"
+        ),
         .executableTarget(
             name: "nib",
-            dependencies: ["whisper"],
+            dependencies: ["whisper", "CKokoro"],
             path: "Sources/nib"
         ),
         .testTarget(
