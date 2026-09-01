@@ -1,0 +1,120 @@
+{
+  "source": "voices-v1.0.bin",
+  "sha256_file": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+  "voice_count": 54,
+  "voices": [
+    "af_alloy",
+    "af_aoede",
+    "af_bella",
+    "af_heart",
+    "af_jessica",
+    "af_kore",
+    "af_nicole",
+    "af_nova",
+    "af_river",
+    "af_sarah",
+    "af_sky",
+    "am_adam",
+    "am_echo",
+    "am_eric",
+    "am_fenrir",
+    "am_liam",
+    "am_michael",
+    "am_onyx",
+    "am_puck",
+    "am_santa",
+    "bf_alice",
+    "bf_emma",
+    "bf_isabella",
+    "bf_lily",
+    "bm_daniel",
+    "bm_fable",
+    "bm_george",
+    "bm_lewis",
+    "ef_dora",
+    "em_alex",
+    "em_santa",
+    "ff_siwis",
+    "hf_alpha",
+    "hf_beta",
+    "hm_omega",
+    "hm_psi",
+    "if_sara",
+    "im_nicola",
+    "jf_alpha",
+    "jf_gongitsune",
+    "jf_nezumi",
+    "jf_tebukuro",
+    "jm_kumo",
+    "pf_dora",
+    "pm_alex",
+    "pm_santa",
+    "zf_xiaobei",
+    "zf_xiaoni",
+    "zf_xiaoxiao",
+    "zf_xiaoyi",
+    "zm_yunjian",
+    "zm_yunxi",
+    "zm_yunxia",
+    "zm_yunyang"
+  ],
+  "rows": 510,
+  "style_dimensions": 256,
+  "all_entries_stored": true,
+  "samples": [
+    {
+      "voice": "af_heart",
+      "row": 52,
+      "count": 256,
+      "first_4": [
+        -0.22209137678146362,
+        0.15954329073429108,
+        -0.014346227049827576,
+        -0.12411727756261826
+      ],
+      "last_4": [
+        -0.23297925293445587,
+        -0.2336314469575882,
+        -0.06707613915205002,
+        0.09731998294591904
+      ],
+      "sha256_float32_le": "ebec1dcecbc8bda9578453cabaf20cf7e51b14672ffac5df030486bee1480e2f"
+    },
+    {
+      "voice": "am_adam",
+      "row": 0,
+      "count": 256,
+      "first_4": [
+        -0.10037234425544739,
+        0.17776136100292206,
+        -0.1588590145111084,
+        0.09690533578395844
+      ],
+      "last_4": [
+        0.32138848304748535,
+        0.38403332233428955,
+        0.22864452004432678,
+        0.145894855260849
+      ],
+      "sha256_float32_le": "e4f7916ee2a43e83a2a490ee95a808d01bf3367089ce26efbd2252c7137cb4ad"
+    },
+    {
+      "voice": "af_heart",
+      "row": 509,
+      "count": 256,
+      "first_4": [
+        -0.21525178849697113,
+        0.1346859335899353,
+        -0.028841150924563408,
+        -0.13292483985424042
+      ],
+      "last_4": [
+        -0.3049081861972809,
+        -0.31721147894859314,
+        0.010486374609172344,
+        0.1423729509115219
+      ],
+      "sha256_float32_le": "88b4b4859b90ada6111fcf7e4a428e17bffdd64bfd022727a650f7832d174054"
+    }
+  ]
+}
