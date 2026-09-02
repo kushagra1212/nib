@@ -28,6 +28,29 @@ enum PhonemeChunker {
         sentenceMarks, clauseMarks, nil,   // nil is any whitespace
     ]
 
+    /// A shorter limit for the first batch only.
+    ///
+    /// Nothing is spoken until the first batch is synthesised, so its length is
+    /// the wait before the first word. At the full 510 that is 11 seconds of
+    /// silence on a long selection, which reads as broken. At 180 it is about
+    /// three, and only the opening is cut more finely than the rest.
+    ///
+    /// Not smaller: every batch is trimmed and rejoined, so a very short lead-in
+    /// buys a second at the cost of an audible seam in the first sentence.
+    static let leadIn = 180
+
+    /// Splits with a shorter first batch, so speech can start sooner.
+    ///
+    /// The remainder is batched normally. Only the opening pays for the finer
+    /// cut, and by the time it has played there is a full batch ready behind it.
+    static func streaming(_ phonemes: String,
+                          limit: Int = KokoroVocab.maxPhonemes,
+                          leadIn: Int = leadIn) -> [String] {
+        let batches = split(phonemes, limit: limit)
+        guard batches.count > 1, let first = batches.first else { return batches }
+        return split(first, limit: leadIn) + batches.dropFirst()
+    }
+
     static func split(_ phonemes: String,
                       limit: Int = KokoroVocab.maxPhonemes) -> [String] {
         let atoms = self.atoms(phonemes.trimmed(), limit: limit)

@@ -58,34 +58,63 @@ struct SpeechSynthesizer {
     /// model would mean tearing down the session rather than dropping a result.
     func samples(for text: String,
                  isCancelled: () -> Bool = { false }) throws -> [Float] {
+        var audio: [Float] = []
+        try synthesise(text, isCancelled: isCancelled) { batch, _ in
+            audio += batch
+        }
+        guard !audio.isEmpty else { throw Failure.nothingToSay(text) }
+        return audio
+    }
+
+    /// The same work, handing over each batch the moment it is ready.
+    ///
+    /// This is what makes long text usable. Synthesis runs at about 1.8x real
+    /// time, so waiting for all of it before playing any means a 3540-character
+    /// selection sits silent for 123 seconds -- measured, and indistinguishable
+    /// from the feature being broken. Playing batch by batch brings the first
+    /// word forward to the first batch alone, and synthesis then stays ahead of
+    /// playback for the rest.
+    ///
+    /// `onBatch` receives levelled samples and whether that batch is the last.
+    ///
+    /// `isCancelled` is checked between batches rather than during one. A batch
+    /// is at most 510 phonemes, which is a few seconds; stopping inside the
+    /// model would mean tearing down the session rather than dropping a result.
+    func synthesise(_ text: String,
+                    isCancelled: () -> Bool = { false },
+                    onBatch: ([Float], Bool) -> Void) throws {
         let spoken = try Phonemizer.phonemes(of: text, using: phonemes)
-        let batches = PhonemeChunker.split(spoken)
+        let batches = PhonemeChunker.streaming(spoken)
         guard !batches.isEmpty else { throw Failure.nothingToSay(text) }
 
-        var audio: [Float] = []
+        var spokeAnything = false
         for (index, batch) in batches.enumerated() {
-            if isCancelled() { break }
+            if isCancelled() { return }
 
             let tokens = try KokoroTokenizer.tokenize(batch)
             guard !tokens.isEmpty else { continue }
 
             let style = try voices.style(for: voice, tokenCount: tokens.count)
             let raw = try engine.synthesise(tokens: tokens, style: style, speed: speed)
-            audio += AudioTrim.trimmed(raw)
+            var audio = AudioTrim.trimmed(raw)
 
+            let isLast = index == batches.count - 1
             // The last batch gets no pause; it is the end of the utterance and
             // trailing silence is just a delay before the next thing happens.
-            guard index < batches.count - 1 else { continue }
-            let pause = PhonemeChunker.pause(after: batch, sentence: sentencePause,
-                                             clause: clausePause)
-            if pause > 0 {
-                audio += [Float](repeating: 0,
-                                 count: Int(pause * Double(KokoroEngine.sampleRate)))
+            if !isLast {
+                let pause = PhonemeChunker.pause(after: batch, sentence: sentencePause,
+                                                 clause: clausePause)
+                if pause > 0 {
+                    audio += [Float](repeating: 0,
+                                     count: Int(pause * Double(KokoroEngine.sampleRate)))
+                }
             }
+
+            spokeAnything = true
+            onBatch(Self.leveled(audio, volume: volume), isLast)
         }
 
-        guard !audio.isEmpty else { throw Failure.nothingToSay(text) }
-        return Self.leveled(audio, volume: volume)
+        guard spokeAnything else { throw Failure.nothingToSay(text) }
     }
 
     /// Volume, applied the way the existing setup applies it.

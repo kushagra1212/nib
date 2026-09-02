@@ -56,8 +56,34 @@ enum SpeechProbe {
             let firstBatch = try KokoroTokenizer.tokenize(batches.first ?? "")
             print("tokens      \(firstBatch.count) in the first of \(batches.count)")
 
+            // Batch by batch, timing the first one separately: that is the
+            // wait before the first word, and the number that decides whether
+            // this feels broken.
+            // Streamed, the same way the app does it, so this measures the
+            // path that actually runs. Accumulating here instead would report a
+            // wait that no user experiences.
+            let player = play ? try SpeechPlayer() : nil
+            var done = false
+            try player?.begin { done = true }
+
             let rendering = Date()
-            let samples = try synthesizer.samples(for: text)
+            var firstBatchAt: TimeInterval?
+            var firstSoundAt: TimeInterval?
+            var batchCount = 0
+            var samples: [Float] = []
+            try synthesizer.synthesise(text) { batch, isLast in
+                if firstBatchAt == nil {
+                    firstBatchAt = Date().timeIntervalSince(rendering)
+                }
+                batchCount += 1
+                samples += batch
+                if let player {
+                    try? player.enqueue(batch, isLast: isLast)
+                    if firstSoundAt == nil {
+                        firstSoundAt = Date().timeIntervalSince(started)
+                    }
+                }
+            }
             let seconds = Double(samples.count) / Double(KokoroEngine.sampleRate)
             let peak = samples.map(abs).max() ?? 0
             print("audio       \(samples.count) samples, "
@@ -66,6 +92,11 @@ enum SpeechProbe {
             let took = Date().timeIntervalSince(rendering)
             print("synthesis   \(elapsed(since: rendering)) "
                 + String(format: "(%.1fx real time)", seconds / took))
+            if let firstBatchAt {
+                print("first word  "
+                    + String(format: "%.2fs", firstBatchAt)
+                    + " (of \(batchCount) batches)")
+            }
 
             // Near-silence is the failure this catches. Every stage can succeed
             // and still produce nothing audible, and a sample count alone would
@@ -75,20 +106,22 @@ enum SpeechProbe {
                 return 1
             }
 
-            if play {
-                let player = try SpeechPlayer()
-                var done = false
-                try player.play(samples) { done = true }
+            if let player, let firstSoundAt {
+                print("sound began " + String(format: "%.2fs", firstSoundAt)
+                    + " after launch")
 
                 // The run loop, not a semaphore. Playback finishes on the main
                 // queue, so blocking main to wait for it would stop the thing
                 // being waited on.
-                let deadline = Date().addingTimeInterval(seconds + 5)
+                let deadline = Date().addingTimeInterval(seconds + 10)
                 while !done, Date() < deadline {
                     RunLoop.current.run(mode: .default,
                                         before: Date().addingTimeInterval(0.05))
                 }
-                if !done { print("playback did not finish in time") }
+                if !done {
+                    print("playback did not finish in time")
+                    player.stop()
+                }
             }
 
             print("total       \(elapsed(since: started))")

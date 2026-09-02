@@ -194,4 +194,43 @@ final class PhonemeChunkerTests: XCTestCase {
     func testAnEmptyBatchHasNoPause() {
         XCTAssertEqual(PhonemeChunker.pause(after: "", sentence: 0.25, clause: 0.1), 0)
     }
+
+    // MARK: - The lead-in
+
+    /// Nothing is spoken until the first batch is done, so its length is the
+    /// wait before the first word. At the full 510 that measured 11.3 seconds
+    /// of silence on a 3540-character selection; with the lead-in, 4.0.
+    func testTheFirstBatchIsShorterThanTheRest() {
+        let long = String(repeating: "ðə kwˈɪk bɹˈaʊn fˈɑːks. ", count: 80)
+        let batches = PhonemeChunker.streaming(long)
+        XCTAssertGreaterThan(batches.count, 1)
+        XCTAssertLessThanOrEqual(batches[0].count, PhonemeChunker.leadIn)
+        XCTAssertGreaterThan(batches.last!.count, PhonemeChunker.leadIn,
+                             "only the opening should be cut finely")
+    }
+
+    /// Text that fits in one batch is left alone. Splitting a single sentence
+    /// into pieces would add seams for no gain -- it is already fast.
+    func testShortTextIsNotSplitForStreaming() {
+        let short = "ðə kwˈɪk bɹˈaʊn fˈɑːks dʒˈʌmps ˌoʊvɚ ðə lˈeɪzi dˈɑːɡ."
+        XCTAssertEqual(PhonemeChunker.streaming(short), [short])
+    }
+
+    /// The lead-in must not lose or reorder anything.
+    func testStreamingKeepsEveryWord() {
+        let long = String(repeating: "ðə kwˈɪk bɹˈaʊn fˈɑːks. ", count: 80)
+        let plain = PhonemeChunker.split(long).joined(separator: " ")
+        let streamed = PhonemeChunker.streaming(long).joined(separator: " ")
+        XCTAssertEqual(streamed.split(separator: " "), plain.split(separator: " "))
+    }
+
+    /// Still within the model's context, lead-in or not.
+    func testNoStreamingBatchExceedsTheContext() throws {
+        for entry in try golden().entries {
+            for batch in PhonemeChunker.streaming(entry.phonemes) {
+                XCTAssertLessThanOrEqual(batch.count, KokoroVocab.maxPhonemes,
+                                         "\(entry.name)")
+            }
+        }
+    }
 }

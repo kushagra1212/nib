@@ -111,10 +111,7 @@ final class SpeechController {
                 guard !Task.isCancelled else { return }
                 self.state = .synthesising
 
-                let samples = try await Self.render(synthesizer, text: text)
-                guard !Task.isCancelled else { return }
-
-                try self.speak(samples)
+                try await self.render(synthesizer, text: text)
             } catch is CancellationError {
                 return
             } catch {
@@ -122,6 +119,57 @@ final class SpeechController {
                 self.fail("\(error)")
             }
         }
+    }
+
+    /// Synthesises, playing each batch as it arrives.
+    ///
+    /// Waiting for the whole text first is what made this look broken: at about
+    /// 1.8x real time, a 3540-character selection took 123 seconds to render
+    /// and played nothing until it was done. Starting on the first batch brings
+    /// the first word forward to that batch alone, and synthesis stays ahead of
+    /// playback from then on.
+    private func render(_ synthesizer: SpeechSynthesizer, text: String) async throws {
+        let player = try self.player ?? SpeechPlayer()
+        self.player = player
+
+        var started = false
+        var spoken = 0
+
+        // The model runs off the main actor; each finished batch comes back to
+        // it to be queued, because the audio node is not safe to touch from the
+        // synthesis thread.
+        try await Task.detached(priority: .userInitiated) { [weak self] in
+            try synthesizer.synthesise(text, isCancelled: { Task.isCancelled }) {
+                batch, isLast in
+                let samples = batch
+                DispatchQueue.main.async {
+                    guard let self, !Task.isCancelled else { return }
+                    MainActor.assumeIsolated {
+                        guard self.state == .synthesising || self.state == .speaking
+                        else { return }
+                        do {
+                            if !started {
+                                started = true
+                                try player.begin { [weak self] in
+                                    guard let self, self.state == .speaking else { return }
+                                    self.state = .idle
+                                }
+                                self.state.next(for: .synthesised).map { self.state = $0 }
+                            }
+                            try player.enqueue(samples, isLast: isLast)
+                            spoken += samples.count
+                            if isLast {
+                                let seconds = Double(spoken)
+                                    / Double(KokoroEngine.sampleRate)
+                                Log.write("speech: \(String(format: "%.1f", seconds))s spoken")
+                            }
+                        } catch {
+                            self.fail("\(error)")
+                        }
+                    }
+                }
+            }
+        }.value
     }
 
     /// Opens the model, or reuses the one already open.
@@ -148,27 +196,6 @@ final class SpeechController {
         synthesizer.voice = voices.names.contains(voice) ? voice
             : VoiceCatalog.defaultVoice
         return synthesizer
-    }
-
-    private static func render(_ synthesizer: SpeechSynthesizer,
-                               text: String) async throws -> [Float] {
-        try await Task.detached(priority: .userInitiated) {
-            try synthesizer.samples(for: text) { Task.isCancelled }
-        }.value
-    }
-
-    private func speak(_ samples: [Float]) throws {
-        let player = try self.player ?? SpeechPlayer()
-        self.player = player
-
-        state.next(for: .synthesised).map { state = $0 }
-        let seconds = Double(samples.count) / Double(KokoroEngine.sampleRate)
-        Log.write("speech: \(String(format: "%.1f", seconds))s to speak")
-
-        try player.play(samples) { [weak self] in
-            guard let self, self.state == .speaking else { return }
-            self.state = .idle
-        }
     }
 
     private func fail(_ why: String) {
