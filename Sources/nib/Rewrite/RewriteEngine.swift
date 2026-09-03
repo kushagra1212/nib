@@ -297,9 +297,7 @@ actor RewriteEngine {
 
     // MARK: - Rewriting
 
-    func rewrite(
-        _ text: String, mode: RewriteMode,
-    ) async throws -> String {
+    func rewrite(_ text: String, mode: RewriteMode) async throws -> String {
         let port = try await ensureRunning()
         scheduleIdleShutdown()
 
