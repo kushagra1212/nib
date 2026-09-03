@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var speechMenuItem: NSMenuItem?
     private var memoryMenuItem: NSMenuItem?
+    private var historyMenuItem: NSMenuItem?
+    private var dictationHistory = DictationHistory.load()
     private var voiceMenuItem: NSMenuItem?
     // Two monitors, two identifiers. Carbon delivers every press to every
     // handler, so sharing one would make hush start speech as well.
@@ -115,6 +117,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @MainActor
+    private func recordTranscript(_ text: String) {
+        dictationHistory.add(text)
+        dictationHistory.save()
+        rebuildHistoryMenu()
+    }
+
+    /// The last dictations, newest first, click to copy.
+    ///
+    /// Fifteen in the menu of the hundred kept: a menu longer than the screen
+    /// scrolls, and anything past the last few is being searched for rather
+    /// than browsed. The file has the rest.
+    @MainActor
+    private func rebuildHistoryMenu() {
+        guard let item = historyMenuItem else { return }
+        let entries = dictationHistory.entries
+
+        guard !entries.isEmpty else {
+            item.submenu = nil
+            item.isEnabled = false
+            item.title = "Recent Dictation — none yet"
+            return
+        }
+
+        item.isEnabled = true
+        item.title = "Recent Dictation"
+        let menu = NSMenu()
+        for entry in entries.prefix(15) {
+            let row = NSMenuItem(title: entry.label(),
+                                 action: #selector(copyTranscript(_:)),
+                                 keyEquivalent: "")
+            row.target = self
+            row.representedObject = entry.text
+            row.toolTip = entry.text
+            menu.addItem(row)
+        }
+        menu.addItem(.separator())
+        let clear = NSMenuItem(title: "Clear History",
+                               action: #selector(clearHistory), keyEquivalent: "")
+        clear.target = self
+        menu.addItem(clear)
+        item.submenu = menu
+    }
+
+    @MainActor
+    @objc private func copyTranscript(_ sender: NSMenuItem) {
+        guard let text = sender.representedObject as? String else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        Log.write("dictation: copied \(text.count) characters from history")
+    }
+
+    @MainActor
+    @objc private func clearHistory() {
+        dictationHistory.clear()
+        dictationHistory.save()
+        rebuildHistoryMenu()
+        Log.write("dictation: history cleared")
+    }
+
+    @MainActor
     private func makeDictation() -> DictationController {
         let controller = DictationController()
         controller.onStateChange = { [weak self] state in
@@ -129,6 +191,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Task { await rewriter.shutdown() }
         }
         controller.onNeedsModel = { [weak self] in self?.offerSpeechModel() }
+        controller.onTranscript = { [weak self] text in
+            MainActor.assumeIsolated { self?.recordTranscript(text) }
+        }
         return controller
     }
 
@@ -499,6 +564,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(dictateItem)
         dictationMenuItem = dictateItem
         MainActor.assumeIsolated { updateDictationMenuItem() }
+
+        // Dictation types into whatever has focus, so a transcript that lands
+        // in the wrong window is otherwise gone. These are kept instead.
+        let historyItem = NSMenuItem(title: "Recent Dictation", action: nil,
+                                     keyEquivalent: "")
+        menu.addItem(historyItem)
+        historyMenuItem = historyItem
+        MainActor.assumeIsolated { rebuildHistoryMenu() }
 
         let speakItem = NSMenuItem(title: "Speak Selection",
                                    action: #selector(toggleSpeech), keyEquivalent: "")

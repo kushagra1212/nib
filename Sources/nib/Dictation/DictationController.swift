@@ -137,7 +137,16 @@ final class DictationController {
     /// Typed rather than written through Accessibility, so the text enters the
     /// app's own undo stack and one Cmd-Z removes a dictation. An AX write
     /// lands without the app noticing and cannot be undone.
+    /// Called with every finished transcript, before it is typed anywhere.
+    var onTranscript: ((String) -> Void)?
+
     private func insert(_ text: String) {
+        // Recorded before the typing, not after. If the insert goes wrong --
+        // no permission, wrong window, a field that clears itself -- that is
+        // exactly when the transcript is worth having, so it must already be
+        // kept by then.
+        onTranscript?(text)
+
         guard AXAccess.isTrusted else {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
