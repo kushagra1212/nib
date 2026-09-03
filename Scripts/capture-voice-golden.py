@@ -14,6 +14,20 @@ with the wrong intonation, which sounds like a worse model rather than a bug.
 So this records what numpy returns for three rows chosen to catch that:
 the first row, the last row, and the row the golden sentence uses. The Swift
 reader is compared against these rather than against a reading of the format.
+
+The reference setup this reads from was deleted on 2026-09-03, once nib had
+replaced it. Everything it produced is committed under Tests/Fixtures, so the
+tests do not need it -- but regenerating a fixture does. To rebuild it:
+
+    python3.12 -m venv /tmp/kokoro-venv
+    /tmp/kokoro-venv/bin/pip install kokoro-onnx phonemizer espeakng-loader \
+        onnxruntime==1.29.0 numpy soundfile
+    # models from https://github.com/thewh1teagle/kokoro-onnx/releases
+    #   model-files-v1.0/kokoro-v1.0.onnx and voices-v1.0.bin
+
+Then run this with that interpreter, passing the model directory where a path
+is taken. Pin onnxruntime to 1.29.0: the audio fixture is compared bit for bit
+and another build produces different samples.
 """
 
 import hashlib

@@ -15,6 +15,20 @@ reader returns -- so the only thing it can disagree about is the inference.
 Padding matters and is easy to miss: the model is fed [0, *tokens, 0]. Without
 the zeros every utterance loses a phoneme at each end, which sounds like a
 clipped recording rather than a wrong input.
+
+The reference setup this reads from was deleted on 2026-09-03, once nib had
+replaced it. Everything it produced is committed under Tests/Fixtures, so the
+tests do not need it -- but regenerating a fixture does. To rebuild it:
+
+    python3.12 -m venv /tmp/kokoro-venv
+    /tmp/kokoro-venv/bin/pip install kokoro-onnx phonemizer espeakng-loader \
+        onnxruntime==1.29.0 numpy soundfile
+    # models from https://github.com/thewh1teagle/kokoro-onnx/releases
+    #   model-files-v1.0/kokoro-v1.0.onnx and voices-v1.0.bin
+
+Then run this with that interpreter, passing the model directory where a path
+is taken. Pin onnxruntime to 1.29.0: the audio fixture is compared bit for bit
+and another build produces different samples.
 """
 
 import hashlib
@@ -25,7 +39,8 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-MODELS = Path.home() / "code/per/voice-server-cloudci/vendor/kokoro-models"
+MODELS = Path(sys.argv[1]) if len(sys.argv) > 1 else (
+    Path.home() / "Library/Application Support/nib/voice")
 OUTPUT = HERE.parent / "Tests/Fixtures/audio-golden.json"
 
 # From Tests/Fixtures/kokoro-golden.json, which the Swift tokeniser reproduces.

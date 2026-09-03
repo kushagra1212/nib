@@ -15,6 +15,20 @@ a generated file cannot have a typo in entry 47.
 The source hash is embedded in the output. If the engine is upgraded and its
 table changes, the checked-in Swift no longer matches and the test says so,
 rather than the voice quietly drifting.
+
+The reference setup this reads from was deleted on 2026-09-03, once nib had
+replaced it. Everything it produced is committed under Tests/Fixtures, so the
+tests do not need it -- but regenerating a fixture does. To rebuild it:
+
+    python3.12 -m venv /tmp/kokoro-venv
+    /tmp/kokoro-venv/bin/pip install kokoro-onnx phonemizer espeakng-loader \
+        onnxruntime==1.29.0 numpy soundfile
+    # models from https://github.com/thewh1teagle/kokoro-onnx/releases
+    #   model-files-v1.0/kokoro-v1.0.onnx and voices-v1.0.bin
+
+Then run this with that interpreter, passing the model directory where a path
+is taken. Pin onnxruntime to 1.29.0: the audio fixture is compared bit for bit
+and another build produces different samples.
 """
 
 import hashlib

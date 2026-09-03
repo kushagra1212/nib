@@ -17,6 +17,20 @@ So the corpus below is punctuation-shaped: marks at the start, the end and the
 middle, marks that double as decimal separators, marks alone, and text with no
 marks at all. Each entry records what espeak returned, what phonemizer returned,
 what kokoro kept after filtering to the vocabulary, and the token ids.
+
+The reference setup this reads from was deleted on 2026-09-03, once nib had
+replaced it. Everything it produced is committed under Tests/Fixtures, so the
+tests do not need it -- but regenerating a fixture does. To rebuild it:
+
+    python3.12 -m venv /tmp/kokoro-venv
+    /tmp/kokoro-venv/bin/pip install kokoro-onnx phonemizer espeakng-loader \
+        onnxruntime==1.29.0 numpy soundfile
+    # models from https://github.com/thewh1teagle/kokoro-onnx/releases
+    #   model-files-v1.0/kokoro-v1.0.onnx and voices-v1.0.bin
+
+Then run this with that interpreter, passing the model directory where a path
+is taken. Pin onnxruntime to 1.29.0: the audio fixture is compared bit for bit
+and another build produces different samples.
 """
 
 import json
@@ -123,7 +137,7 @@ def main() -> int:
         from kokoro_onnx.tokenizer import Tokenizer
     except ImportError as err:
         print(f"needs the kokoro venv: {err}", file=sys.stderr)
-        print("run with voice-server-cloudci/vendor/kokoro-venv/bin/python",
+        print("see the rebuild instructions at the top of this file",
               file=sys.stderr)
         return 1
 
