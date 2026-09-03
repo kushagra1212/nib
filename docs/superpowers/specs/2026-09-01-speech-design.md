@@ -196,6 +196,28 @@ CoreML execution provider is ever added for speed, this comes back.
 which suggests holding the model between presses is unnecessary -- but that
 figure is Python's, and the decision should wait for nib's own.
 
+## Reading aloud and dictation never run together
+
+Added 2026-09-03, after the CPU and memory audit. Dictation wins: starting it
+stops speech, and `⌃⌘N` refuses while dictation is busy.
+
+Contention was the reason it was raised and is the smaller one. Measured
+separately they peak at 219% and 93% of a core, which twelve cores absorb. The
+real problem is the microphone: dictation opens it, so anything nib is reading
+aloud is recorded and transcribed back, and the words you asked it to read
+arrive in the document as though you had said them.
+
+The stop happens on `willRecord`, immediately before the microphone opens.
+`willTranscribe` already existed and is too late -- by then the recording holds
+nib's own voice.
+
+Dictation wins because it is the one with a deadline. Speech can be asked for
+again a second later; a sentence spoken into a closed microphone is gone.
+
+Confirmed working by the user on 2026-09-03. It could not be verified here:
+driving it needs microphone permission, which `Scripts/install.sh` clears on
+every ad-hoc reinstall.
+
 ## Out of scope
 
 Streaming as it synthesises. Speaking whole documents. The piper engine.
