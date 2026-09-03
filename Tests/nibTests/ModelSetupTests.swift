@@ -40,11 +40,24 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertEqual(Set(names).count, names.count)
     }
 
-    /// The preselected one has to be the cheapest thing that works, or the
-    /// window is asking for a commitment before it has earned one.
-    func testTheRecommendationIsTheSmallest() {
-        let smallest = ModelCatalog.all.min { $0.bytes < $1.bytes }
-        XCTAssertEqual(ModelCatalog.recommended, smallest)
+    /// The preselected one is the one that does the job, not the cheapest.
+    ///
+    /// This test used to require the smallest, on the reasoning that a new user
+    /// should not be asked for gigabytes before the app has earned it. Measured
+    /// on a real sentence, the smallest added a comma and left the grammar
+    /// alone -- which is not a cheap version of the feature, it is the feature
+    /// absent. The comparison is written out in ModelCatalog.
+    func testTheRecommendationIsTheOneThatRewrites() {
+        XCTAssertEqual(ModelCatalog.recommended.filename,
+                       "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
+    }
+
+    /// And the small one is still offered, for a machine that cannot spare
+    /// 2.5GB. Removing it would leave no option at all on a small disk.
+    func testTheSmallModelIsStillOffered() {
+        XCTAssertEqual(ModelCatalog.compact.filename, "Qwen3-0.6B-Q8_0.gguf")
+        XCTAssertTrue(ModelCatalog.all.contains(ModelCatalog.compact))
+        XCTAssertLessThan(ModelCatalog.compact.bytes, ModelCatalog.recommended.bytes)
     }
 
     func testListedSmallestFirst() {

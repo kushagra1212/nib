@@ -47,9 +47,47 @@ enum ModelCatalog {
                 + "forms, tense, plurals -- in about half a second.",
             bytes: 804_753_632,
             url: huggingFace("ggml-org/Qwen3-0.6B-GGUF", "Qwen3-0.6B-Q8_0.gguf")),
+        CatalogModel(
+            filename: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+            title: "Qwen3 4B",
+            detail: "Writes like a person. Rewrites awkward sentences into "
+                + "natural English rather than just fixing the commas. "
+                + "About a second and a half per rewrite.",
+            bytes: 2_497_281_120,
+            url: huggingFace("unsloth/Qwen3-4B-Instruct-2507-GGUF",
+                             "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")),
     ]
 
-    /// One entry, because one is what survived being measured.
+    /// Two entries, and the second is the one to use if the disk is there.
+    ///
+    /// Measured against each other on a sentence someone actually wrote:
+    /// "Also I do not have option to see the score of the selected text how
+    /// much is it grammatically correct because I am very naive at English so
+    /// I can not judge myself."
+    ///
+    ///   0.6B, Fix      added one comma. Left "do not have option", left
+    ///                  "how much is it grammatically correct", left
+    ///                  "naive at English", left "can not".
+    ///   0.6B, Native   added a second comma. Nothing else.
+    ///   4B, Fix        "Also, I don't have the option to see the score of the
+    ///                  selected text regarding how grammatically correct it
+    ///                  is, because I am quite naive when it comes to English,
+    ///                  so I can't judge myself."
+    ///   4B, Native     "I also don't have the option to see how grammatically
+    ///                  correct the selected text is -- I'm quite inexperienced
+    ///                  with English, so I can't judge it on my own."
+    ///
+    /// On that evidence the 0.6B is a comma inserter and the 4B is the feature.
+    /// It costs about 1.4s a rewrite against 0.3s, which is the right trade for
+    /// something asked for by pressing a button.
+    ///
+    /// Instruct-2507 rather than plain Qwen3-4B: the base model is a hybrid
+    /// reasoning model that thinks out loud before answering, and every token
+    /// of that is latency for an answer nib throws away.
+    ///
+    /// Caveat measured rather than assumed: this ran on a 24GB machine. The
+    /// note below about a 16GB machine failing on a 2.2GB model has not been
+    /// retested against this one, so the 0.6B stays as the small option.
     ///
     /// Qwen3 1.7B at Q4_K_M is 1.3GB against the 0.6B's 805MB and was worse in
     /// every mode tried. On four ordinary sentences it corrected two where the
@@ -78,10 +116,15 @@ enum ModelCatalog {
 
     /// Preselected in the setup window.
     ///
-    /// The smallest one, deliberately. Someone who has just installed a menu
-    /// bar app should not be asked to spend two gigabytes to find out whether
-    /// they like it, and 0.6B is measured as adequate rather than assumed to be.
-    static var recommended: CatalogModel { all[0] }
+    /// The 4B, despite being 2.5GB. This used to be the 0.6B on the reasoning
+    /// that a new user should not spend gigabytes to try a menu bar app -- but
+    /// what they get for the smaller download is a model that inserts commas
+    /// and leaves the grammar alone, which is not the app working cheaply, it
+    /// is the app not working. The 0.6B is still there for a small disk.
+    static var recommended: CatalogModel { all[1] }
+
+    /// The small one, for anyone who wants it.
+    static var compact: CatalogModel { all[0] }
 
     /// Where a downloaded model is installed.
     ///

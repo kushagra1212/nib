@@ -203,9 +203,12 @@ func locateLlamaServer() -> URL? {
 func rankModels(_ names: [String]) -> [String] {
     func score(_ name: String) -> Int {
         let lower = name.lowercased()
-        if lower.contains("qwen3-1.7b") { return 0 }
-        if lower.contains("qwen3-0.6b") { return 1 }
-        if lower.contains("llama-3.2-3b") { return 1 }
+        // Best first. The 4B instruct is measured as the one that actually
+        // rewrites; see ModelCatalog for the comparison it won.
+        if lower.contains("qwen3-4b") { return 0 }
+        if lower.contains("qwen3-1.7b") { return 2 }
+        if lower.contains("qwen3-0.6b") { return 3 }
+        if lower.contains("llama-3.2-3b") { return 2 }
         if lower.contains("270m") { return 9 } // verified inadequate
         return 5
     }
