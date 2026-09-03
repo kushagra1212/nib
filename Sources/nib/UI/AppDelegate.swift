@@ -456,6 +456,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @MainActor
     private func makeLiveChecker(engine: HarperEngine) -> LiveChecker {
         let checker = LiveChecker(engine: engine, model: modelChecker())
+        // A big model is for work you asked for, not for every typing pause.
+        // Harper still underlines either way, in about 30ms.
+        if let model = currentModelPath() {
+            checker.runsModelPass = ModelChecker.isLightEnoughForLiveUse(model)
+            if !checker.runsModelPass {
+                Log.write("live: model pass off -- \(model.lastPathComponent) is "
+                          + "too large to run on every pause; harper still marks")
+            }
+        }
         // Fields that report no drawable bounds show a count instead. It opens
         // the same panel the hotkey does, so the label has to match whichever
         // combo actually registered.
@@ -854,6 +863,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// The model-backed second pass, or nil when no GGUF model is installed.
+    /// The .gguf currently in use, for deciding what may run unbidden.
+    private func currentModelPath() -> URL? {
+        rewriteConfig(modelName: nil)?.modelPath
+    }
+
     private func modelChecker() -> ModelChecker? {
         guard let rewriter else { return nil }
         return ModelChecker(rewriter: rewriter)

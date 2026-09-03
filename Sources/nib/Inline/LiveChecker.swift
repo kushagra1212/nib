@@ -359,8 +359,15 @@ final class LiveChecker {
     /// appear immediately. The model then reruns on a longer pause with the
     /// context harper lacks, which is what stops `NSString` being "corrected"
     /// to `Nesting`. If the model returns nothing usable, harper's marks stand.
+    /// Whether the model may run on every typing pause.
+    ///
+    /// Set once at construction from the model's size, so the decision costs a
+    /// single stat rather than one per keystroke. See
+    /// `ModelChecker.liveModelSizeLimit` for why it exists.
+    var runsModelPass = true
+
     private func scheduleModelPass(for snapshot: String) {
-        guard let model else { return }
+        guard let model, runsModelPass else { return }
         modelTask?.cancel()
         modelTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 900_000_000)

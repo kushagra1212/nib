@@ -23,6 +23,28 @@ actor ModelChecker {
     /// further from the input the more it is given.
     let maxLength: Int
 
+    /// Largest model that may run on every typing pause.
+    ///
+    /// The live pass is not asked for. It fires 0.9s after you stop typing, in
+    /// whatever field has focus, and it calls the model twice -- check, then
+    /// clarity. With the 805MB 0.6B that is about 0.2s and a server small
+    /// enough to forget about. With the 2.5GB 4B it is about 1s of six-thread
+    /// work, and because every pass resets the idle timer the 2.7GB server
+    /// never gets to exit while someone is typing.
+    ///
+    /// So the rule is about who asked. Work nobody requested has to stay cheap;
+    /// work behind a button may cost what it needs to. Above this size the live
+    /// pass is off and Harper alone underlines, which is 30ms and the thing
+    /// people actually notice; the big model still answers Fix, Clearer,
+    /// Shorter and Native.
+    static let liveModelSizeLimit: Int64 = 1_500_000_000
+
+    /// Whether this model is cheap enough to run unbidden.
+    static func isLightEnoughForLiveUse(_ modelPath: URL) -> Bool {
+        let size = (try? modelPath.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        return Int64(size) <= liveModelSizeLimit
+    }
+
     init(rewriter: RewriteEngine, maxLength: Int = 600) {
         self.rewriter = rewriter
         self.maxLength = maxLength
