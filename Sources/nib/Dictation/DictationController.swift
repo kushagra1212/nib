@@ -25,6 +25,14 @@ final class DictationController {
     /// down. Both want the GPU, and a 16GB machine has already been measured
     /// failing to hold two models at once.
     var willTranscribe: (() -> Void)?
+    /// Called just before the microphone opens.
+    ///
+    /// Separate from `willTranscribe`, which fires later. Reading aloud has to
+    /// stop here rather than at transcription, because the microphone would
+    /// otherwise record nib's own voice and transcribe it back -- the words you
+    /// asked it to read would arrive in your document as if you had said them.
+    var willRecord: (() -> Void)?
+
     /// Called when there is no speech model, so the caller can offer to fetch
     /// one instead of reporting a dead end.
     var onNeedsModel: (() -> Void)?
@@ -73,6 +81,7 @@ final class DictationController {
             }
 
         case .recording:
+            willRecord?()
             do {
                 try recorder.start()
                 Log.write("dictation: recording")

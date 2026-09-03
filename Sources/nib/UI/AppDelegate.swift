@@ -103,10 +103,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Log.write("hush hotkey unavailable -- something else holds ⌃⇧H")
         }
 
-        let combo = dictationHotkey.start(preferring: [.controlOptionD]) {
-            [weak self] in self?.dictation.toggle()
-        }
-        if combo == nil {
+        // Logged on success as well as failure, like the two above. Only
+        // logging the failure meant "registered fine" and "this never ran"
+        // were the same silence, which is what made a dead ⌃⌥D look like a
+        // hotkey conflict rather than a missing microphone permission.
+        if let combo = dictationHotkey.start(preferring: [.controlOptionD],
+                                             onFire: { [weak self] in
+                                                 self?.dictation.toggle()
+                                             }) {
+            Log.write("dictation hotkey registered on \(combo.label)")
+        } else {
             Log.write("dictation hotkey unavailable -- something else holds it")
         }
         // Compiles whisper's Metal shaders now rather than during the first
@@ -194,6 +200,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.onTranscript = { [weak self] text in
             MainActor.assumeIsolated { self?.recordTranscript(text) }
         }
+        // Before the microphone opens, not after: anything nib is reading
+        // aloud would otherwise be recorded and typed back as if spoken.
+        controller.willRecord = { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.speech.state.isBusy else { return }
+                Log.write("speech: stopped, dictation is starting")
+                self.speech.hush()
+            }
+        }
         return controller
     }
 
@@ -247,6 +262,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func reportDictation(_ why: String) {
+        // Written down as well as shown. A modal dialog is not a record: it
+        // waits for a click, and until someone clicks it there is nothing in
+        // the log to say why dictation stopped.
+        Log.write("dictation failed: \(why)")
+
         let alert = NSAlert()
         alert.messageText = "Dictation stopped"
         alert.informativeText = why
@@ -300,6 +320,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @MainActor
     private func makeSpeech() -> SpeechController {
         let controller = SpeechController()
+        controller.isDictating = { [weak self] in
+            MainActor.assumeIsolated { self?.dictation.state.isBusy ?? false }
+        }
         controller.onStateChange = { [weak self] _ in
             MainActor.assumeIsolated { self?.updateSpeechMenuItem() }
         }

@@ -56,6 +56,18 @@ final class SpeechController {
         return selected
     }
 
+    /// Whether dictation is using the microphone or transcribing.
+    ///
+    /// Reading aloud does not start while it is. The two are the heaviest
+    /// things nib does -- 219% and 93% of a core measured separately -- but
+    /// contention is the smaller reason: the microphone is open, so anything
+    /// spoken aloud is recorded and transcribed back into the document.
+    ///
+    /// Dictation wins because it is the one with a deadline. Speech can be
+    /// asked for again a second later; a sentence said into a closed
+    /// microphone is gone.
+    var isDictating: () -> Bool = { false }
+
     /// Falls back to the clipboard, as the design says. Someone who has copied
     /// a paragraph and pressed the key means that paragraph.
     var readClipboard: () -> String? = {
@@ -119,6 +131,12 @@ final class SpeechController {
     // MARK: - Doing it
 
     private func begin() {
+        guard !isDictating() else {
+            Log.write("speech: not starting, dictation has the microphone")
+            fail("nib is listening. Stop dictation first.")
+            return
+        }
+
         let selected = readSelection()
         guard let text = selected ?? readClipboard() else {
             fail("Nothing selected, and nothing on the clipboard.")
