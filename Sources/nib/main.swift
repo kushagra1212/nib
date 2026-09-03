@@ -254,7 +254,11 @@ func runRewriteCLI(text: String, modelName: String?) async -> Int32 {
     print("server: \(config.serverBinary.path)")
 
     let engine = RewriteEngine(config: config)
-    defer { Task { await engine.shutdown() } }
+    // Awaited, not deferred into a Task. `defer { Task { ... } }` schedules
+    // work that exit() never lets run, which left a 2.7GB llama-server owned
+    // by launchd after every command -- reparented to pid 1, with nothing left
+    // that knew to kill it.
+    defer { engine.terminateNow() }
     let clock = ContinuousClock()
 
     for mode in RewriteMode.allCases {
@@ -292,7 +296,7 @@ func runModelBench(modelName: String?, iterations: Int) async -> Int32 {
           + "\(RewriteEngine.tokenBudget(for: sample, limit: config.maxTokens))")
 
     let engine = RewriteEngine(config: config)
-    defer { Task { await engine.shutdown() } }
+    defer { engine.terminateNow() }
     let clock = ContinuousClock()
 
     do {

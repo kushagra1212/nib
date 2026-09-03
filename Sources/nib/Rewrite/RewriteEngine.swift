@@ -183,7 +183,17 @@ actor RewriteEngine {
         var port: UInt16 = 8
 
         /// Kill the server after this long with no requests.
-        var idleTimeout: TimeInterval = 300
+        ///
+        /// Two minutes, not five. Measured with the 4B recommended model,
+        /// llama-server holds 2.72GB resident -- against nib's own 102MB and
+        /// harper's 10MB, so it is 96% of the footprint and the only part worth
+        /// tuning. Five minutes of that after every rewrite is what someone
+        /// noticed and reported as "nib is taking a lot of RAM".
+        ///
+        /// The cost of the shorter window is a cold start if you come back
+        /// after two minutes, which is a few seconds. Paid by whoever rewrites
+        /// twice an hour, saved for everyone else.
+        var idleTimeout: TimeInterval = 120
         var contextSize = 2048
         var maxTokens = 512
         /// Greedy. Correcting a sentence has a right answer, so sampling adds
@@ -203,6 +213,84 @@ actor RewriteEngine {
 
     init(config: Config) {
         self.config = config
+    }
+
+    /// Kills the server this engine started, without waiting for the actor.
+    ///
+    /// For process exit, where there is no time left to await anything. The
+    /// pid is kept outside the actor for exactly this: `shutdown()` is
+    /// actor-isolated, so reaching it from a `defer` means scheduling a Task
+    /// that `exit()` never lets run -- which is how every command line rewrite
+    /// left a 2.7GB llama-server owned by launchd.
+    ///
+    /// Reaping orphans does not cover this case. At the moment the parent
+    /// exits the child still has a living parent, so it is not an orphan yet;
+    /// it becomes one a moment later, with nothing left to notice.
+    nonisolated func terminateNow() {
+        let pid = live.take()
+        guard pid > 0 else { return }
+        kill(pid, SIGTERM)
+    }
+
+    /// The running server's pid, reachable from outside the actor.
+    ///
+    /// A small lock rather than actor state, because the one caller that most
+    /// needs it is a `defer` on the way out of the process.
+    final class LivePID: @unchecked Sendable {
+        private let lock = NSLock()
+        private var pid: Int32 = 0
+
+        func set(_ value: Int32) {
+            lock.lock(); defer { lock.unlock() }
+            pid = value
+        }
+
+        /// Reads and clears, so two callers cannot both send a signal to a pid
+        /// that may by then belong to something else.
+        func take() -> Int32 {
+            lock.lock(); defer { lock.unlock() }
+            let value = pid
+            pid = 0
+            return value
+        }
+    }
+
+    private let live = LivePID()
+
+    /// Kills llama-servers from nib's own bundle whose parent has gone.
+    ///
+    /// Called at launch and at exit. A server is started by nib and killed by
+    /// nib's idle timer, so if nib dies -- a crash, a Force Quit, a command
+    /// line run that exits -- the server is reparented to launchd and holds its
+    /// model for as long as the machine stays up. Nothing else will ever
+    /// collect it.
+    ///
+    /// Matched on the executable path so only nib's own copy is touched. A
+    /// llama-server someone is running from Homebrew for their own reasons is
+    /// none of nib's business.
+    nonisolated static func reapOrphans() {
+        let list = Process()
+        list.executableURL = URL(fileURLWithPath: "/bin/ps")
+        list.arguments = ["-Ao", "pid=,ppid=,comm="]
+        let pipe = Pipe()
+        list.standardOutput = pipe
+        list.standardError = FileHandle.nullDevice
+        guard (try? list.run()) != nil,
+              let data = try? pipe.fileHandleForReading.readToEnd() else { return }
+        list.waitUntilExit()
+
+        let mine = ProcessInfo.processInfo.processIdentifier
+        for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+            let fields = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard fields.count >= 3,
+                  let pid = Int32(fields[0]), let parent = Int32(fields[1]),
+                  fields[2...].joined(separator: " ").hasSuffix("/llama-server")
+            else { continue }
+            // Only ones nobody owns, and never one this process just started.
+            guard parent == 1, pid != mine else { continue }
+            kill(pid, SIGTERM)
+            Log.write("reaped orphaned llama-server pid \(pid)")
+        }
     }
 
     var isLoaded: Bool { process?.isRunning ?? false }
@@ -423,6 +511,7 @@ actor RewriteEngine {
             throw RewriteError.serverFailed(error.localizedDescription)
         }
         process = proc
+        live.set(proc.processIdentifier)
         port = chosen
 
         try await waitUntilHealthy(port: chosen, process: proc)
@@ -495,6 +584,7 @@ actor RewriteEngine {
             errors.fileHandleForReading.readabilityHandler = nil
         }
         process?.terminate()
+        _ = live.take()
         process = nil
         port = nil
         errorLog.clear()

@@ -32,6 +32,19 @@ final class SpeechController {
     private var voices: VoicePack?
     private var player: SpeechPlayer?
     private var work: Task<Void, Never>?
+    private var idleTask: Task<Void, Never>?
+
+    /// How long the model is kept after the last word is spoken.
+    ///
+    /// It used to be kept until nib quit, on the reasoning that reloading costs
+    /// about half a second and that is most of the wait before the first word.
+    /// That was measured for speed and not for what it cost: 62MB sitting there
+    /// for the rest of the session, against a rule this project states plainly
+    /// -- nothing resident between uses.
+    ///
+    /// Two minutes keeps it through a run of sentences, which is how people
+    /// actually use it, and releases it when they move on.
+    static let idleTimeout: TimeInterval = 120
 
     /// Reads what to speak. Injected so the controller can be tested without a
     /// frontmost application.
@@ -77,10 +90,26 @@ final class SpeechController {
         player?.stop()
         state = .idle
         Log.write("speech: stopped")
+        scheduleRelease()
     }
 
-    /// Drops the model. Called when speech is switched off, not between uses.
+    /// Drops the model after `idleTimeout` with nothing spoken.
+    private func scheduleRelease() {
+        idleTask?.cancel()
+        idleTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.idleTimeout * 1_000_000_000))
+            guard !Task.isCancelled, let self, !self.state.isBusy else { return }
+            guard self.engine != nil else { return }
+            self.engine = nil
+            self.voices = nil
+            self.player = nil
+            Log.write("speech: model released after \(Int(Self.idleTimeout))s idle")
+        }
+    }
+
+    /// Drops the model now, without waiting for the idle timer.
     func release() {
+        idleTask?.cancel()
         cancel()
         engine = nil
         voices = nil
@@ -102,6 +131,7 @@ final class SpeechController {
             return
         }
 
+        idleTask?.cancel()
         state = .preparing
         let voice = self.voice
         work = Task { [weak self] in
@@ -153,6 +183,7 @@ final class SpeechController {
                                 try player.begin { [weak self] in
                                     guard let self, self.state == .speaking else { return }
                                     self.state = .idle
+                                    self.scheduleRelease()
                                 }
                                 self.state.next(for: .synthesised).map { self.state = $0 }
                             }

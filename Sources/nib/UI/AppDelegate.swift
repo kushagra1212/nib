@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let dictationHotkey = HotkeyMonitor(identifier: 2)
 
     private var speechMenuItem: NSMenuItem?
+    private var memoryMenuItem: NSMenuItem?
     private var voiceMenuItem: NSMenuItem?
     // Two monitors, two identifiers. Carbon delivers every press to every
     // handler, so sharing one would make hush start speech as well.
@@ -69,6 +70,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // who already has one, or who closed this window on a previous launch,
         // never sees it.
         modelSetup.showOnFirstLaunchIfNeeded()
+
+        // A previous nib that crashed or was force-quit leaves its
+        // llama-server behind, holding the whole model. Nothing else collects
+        // it, so the next launch does.
+        RewriteEngine.reapOrphans()
 
         startDictation()
     }
@@ -233,6 +239,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated { self?.updateSpeechMenuItem() }
         }
         return controller
+    }
+
+    @MainActor
+    private func refreshMemoryMenuItem() {
+        guard let item = memoryMenuItem else { return }
+        let reading = Footprint.read()
+        item.title = "Memory: \(reading.summary)"
+        // Nothing to hand back when the engines are already down, and a live
+        // menu item that does nothing is worse than a greyed one.
+        item.isEnabled = reading.helpers > 0
+        item.toolTip = reading.helpers > 0
+            ? "Shut the rewrite and grammar engines down now. They restart when "
+                + "next used, and go on their own after two minutes idle."
+            : "Nothing loaded. The engines start when used and release "
+                + "themselves after two minutes."
+    }
+
+    @MainActor
+    @objc private func freeMemory() {
+        speech.release()
+        if let rewriter {
+            Task { await rewriter.shutdown() }
+        }
+        Log.write("memory: released on request")
+        // Give the processes a moment to go before reporting what is left.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            MainActor.assumeIsolated { self?.refreshMemoryMenuItem() }
+        }
     }
 
     @MainActor
@@ -488,6 +522,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             rebuildVoiceMenu()
         }
 
+        // What nib is costing, and a way to hand it back.
+        //
+        // The engines are separate processes, so Activity Monitor shows "nib"
+        // at 100MB and "llama-server" at 2.7GB with nothing connecting them.
+        // This is the one place the total is visible.
+        let memoryItem = NSMenuItem(title: "", action: #selector(freeMemory),
+                                    keyEquivalent: "")
+        memoryItem.target = self
+        menu.addItem(memoryItem)
+        memoryMenuItem = memoryItem
+
         let loginItem = NSMenuItem(title: "Start at Login",
                                    action: #selector(toggleLoginItem), keyEquivalent: "")
         loginItem.target = self
@@ -530,6 +575,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// than whatever was true at launch.
     func menuWillOpen(_ menu: NSMenu) {
         refreshStatusLine()
+        refreshMemoryMenuItem()
         // A model can arrive while the app is running, from this window or
         // from someone dropping a file into the folder.
         refreshModelMenuItem()
