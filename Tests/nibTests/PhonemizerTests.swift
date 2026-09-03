@@ -28,6 +28,10 @@ final class PhonemizerTests: XCTestCase {
             let preserved_chunks: [String]
             let marks: [Mark]
             let chunk_phonemes: [String]
+            /// How nib chunks the same line: at the marks' measured positions
+            /// rather than by searching for a matching character.
+            let nib_chunks: [String]
+            let nib_chunk_phonemes: [String]
             let phonemizer: String
             let phonemes: String
         }
@@ -70,10 +74,28 @@ final class PhonemizerTests: XCTestCase {
         }
     }
 
+    /// Plays back espeak's answers for the chunks nib actually asks about.
+    ///
+    /// Both sets are in the fixture, from the same espeak. Where they differ --
+    /// only `decimal-point` -- feeding the reference's chunks would test a
+    /// chunking nib no longer uses.
     private func source(_ entry: Golden.Entry) -> Recorded {
         Recorded(answers: Dictionary(
-            zip(entry.preserved_chunks, entry.chunk_phonemes),
+            zip(entry.preserved_chunks + entry.nib_chunks,
+                entry.chunk_phonemes + entry.nib_chunk_phonemes),
             uniquingKeysWith: { first, _ in first }))
+    }
+
+    /// The one text where nib deliberately differs from the reference.
+    ///
+    /// phonemizer cuts the line by searching it for each mark's text, which on
+    /// "Pi is 3.14 exactly." lands on the dot inside the number and hands
+    /// espeak "Pi is 3" and "14 exactly." -- so it says "three" then "fourteen"
+    /// and the decimal is gone. Reported as "5.8 GB" being read "5 8".
+    private static let divergences: Set<String> = ["decimal-point"]
+
+    private func expectedPhonemes(_ entry: Golden.Entry) -> String? {
+        Self.divergences.contains(entry.name) ? nil : entry.phonemes
     }
 
     // MARK: - The whole path
@@ -82,17 +104,41 @@ final class PhonemizerTests: XCTestCase {
     /// engine, for every text in the corpus.
     func testThePhonemesMatchTheEngine() throws {
         for entry in try golden().entries {
+            guard let expected = expectedPhonemes(entry) else { continue }
             let phonemes = try Phonemizer.phonemes(of: entry.text,
                                                    using: source(entry))
-            XCTAssertEqual(phonemes, entry.phonemes,
+            XCTAssertEqual(phonemes, expected,
                            "\(entry.name): \(entry.text.debugDescription)")
         }
+    }
+
+    /// The divergence, stated as the improvement it is.
+    ///
+    /// "point" has to be in there. Without it the sentence says "three" and
+    /// then "fourteen", which is not the number anyone wrote.
+    func testADecimalIsSpokenAsADecimal() throws {
+        let entry = try XCTUnwrap(golden().entries.first { $0.name == "decimal-point" })
+        let phonemes = try Phonemizer.phonemes(of: entry.text, using: source(entry))
+        XCTAssertTrue(phonemes.contains("pɔɪnt"), phonemes)
+        XCTAssertFalse(phonemes.contains("θɹˈiː."), "the number was cut in half")
+        XCTAssertNotEqual(phonemes, entry.phonemes,
+                          "this is the one place nib is deliberately better")
+    }
+
+    /// And it is the only place. Every other text still matches the reference,
+    /// which is what makes the change surgical rather than a rewrite.
+    func testNothingElseDivergesFromTheEngine() throws {
+        let differing = try golden().entries
+            .filter { $0.preserved_chunks != $0.nib_chunks }
+            .map(\.name)
+        XCTAssertEqual(Set(differing), Self.divergences)
     }
 
     /// Before the vocabulary filter, which is where phonemizer itself stops.
     /// Separated so a divergence says whether it is the assembly or the table.
     func testTheUnfilteredOutputMatchesPhonemizer() throws {
-        for entry in try golden().entries {
+        for entry in try golden().entries
+        where !Self.divergences.contains(entry.name) {
             let raw = try Phonemizer.phonemize(entry.text, using: source(entry))
             XCTAssertEqual(raw, entry.phonemizer,
                            "\(entry.name): \(entry.text.debugDescription)")
@@ -101,10 +147,12 @@ final class PhonemizerTests: XCTestCase {
 
     // MARK: - Hiding the punctuation
 
+    /// Against nib's own recorded chunking, which matches the reference
+    /// everywhere except the decimal case.
     func testTheChunksMatchTheEngine() throws {
         for entry in try golden().entries {
             let (chunks, _) = PhonemePunctuation.preserve(entry.text)
-            XCTAssertEqual(chunks, entry.preserved_chunks, "\(entry.name)")
+            XCTAssertEqual(chunks, entry.nib_chunks, "\(entry.name)")
         }
     }
 

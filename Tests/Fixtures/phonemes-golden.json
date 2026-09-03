@@ -12,6 +12,19 @@
       "preserved_chunks": [
         "The quick brown fox jumps over the lazy dog"
       ],
+      "nib_chunks": [
+        "The quick brown fox jumps over the lazy dog"
+      ],
+      "nib_chunk_phonemes": [
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -94,6 +107,13 @@
       "preserved_chunks": [
         "the quick brown fox"
       ],
+      "nib_chunks": [
+        "the quick brown fox"
+      ],
+      "nib_chunk_phonemes": [
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s"
+      ],
+      "nib_marks": [],
       "marks": [],
       "chunk_phonemes": [
         "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s"
@@ -139,6 +159,19 @@
       "preserved_chunks": [
         "Hello"
       ],
+      "nib_chunks": [
+        "Hello"
+      ],
+      "nib_chunk_phonemes": [
+        "h_ə_l_ˈoʊ"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -174,6 +207,19 @@
       "espeak_only": "ɪ_z ɪ_t w_ˈɜː_k_ɪ_ŋ",
       "preserved_chunks": [
         "Is it working"
+      ],
+      "nib_chunks": [
+        "Is it working"
+      ],
+      "nib_chunk_phonemes": [
+        "ɪ_z ɪ_t w_ˈɜː_k_ɪ_ŋ"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "?",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -218,6 +264,19 @@
       "preserved_chunks": [
         "Stop"
       ],
+      "nib_chunks": [
+        "Stop"
+      ],
+      "nib_chunk_phonemes": [
+        "s_t_ˈɑː_p"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "!",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -254,6 +313,26 @@
       "preserved_chunks": [
         "Hello",
         "world"
+      ],
+      "nib_chunks": [
+        "Hello",
+        "world"
+      ],
+      "nib_chunk_phonemes": [
+        "h_ə_l_ˈoʊ",
+        "w_ˈɜː_l_d"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ", ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -306,6 +385,33 @@
         "First",
         "second",
         "third"
+      ],
+      "nib_chunks": [
+        "First",
+        "second",
+        "third"
+      ],
+      "nib_chunk_phonemes": [
+        "f_ˈɜː_s_t",
+        "s_ˈɛ_k_ə_n_d",
+        "θ_ˈɜː_d"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "; ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ": ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -373,6 +479,33 @@
         "Two",
         "Three"
       ],
+      "nib_chunks": [
+        "One",
+        "Two",
+        "Three"
+      ],
+      "nib_chunk_phonemes": [
+        "w_ˌʌ_n",
+        "t_ˈuː",
+        "θ_ɹ_ˈiː"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -433,6 +566,33 @@
         "Really",
         "Yes",
         "Of course"
+      ],
+      "nib_chunks": [
+        "Really",
+        "Yes",
+        "Of course"
+      ],
+      "nib_chunk_phonemes": [
+        "ɹ_ˈiə_l_i",
+        "j_ˈɛ_s",
+        "ʌ_v k_ˈɔːɹ_s"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "? ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "! ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -499,6 +659,24 @@
       "preserved_chunks": [
         "and then it stopped"
       ],
+      "nib_chunks": [
+        "and then it stopped"
+      ],
+      "nib_chunk_phonemes": [
+        "æ_n_d ð_ˈɛ_n ɪ_t s_t_ˈɑː_p_t"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "...",
+          "position": "B"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -554,6 +732,15 @@
       "text": "...",
       "espeak_only": "",
       "preserved_chunks": [],
+      "nib_chunks": [],
+      "nib_chunk_phonemes": [],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "...",
+          "position": "A"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -582,6 +769,15 @@
       "text": "?",
       "espeak_only": "",
       "preserved_chunks": [],
+      "nib_chunks": [],
+      "nib_chunk_phonemes": [],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "?",
+          "position": "A"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -609,6 +805,19 @@
       "espeak_only": "ɪ_t k_ˈɔ_s_t_s n_ˈaɪ_n_t_iː_n n_ˈaɪ_n_t_i n_ˈaɪ_n j_ˈʊɹ_ɹ_oʊ",
       "preserved_chunks": [
         "It costs 19,99 euro"
+      ],
+      "nib_chunks": [
+        "It costs 19,99 euro"
+      ],
+      "nib_chunk_phonemes": [
+        "ɪ_t k_ˈɔ_s_t_s n_ˈaɪ_n_t_iː_n n_ˈaɪ_n_t_i n_ˈaɪ_n j_ˈʊɹ_ɹ_oʊ"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -682,6 +891,19 @@
         "Pi is 3",
         "14 exactly."
       ],
+      "nib_chunks": [
+        "Pi is 3.14 exactly"
+      ],
+      "nib_chunk_phonemes": [
+        "p_ˈaɪ ɪ_z θ_ɹ_ˈiː p_ɔɪ_n_t w_ˈʌ_n f_ˈɔː_ɹ ɛ_ɡ_z_ˈæ_k_t_l_i"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -746,6 +968,19 @@
       "preserved_chunks": [
         "That is 1,000,000 rows"
       ],
+      "nib_chunks": [
+        "That is 1,000,000 rows"
+      ],
+      "nib_chunk_phonemes": [
+        "ð_æ_t ɪ_z w_ˈʌ_n m_ˈɪ_l_iə_n ɹ_ˈoʊ_z"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -802,6 +1037,33 @@
         "A long pause",
         "then more",
         "and done"
+      ],
+      "nib_chunks": [
+        "A long pause",
+        "then more",
+        "and done"
+      ],
+      "nib_chunk_phonemes": [
+        "ɐ l_ˈɔ_ŋ p_ˈɔː_z",
+        "ð_ˈɛ_n m_ˈɔːɹ",
+        "æ_n_d d_ˈʌ_n"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "—",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "… ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -880,6 +1142,33 @@
         "yes",
         "and left"
       ],
+      "nib_chunks": [
+        "He said",
+        "yes",
+        "and left"
+      ],
+      "nib_chunk_phonemes": [
+        "h_iː s_ˈɛ_d",
+        "j_ˈɛ_s",
+        "æ_n_d l_ˈɛ_f_t"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": " \"",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "\" ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -951,6 +1240,54 @@
         "brackets",
         "and",
         "braces"
+      ],
+      "nib_chunks": [
+        "Parentheses",
+        "like this",
+        "and",
+        "brackets",
+        "and",
+        "braces"
+      ],
+      "nib_chunk_phonemes": [
+        "p_ɚ_ɹ_ˈɛ_n_θ_ə_s_ˌiː_z",
+        "l_ˈaɪ_k ð_ˈɪ_s",
+        "æ_n_d",
+        "b_ɹ_ˈæ_k_ɪ_t_s",
+        "æ_n_d",
+        "b_ɹ_ˈeɪ_s_ᵻ_z"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": " (",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ") ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": " [",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "] ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": " {",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "}.",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -1065,6 +1402,31 @@
         "Hola",
         "Qué tal"
       ],
+      "nib_chunks": [
+        "Hola",
+        "Qué tal"
+      ],
+      "nib_chunk_phonemes": [
+        "ˈoʊ_l_æ",
+        "k_w_ˈeɪ t_ˈæ_l"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": "¡",
+          "position": "B"
+        },
+        {
+          "line": 0,
+          "mark": "! ¿",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": "?",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -1123,6 +1485,13 @@
       "preserved_chunks": [
         "   leading and trailing   "
       ],
+      "nib_chunks": [
+        "   leading and trailing   "
+      ],
+      "nib_chunk_phonemes": [
+        "l_ˈiː_d_ɪ_ŋ æ_n_d t_ɹ_ˈeɪ_l_ɪ_ŋ"
+      ],
+      "nib_marks": [],
       "marks": [],
       "chunk_phonemes": [
         "l_ˈiː_d_ɪ_ŋ æ_n_d t_ɹ_ˈeɪ_l_ɪ_ŋ"
@@ -1166,6 +1535,21 @@
       "preserved_chunks": [
         "line one",
         "line two"
+      ],
+      "nib_chunks": [
+        "line one",
+        "line two"
+      ],
+      "nib_chunk_phonemes": [
+        "l_ˈaɪ_n w_ˌʌ_n",
+        "l_ˈaɪ_n t_ˈuː"
+      ],
+      "nib_marks": [
+        {
+          "line": 1,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -1219,6 +1603,19 @@
       "preserved_chunks": [
         "two  spaces  here"
       ],
+      "nib_chunks": [
+        "two  spaces  here"
+      ],
+      "nib_chunk_phonemes": [
+        "t_ˈuː s_p_ˈeɪ_s_ᵻ_z h_ˈɪɹ"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
+      ],
       "marks": [
         {
           "line": 0,
@@ -1267,6 +1664,13 @@
       "preserved_chunks": [
         "don't can't won't it's"
       ],
+      "nib_chunks": [
+        "don't can't won't it's"
+      ],
+      "nib_chunk_phonemes": [
+        "d_ˈoʊ_n_t k_ˈæ_n_t w_ˈoʊ_n_t ɪ_t_s"
+      ],
+      "nib_marks": [],
       "marks": [],
       "chunk_phonemes": [
         "d_ˈoʊ_n_t k_ˈæ_n_t w_ˈoʊ_n_t ɪ_t_s"
@@ -1313,6 +1717,13 @@
       "preserved_chunks": [
         "e-mail re-do well-known"
       ],
+      "nib_chunks": [
+        "e-mail re-do well-known"
+      ],
+      "nib_chunk_phonemes": [
+        "ˈiː_m_ˈeɪ_l ɹ_ˌiː_d_ˈuː w_ˈɛ_l_n_ˈoʊ_n"
+      ],
+      "nib_marks": [],
       "marks": [],
       "chunk_phonemes": [
         "ˈiː_m_ˈeɪ_l ɹ_ˌiː_d_ˈuː w_ˈɛ_l_n_ˈoʊ_n"
@@ -1362,6 +1773,19 @@
       "espeak_only": "ð_ə j_ˈuː_s m_ˈɛ_m_oʊ h_ˈʊ_k__ æ_n_d ð_ə h_ˈæ_s_ɜː_ɹ_ə m_ˌɛ_ɾ_ə_d_ˈeɪ_ɾ_ə",
       "preserved_chunks": [
         "The useMemo hook and the Hasura metadata"
+      ],
+      "nib_chunks": [
+        "The useMemo hook and the Hasura metadata"
+      ],
+      "nib_chunk_phonemes": [
+        "ð_ə j_ˈuː_s m_ˈɛ_m_oʊ h_ˈʊ_k__ æ_n_d ð_ə h_ˈæ_s_ɜː_ɹ_ə m_ˌɛ_ɾ_ə_d_ˈeɪ_ɾ_ə"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {
@@ -1439,6 +1863,9 @@
       "text": "",
       "espeak_only": "",
       "preserved_chunks": [],
+      "nib_chunks": [],
+      "nib_chunk_phonemes": [],
+      "nib_marks": [],
       "marks": [],
       "chunk_phonemes": [],
       "phonemizer": "",
@@ -1451,6 +1878,9 @@
       "text": "   ",
       "espeak_only": "",
       "preserved_chunks": [],
+      "nib_chunks": [],
+      "nib_chunk_phonemes": [],
+      "nib_marks": [],
       "marks": [],
       "chunk_phonemes": [],
       "phonemizer": "",
@@ -1475,6 +1905,96 @@
         "the quick brown fox jumps over the lazy dog",
         "the quick brown fox jumps over the lazy dog",
         "the quick brown fox jumps over the lazy dog"
+      ],
+      "nib_chunks": [
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog",
+        "the quick brown fox jumps over the lazy dog"
+      ],
+      "nib_chunk_phonemes": [
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ",
+        "ð_ə k_w_ˈɪ_k b_ɹ_ˈaʊ_n f_ˈɑː_k_s dʒ_ˈʌ_m_p_s ˌoʊ_v_ɚ ð_ə l_ˈeɪ_z_i d_ˈɑː_ɡ"
+      ],
+      "nib_marks": [
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ". ",
+          "position": "I"
+        },
+        {
+          "line": 0,
+          "mark": ".",
+          "position": "E"
+        }
       ],
       "marks": [
         {

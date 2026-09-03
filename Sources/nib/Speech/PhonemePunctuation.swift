@@ -110,22 +110,30 @@ enum PhonemePunctuation {
             marks.append(Mark(line: number, text: text, position: position))
         }
 
-        // Cut at the first occurrence of each mark's text, in order. Searching
-        // by text rather than by the position already known is what phonemizer
-        // does, and two identical runs therefore cut at the earlier one -- kept
-        // because the restoration is written against the same behaviour.
-        var remaining = line
+        // Cut where the marks actually are.
+        //
+        // phonemizer cuts by searching the line for each mark's text, which
+        // finds the first character that looks like it rather than the run it
+        // measured. That was ported faithfully and is wrong in a way people
+        // hear: "The file is 5.8 GB." has one mark, the closing full stop, but
+        // the search lands on the dot inside 5.8 and cuts the number in half.
+        // espeak is then handed "The file is 5" and "8 GB." and says "five"
+        // then "eight" -- the decimal is gone and a sentence break is in its
+        // place. Measured:
+        //
+        //   "5.8 GB"              fˈaɪv pɔɪnt ˈeɪt      five point eight
+        //   "The file is 5.8 GB." fˈaɪv. ˈeɪt           five. eight
+        //
+        // The positions are already known from markRuns, so this uses them.
+        // It is a deliberate divergence from the reference implementation, and
+        // the corpus records which entries it changes.
         var chunks: [String] = []
-        for mark in marks {
-            if let found = remaining.range(of: mark.text) {
-                chunks.append(String(remaining[remaining.startIndex..<found.lowerBound]))
-                remaining = String(remaining[found.upperBound...])
-            } else {
-                chunks.append(remaining)
-                remaining = ""
-            }
+        var cursor = 0
+        for run in runs {
+            chunks.append(String(characters[cursor..<run.lowerBound]))
+            cursor = run.upperBound
         }
-        chunks.append(remaining)
+        chunks.append(String(characters[cursor...]))
         return (chunks, marks)
     }
 

@@ -107,7 +107,10 @@ final class EspeakLibraryTests: XCTestCase {
     /// fail if any part of the phoneme path were wrong.
     func testTextBecomesTheSamePhonemesAsTheEngine() throws {
         let espeak = try espeak()
-        for entry in try golden().entries {
+        // decimal-point excluded: nib deliberately keeps "3.14" whole where
+        // phonemizer cuts it at the dot. See PhonemizerTests for the reason
+        // and for the assertion that it is the only such case.
+        for entry in try golden().entries where entry.name != "decimal-point" {
             XCTAssertEqual(try Phonemizer.phonemes(of: entry.text, using: espeak),
                            entry.phonemes,
                            "\(entry.name): \(entry.text.debugDescription)")

@@ -76,6 +76,44 @@ CORPUS = [
 ]
 
 
+def _split_at_positions(lines, punctuation):
+    """Chunk each line at the marks' own positions, the way nib does.
+
+    phonemizer finds the marks with a regular expression and then throws the
+    positions away, splitting instead by searching the line for each mark's
+    text. On "Pi is 3.14 exactly." that lands on the dot inside the number.
+    """
+    chunks, marks = [], []
+    for number, line in enumerate(lines):
+        found = list(punctuation._marks_re.finditer(line))
+        if not found:
+            if line:
+                chunks.append(line)
+            continue
+        if len(found) == 1 and found[0].group() == line:
+            marks.append((number, line, "A"))
+            continue
+
+        for index, match in enumerate(found):
+            position = "I"
+            if index == 0 and line.startswith(match.group()):
+                position = "B"
+            elif index == len(found) - 1 and line.endswith(match.group()):
+                position = "E"
+            marks.append((number, match.group(), position))
+
+        cursor = 0
+        for match in found:
+            piece = line[cursor:match.start()]
+            if piece:
+                chunks.append(piece)
+            cursor = match.end()
+        tail = line[cursor:]
+        if tail:
+            chunks.append(tail)
+    return chunks, marks
+
+
 def main() -> int:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
@@ -139,6 +177,19 @@ def main() -> int:
             except Exception as err:  # noqa: BLE001
                 chunk_phonemes.append(f"<error: {err}>")
 
+        # nib splits at the marks' measured positions rather than by searching
+        # the line for a matching character. phonemizer does the latter, which
+        # cuts "The file is 5.8 GB." at the dot inside the number and makes
+        # espeak say "five" then "eight". Recorded here so the divergence is
+        # measured from the same espeak rather than asserted from memory.
+        nib_chunks, nib_marks = _split_at_positions(lines, punctuation)
+        nib_chunk_phonemes = []
+        for chunk in nib_chunks:
+            try:
+                nib_chunk_phonemes.append(espeak.text_to_phonemes(chunk, None))
+            except Exception as err:  # noqa: BLE001
+                nib_chunk_phonemes.append(f"<error: {err}>")
+
         try:
             full = phonemizer.phonemize(
                 text, "en-us", preserve_punctuation=True, with_stress=True)
@@ -167,6 +218,11 @@ def main() -> int:
             "text": text,
             "espeak_only": raw,
             "preserved_chunks": preserved,
+            "nib_chunks": nib_chunks,
+            "nib_chunk_phonemes": nib_chunk_phonemes,
+            "nib_marks": [
+                {"line": m[0], "mark": m[1], "position": m[2]} for m in nib_marks
+            ],
             "marks": [
                 {"line": mark.index, "mark": mark.mark, "position": mark.position}
                 for mark in marks
