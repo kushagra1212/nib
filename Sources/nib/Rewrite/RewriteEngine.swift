@@ -5,7 +5,7 @@ enum RewriteMode: String, CaseIterable {
     case fixGrammar = "Fix grammar"
     case clearer = "Make clearer"
     case shorter = "Make shorter"
-    case freely = "Rewrite freely"
+    case native = "Native English"
 
     /// Instruction given to the model.
     ///
@@ -42,13 +42,20 @@ enum RewriteMode: String, CaseIterable {
                 + "Keep the same meaning and roughly the same length."
         case .shorter:
             return "Rewrite the user's text to be shorter, keeping every important point."
-        case .freely:
+        case .native:
             // The only mode allowed to reorder. Everything else is written to
             // stay close to what was typed, because its output is applied as
             // inline corrections; this one is asked for explicitly, shown in
             // full, and applied only when accepted.
-            return "Rewrite the user's text so it reads well: fix the grammar, "
-                + "reorder clauses, and split or join sentences as needed. "
+            //
+            // "As a native speaker would write it" rather than "so it reads
+            // well". The second gets a tidier version of the same sentence;
+            // the first is what someone learning the language is asking for --
+            // the phrasing a native would have reached for instead.
+            return "Rewrite the user's text the way a native British English "
+                + "speaker would naturally write it. Fix the grammar, replace "
+                + "unidiomatic phrasing with what a native speaker would say, "
+                + "and reorder or split sentences where that is more natural. "
                 + "Keep every fact and every point the text makes. "
                 + "Do not add information that is not there."
         }
@@ -56,9 +63,25 @@ enum RewriteMode: String, CaseIterable {
 
     /// Constant per mode, so the server can reuse the cached prefix rather
     /// than reprocessing the instruction on every request.
-    func systemPrompt(strength: RewriteStrength = .current) -> String {
+    /// British English throughout: spelling and idiom both.
+    ///
+    /// Stated rather than left to the model. Asked without it, a model trained
+    /// mostly on American text writes "color" and "gotten" into a document
+    /// whose every other word is British, which is a worse result than either
+    /// convention applied consistently.
+    static let dialect = " Use British English spelling and idiom."
+
+    /// How far a rewrite may travel from what was written.
+    ///
+    /// Constant. This was a three-stop dial on the selection bar, removed
+    /// because it asked a question most people cannot answer about a sentence
+    /// they already know is wrong.
+    static let latitude = " Rewrite as much as needed for it to read well."
+
+    func systemPrompt() -> String {
         instruction
-            + strength.clause
+            + Self.latitude
+            + Self.dialect
             + " Reply with only the rewritten text."
             + " Do not explain, comment, add quotes, or think out loud."
             + " Leave code, identifiers, acronyms and proper nouns exactly as written."
@@ -188,7 +211,6 @@ actor RewriteEngine {
 
     func rewrite(
         _ text: String, mode: RewriteMode,
-        strength: RewriteStrength = .current
     ) async throws -> String {
         let port = try await ensureRunning()
         scheduleIdleShutdown()
@@ -204,7 +226,7 @@ actor RewriteEngine {
         // between calls, which is what lets the server reuse the cached
         // prefix and only process the sentence itself.
         var messages: [[String: String]] = [
-            ["role": "system", "content": mode.systemPrompt(strength: strength)],
+            ["role": "system", "content": mode.systemPrompt()],
         ]
         if let example = mode.example {
             messages.append(["role": "user", "content": example.input])

@@ -11,13 +11,16 @@ import AppKit
 /// something worse than the original and swapping text out unseen is not a
 /// fair trade.
 final class SelectionBar: NSPanel {
-    var onRewrite: ((RewriteMode) async throws -> String)?
+    var onRewrite: ((RewriteMode) async throws -> RewriteOutcome)?
     var onAccept: ((String) -> Void)?
+    /// Counts the mistakes in the selection. Separate from `onRewrite` because
+    /// it is a different engine answering a different question, and it answers
+    /// two orders of magnitude faster.
+    var onScore: (() async -> WritingScore?)?
 
     private let glyph = NSImageView()
-    private lazy var strengthDial = SegmentedRow(
-        titles: RewriteStrength.allCases.map(\.title),
-        selected: RewriteStrength.allCases.firstIndex(of: RewriteStrength.current) ?? 1)
+    /// How many mistakes are in the selection, shown before any rewrite.
+    private let scoreLabel = NSTextField(labelWithString: "")
     private lazy var diffButton = PillButton(
         title: "Diff", emphasis: .secondary, icon: "plusminus",
         iconTint: Theme.Colour.accept, target: self, action: #selector(toggleDiff))
@@ -32,6 +35,7 @@ final class SelectionBar: NSPanel {
     /// same question again rather than leaving a stale answer or none at all.
     private var lastMode: RewriteMode?
     private var autoTask: Task<Void, Never>?
+    private var scoreTask: Task<Void, Never>?
     /// The selected text, used to tell a real suggestion from an echo of the
     /// input.
     private var original = ""
@@ -126,22 +130,24 @@ final class SelectionBar: NSPanel {
             modeRow.addArrangedSubview(button)
         }
 
-        // How far any of those four may travel. Its own control rather than
-        // more buttons: the mode is what you want done, the dial is how much,
-        // and folding twelve combinations into one row would read as twelve
-        // unrelated actions.
-        strengthDial.onSelect = { [weak self] index in
-            self?.strengthChanged(to: index)
-        }
-        strengthDial.toolTip = "How far a rewrite may stray from what you wrote"
+        // The strength dial that used to sit here is gone. It asked how far a
+        // rewrite may stray, which is a question you cannot answer about a
+        // sentence you already know is wrong -- and the answer people wanted
+        // was always the boldest one, which is now what every rewrite does.
 
         // Only useful once there is a proposal, so it stays out of the way
         // until then.
         diffButton.isHidden = true
         diffButton.toolTip = "Show what this changes"
 
+        scoreLabel.font = Theme.Font.caption
+        scoreLabel.textColor = Theme.Colour.inkMuted
+        scoreLabel.isHidden = true
+        scoreLabel.toolTip = "Spelling, grammar and punctuation mistakes Harper "
+            + "found. It does not judge whether the writing sounds natural."
+
         let actionRow = NSStackView(views: [
-            glyph, modeRow, strengthDial, diffButton, dots, status, NSView(),
+            glyph, modeRow, diffButton, scoreLabel, dots, status, NSView(),
         ])
         actionRow.orientation = .horizontal
         actionRow.spacing = Theme.Space.row
@@ -191,9 +197,40 @@ final class SelectionBar: NSPanel {
         }
         isPositioning = false
 
+        // The count comes first and separately. Harper answers in about 30ms
+        // against the model's second or more, so waiting for the rewrite to
+        // show it would hide the fast answer behind the slow one.
+        runScore()
+
         // Offer something without being asked. A bar of three buttons is a
         // menu; having the suggestion already there is the point.
         runAutomatically()
+    }
+
+    /// Counts the mistakes in the selection and shows the number.
+    private func runScore() {
+        scoreLabel.isHidden = true
+        scoreTask?.cancel()
+        guard let onScore else { return }
+
+        scoreTask = Task { @MainActor [weak self] in
+            let score = await onScore()
+            guard !Task.isCancelled, let self, let score, score.words > 0 else {
+                return
+            }
+            self.scoreLabel.stringValue = score.summary
+            self.scoreLabel.textColor = Self.colour(for: score.standing)
+            self.scoreLabel.isHidden = false
+            self.resize()
+        }
+    }
+
+    static func colour(for standing: WritingScore.Standing) -> NSColor {
+        switch standing {
+        case .clean: return Theme.Colour.accept
+        case .few: return Theme.Colour.inkMuted
+        case .many: return Theme.Colour.correction
+        }
     }
 
     /// Produces a first suggestion as soon as the bar appears.
@@ -224,29 +261,38 @@ final class SelectionBar: NSPanel {
             // installed both modes fell through to the end of the loop and the
             // bar reported "looks good" in green. Nothing had been checked.
             var failure: Error?
+            // Kept apart from "nothing to change". A refusal means a rewrite
+            // was produced and rejected for changing the meaning, which is the
+            // opposite of the writing being fine -- and reporting it as
+            // "looks good" is exactly what sent someone looking for a bug.
+            var refusal: String?
 
-            for mode in [RewriteMode.fixGrammar, .clearer] {
+            for mode in [RewriteMode.fixGrammar, .clearer, .native] {
                 guard !Task.isCancelled, let self else { return }
-                let result: String
+                let outcome: RewriteOutcome
                 do {
-                    result = try await onRewrite(mode)
+                    outcome = try await onRewrite(mode)
                 } catch {
                     failure = error
                     continue
                 }
-                guard !result.isEmpty else { continue }
                 guard !Task.isCancelled else { return }
-                // Unchanged text is not a suggestion; try the next mode.
-                guard result.trimmingCharacters(in: .whitespacesAndNewlines)
-                        != self.original.trimmingCharacters(in: .whitespacesAndNewlines)
-                else { continue }
 
-                self.present(proposal: result)
-                return
+                switch outcome {
+                case .rewritten(let result) where !result.isEmpty:
+                    self.present(proposal: result)
+                    return
+                case .refused(let why):
+                    refusal = refusal ?? why
+                case .rewritten, .unchanged:
+                    continue
+                }
             }
             guard !Task.isCancelled else { return }
             if let failure {
                 self?.showFailure(failure)
+            } else if let refusal {
+                self?.show(status: refusal, tint: Theme.Colour.correction)
             } else {
                 self?.show(status: "looks good", tint: Theme.Colour.accept)
             }
@@ -441,28 +487,6 @@ final class SelectionBar: NSPanel {
 
     // MARK: - Actions
 
-    private func strengthChanged(to index: Int) {
-        guard RewriteStrength.allCases.indices.contains(index) else { return }
-        let strength = RewriteStrength.allCases[index]
-        RewriteStrength.current = strength
-        Log.write("rewrite strength set to \(strength.rawValue)")
-
-        // The proposal on screen was produced under the old setting, so it no
-        // longer answers the question being asked.
-        proposal = nil
-        proposalView.isHidden = true
-        status.isHidden = true
-
-        // Ask again at the new setting, rather than clearing the bar and
-        // waiting. Moving the dial is a request for a different answer, and
-        // the old behaviour left nothing on screen until a mode button was
-        // pressed a second time -- which read as the dial doing nothing.
-        if let lastMode {
-            run(lastMode)
-        } else {
-            resize()
-        }
-    }
 
     @objc private func runMode(_ sender: NSButton) {
         guard sender.tag < RewriteMode.allCases.count else { return }
@@ -487,12 +511,16 @@ final class SelectionBar: NSPanel {
                 self.dots.stop()
             }
             do {
-                let result = try await onRewrite(mode)
-                guard !result.isEmpty else {
+                switch try await onRewrite(mode) {
+                case .rewritten(let result) where !result.isEmpty:
+                    self.present(proposal: result)
+                case .rewritten, .unchanged:
                     self.show(status: "nothing to change", tint: Theme.Colour.inkMuted)
-                    return
+                case .refused(let why):
+                    // Asked for explicitly, so the reason is owed. Silently
+                    // handing back the original reads as the button not working.
+                    self.show(status: why, tint: Theme.Colour.correction)
                 }
-                self.present(proposal: result)
             } catch {
                 // Was "needs a model" in orange for every failure, including a
                 // server that crashed with the model sitting right there.

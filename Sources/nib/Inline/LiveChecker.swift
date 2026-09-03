@@ -39,10 +39,26 @@ final class LiveChecker {
     private var keyMonitor: Any?
     private var localKeyMonitor: Any?
 
-    /// Fields longer than this are skipped. Underlining a 10,000-word document
-    /// means thousands of AX bounds calls per keystroke, which stalls the app
-    /// being typed into.
-    private let maxLength = 4000
+    /// Fields longer than this are skipped entirely.
+    ///
+    /// This was 4000, which silently switched underlining off in any long
+    /// document -- no marks, no badge, no message, and nothing to tell you the
+    /// difference between "your writing is clean" and "nib gave up".
+    ///
+    /// It guarded the wrong quantity. Harper is not the expensive part:
+    /// measured on 12600 characters it returned 720 suggestions in 0.89s
+    /// including process start. The cost is one AX bounds call per suggestion
+    /// drawn, so `maxDrawnMarks` bounds it directly and this can be generous.
+    private let maxLength = 20_000
+
+    /// How many marks may be drawn at once.
+    ///
+    /// Each one costs an AX bounds call against the app being typed into, and
+    /// that is what stalls it. Sixty is well past what fits on a screen, so
+    /// the cap is invisible until the text is so full of mistakes that the
+    /// underlines would be a solid band anyway -- and the badge still reports
+    /// the true count.
+    static let maxDrawnMarks = 60
 
     private(set) var isRunning = false
 
@@ -296,8 +312,17 @@ final class LiveChecker {
     private func scheduleLint() {
         lintTask?.cancel()
         let snapshot = text
-        guard !snapshot.isEmpty, snapshot.count <= maxLength else {
+        guard !snapshot.isEmpty else {
             suggestions = []
+            return
+        }
+        guard snapshot.count <= maxLength else {
+            // Said rather than done silently: this is the branch that made
+            // long documents look clean when nothing had been checked.
+            suggestions = []
+            lastNote = "field is \(snapshot.count) characters, over the "
+                + "\(maxLength) limit -- not checked"
+            Log.write("live: \(lastNote)")
             return
         }
 
@@ -423,6 +448,16 @@ final class LiveChecker {
             self.selectionBar.onRewrite = { mode in
                 try await model.rewriteSelection(trimmed, mode: mode)
             }
+            // Harper, not the model: it answers in about 30ms, so the count is
+            // on screen before the rewrite has started, and every mistake it
+            // counts is one the reader can click to see.
+            self.selectionBar.onScore = { [weak self] in
+                guard let self else { return nil }
+                guard let found = try? await self.engine.lint(trimmed) else {
+                    return nil
+                }
+                return WritingScore(suggestions: found, text: trimmed)
+            }
             self.selectionBar.onAccept = { [weak self] replacement in
                 self?.replaceSelection(range, with: replacement, original: selected)
             }
@@ -501,7 +536,12 @@ final class LiveChecker {
             return
         }
         lastFieldFrame = frame
-        let live = suggestions.filter { !dismissed.contains(key(for: $0)) }
+        let all = suggestions.filter { !dismissed.contains(key(for: $0)) }
+        // Capped before the bounds calls, which is where the cost is.
+        let live = Array(all.prefix(Self.maxDrawnMarks))
+        if all.count > live.count {
+            Log.write("live: drawing \(live.count) of \(all.count) marks")
+        }
         let marks = AXGeometry.rects(for: live, in: element)
         // Clip to the field: a scrolled-away line still reports bounds, which
         // would paint marks over whatever is above or below the field.
@@ -520,7 +560,9 @@ final class LiveChecker {
         if placed.isEmpty {
             overlay.hide()
             badgeSuggestions = live
-            badge.show(count: live.count, hint: hotkeyLabel, near: frame)
+            // The true count, not the drawn one: the badge is the only thing
+            // saying how much is wrong, so capping it would understate it.
+            badge.show(count: all.count, hint: hotkeyLabel, near: frame)
             startBadgeHoverPoll()
             Log.write("badge show count=\(live.count) field=\(Self.brief(frame)) "
                       + "badgeFrame=\(Self.brief(badge.frame)) "

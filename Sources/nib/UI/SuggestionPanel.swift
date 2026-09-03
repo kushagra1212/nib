@@ -411,7 +411,7 @@ extension RewriteMode {
         case .fixGrammar: return "Fix"
         case .clearer: return "Clearer"
         case .shorter: return "Shorter"
-        case .freely: return "Freely"
+        case .native: return "Native"
         }
     }
 
@@ -421,7 +421,7 @@ extension RewriteMode {
         case .fixGrammar: return "checkmark"
         case .clearer: return "wand.and.rays"
         case .shorter: return "arrow.down.right.and.arrow.up.left"
-        case .freely: return "text.badge.star"
+        case .native: return "text.badge.star"
         }
     }
 
@@ -432,7 +432,7 @@ extension RewriteMode {
         case .fixGrammar: return Theme.Colour.fix
         case .clearer: return Theme.Colour.rewrite
         case .shorter: return Theme.Colour.condense
-        case .freely: return Theme.Colour.clarity
+        case .native: return Theme.Colour.clarity
         }
     }
 
@@ -449,7 +449,7 @@ extension RewriteMode {
         // about maybe" down to "consider", and measuring that as deletion
         // refused the exact edits it exists to make. Only Fix, which is meant
         // to change as little as possible, is held to the mid-sentence rule.
-        case .clearer, .shorter, .freely: return true
+        case .clearer, .shorter, .native: return true
         case .fixGrammar: return false
         }
     }

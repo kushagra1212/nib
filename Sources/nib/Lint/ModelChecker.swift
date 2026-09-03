@@ -238,39 +238,52 @@ actor ModelChecker {
     /// sentence is easy to accept without noticing. When that happens the
     /// original comes back unchanged, which reads as "nothing to do" rather
     /// than handing over a shortened version of what was written.
-    func rewriteSelection(
-        _ text: String, mode: RewriteMode,
-        strength: RewriteStrength = .current
-    ) async throws -> String {
-        let key = "\(mode.rawValue)|\(strength.rawValue)|\(text)"
-        if let hit = cache[key] { return hit }
-        let result = try await rewriter.rewrite(text, mode: mode, strength: strength)
+    /// The longest run of the original a rewrite may drop before it is refused.
+    ///
+    /// Three words. This used to come off the strength dial, where the boldest
+    /// setting turned it off entirely -- so removing the dial would have
+    /// disabled it for good. The dial asked how far a rewrite may travel; this
+    /// asks whether it quietly deleted a clause, which is a different question
+    /// and is wrong at any setting.
+    static let maxDroppedRun = 3
 
-        // Bold switches the check off entirely, and Freely and Shorter are
-        // asked to move or drop words whatever the dial says.
+    func rewriteSelection(
+        _ text: String, mode: RewriteMode
+    ) async throws -> RewriteOutcome {
+        let key = "\(mode.rawValue)|\(text)"
+        if let hit = cache[key] {
+            return hit == text ? .unchanged : .rewritten(hit)
+        }
+        let result = try await rewriter.rewrite(text, mode: mode)
+
+        // Native and Shorter are asked to move or drop words by definition.
         // A sentence that stops early is wrong in every mode, however freely
         // it was asked to rewrite: the end of what someone wrote is missing
         // and nothing says so.
         if droppedTail(original: text, corrected: result) >= 3 {
             Log.write("rewrite truncated the ending, mode=\(mode.rawValue)")
-            return text
+            return .refused("that rewrite cut off the ending")
         }
 
         // A question that comes back as a statement is wrong in every mode,
         // however freely it was asked to rewrite.
         if flipsQuestion(original: text, corrected: result) {
             Log.write("rewrite turned a question into a statement, mode=\(mode.rawValue)")
-            return text
+            return .refused("that rewrite answered your question instead of "
+                            + "rewriting it")
         }
 
-        if !mode.mayRestructure, let limit = strength.maxDroppedRun,
-           dropsContent(original: text, corrected: result, limit: limit) {
+        if !mode.mayRestructure,
+           dropsContent(original: text, corrected: result,
+                        limit: Self.maxDroppedRun) {
             Log.write("rewrite dropped content, mode=\(mode.rawValue) "
                       + "run=\(longestDroppedRun(original: text, corrected: result))")
-            return text
+            return .refused("that rewrite dropped part of what you wrote")
         }
         remember(key, result)
-        return result
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+            == text.trimmingCharacters(in: .whitespacesAndNewlines)
+            ? .unchanged : .rewritten(result)
     }
 
     private func rewrite(_ text: String, mode: RewriteMode) async -> String? {
