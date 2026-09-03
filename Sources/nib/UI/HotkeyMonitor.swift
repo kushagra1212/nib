@@ -104,6 +104,33 @@ final class HotkeyMonitor {
         active = nil
     }
 
+    /// Registers the same combination again, from scratch.
+    ///
+    /// Carbon hotkeys do not survive the machine sleeping. Measured: nib ran
+    /// for six hours across a lid close, kept polling focus the whole time --
+    /// so it was plainly awake and had Accessibility -- and every one of ⌥Space,
+    /// ⌃⌥D, ⌃⌘N and ⌃⇧H was dead. Restarting the app brought all four back
+    /// immediately, which is what proves the registration is what was lost
+    /// rather than the key press or the permission.
+    ///
+    /// The event handler is torn down as well, not just the hotkey. The
+    /// registration and the handler both hang off the same application event
+    /// target, and reinstalling one without the other leaves a hotkey that
+    /// fires into nothing.
+    ///
+    /// Nothing happens if this monitor was never started; there is no
+    /// combination to restore and stealing one now would be a surprise.
+    @discardableResult
+    func reregister() -> Combo? {
+        guard let combo = active, let onFire else { return nil }
+        stop()
+        if let handler {
+            RemoveEventHandler(handler)
+            self.handler = nil
+        }
+        return start(preferring: [combo], onFire: onFire)
+    }
+
     /// What a handler must return for a press with this id.
     ///
     /// Pulled out of the C callback so it can be tested. Getting it wrong does

@@ -79,6 +79,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         RewriteEngine.reapOrphans()
 
         startDictation()
+        watchForWake()
+    }
+
+    /// Puts the hotkeys back after the machine sleeps.
+    ///
+    /// Carbon registrations do not survive it. Measured on this machine: nib
+    /// ran six hours across a lid close, kept polling focus throughout -- so it
+    /// was awake and still had Accessibility -- and all four hotkeys were dead.
+    /// Restarting nib fixed them instantly, which is what identified the
+    /// registration rather than the permission or the key press.
+    ///
+    /// Both notifications, because they are not the same event. A lid close
+    /// gives didWake; unlocking after the screen locks gives
+    /// sessionDidBecomeActive, and a laptop opened in the morning is usually
+    /// both. Re-registering twice is harmless -- it tears down and rebuilds --
+    /// where missing one leaves the keys dead for the rest of the day.
+    private func watchForWake() {
+        let centre = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didWakeNotification,
+                     NSWorkspace.sessionDidBecomeActiveNotification] {
+            centre.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] _ in
+                MainActor.assumeIsolated { self?.restoreHotkeys(after: name) }
+            }
+        }
+    }
+
+    @MainActor
+    private func restoreHotkeys(after notification: Notification.Name) {
+        let restored = [hotkey, dictationHotkey, speakHotkey, hushHotkey]
+            .compactMap { $0.reregister()?.label }
+        Log.write("woke (\(notification.rawValue)); hotkeys back: "
+                  + (restored.isEmpty ? "none were registered" : restored.joined(separator: " ")))
     }
 
     // MARK: - Dictation
