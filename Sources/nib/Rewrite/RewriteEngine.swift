@@ -52,12 +52,46 @@ enum RewriteMode: String, CaseIterable {
             // well". The second gets a tidier version of the same sentence;
             // the first is what someone learning the language is asking for --
             // the phrasing a native would have reached for instead.
+            // The verb rule comes second, before the general instructions.
+            //
+            // Reported as "ChatGPT rewrites this better than nib does", on:
+            //
+            //   Then I will test on the APK and event in  the Events Manager.
+            //
+            // The second half has no verb. Asked to rewrite it, the model
+            // dropped the clause rather than completing it -- "Then I'll test
+            // it on the APK and in the Events Manager", where the events are
+            // no longer being done anything to. ChatGPT supplied one: "verify
+            // the events".
+            //
+            // Measured rather than assumed, because the obvious explanation
+            // was wrong twice over. It is not the ban on adding information:
+            // removing that sentence entirely changed nothing. It is not the
+            // model's ceiling either -- asked for three rewrites instead of
+            // one, this same 4B returned "run the test on the APK and verify
+            // it within the Events Manager" as its second. The verb is
+            // available to it. Greedy decoding on a long instruction just
+            // never reaches it, and an instruction added at the end of that
+            // paragraph was ignored. Moved to the front, it is obeyed.
+            //
+            // Placement is the whole change. The same rule appended after
+            // "Keep every fact" produced the original clause-dropping output,
+            // and adding "leave correct wording alone" after it cancelled the
+            // rule outright.
+            //
+            // Checked against eight already-correct sentences, since damaging
+            // those is the failure that matters more: this alters 7 of 8,
+            // against 8 of 8 for the instruction it replaces. No worse.
             return "Rewrite the user's text the way a native British English "
-                + "speaker would naturally write it. Fix the grammar, replace "
+                + "speaker would naturally write it. Give every clause the "
+                + "verb and preposition it needs, supplying the one the "
+                + "sentence implies rather than dropping the clause. "
+                + "Fix the grammar, replace "
                 + "unidiomatic phrasing with what a native speaker would say, "
                 + "and reorder or split sentences where that is more natural. "
                 + "Keep every fact and every point the text makes. "
-                + "Do not add information that is not there."
+                + "Do not introduce a new fact, name or number that is not "
+                + "already in the text."
         }
     }
 
