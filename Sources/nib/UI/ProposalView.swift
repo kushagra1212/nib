@@ -34,9 +34,18 @@ final class ProposalView: NSView {
         }
     }
 
+    /// Which rewrite wrote this. Set before `text`, and kept through a diff.
+    ///
+    /// Not `tag`: NSView already has one, and it is an Int.
+    ///
+    /// The bar runs Fix, then Clearer, then Native, and shows the first one
+    /// that changes anything -- so the suggestion on screen is usually Fix's,
+    /// and a generic "AI" tag gives the reader no way to know that.
+    var writtenBy: String = "AI"
+
     /// Shows something already styled -- the diff -- instead of plain text.
     func show(_ body: NSAttributedString) {
-        let out = NSMutableAttributedString(attributedString: Theme.aiTag())
+        let out = NSMutableAttributedString(attributedString: Theme.aiTag(writtenBy))
         out.append(body)
         label.attributedStringValue = out
         invalidateIntrinsicContentSize()
@@ -48,7 +57,7 @@ final class ProposalView: NSView {
             // like the model's inline suggestions are. Accepting a rewrite
             // replaces a whole sentence, which is a bigger thing to agree to
             // than a spelling fix, and the reader should know what wrote it.
-            let out = NSMutableAttributedString(attributedString: Theme.aiTag())
+            let out = NSMutableAttributedString(attributedString: Theme.aiTag(writtenBy))
             out.append(NSAttributedString(string: text, attributes: [
                 .foregroundColor: NSColor.labelColor,
                 .font: Theme.Font.body,

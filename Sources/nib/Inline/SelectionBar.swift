@@ -72,6 +72,18 @@ final class SelectionBar: NSPanel {
         static let minWidth: CGFloat = 210
     }
 
+    /// What the bar tries on its own, in order, stopping at the first rewrite
+    /// that changes anything.
+    ///
+    /// Least invasive first, deliberately: an unasked-for rewrite should fix
+    /// the mistake and leave the voice alone. The consequence is that Fix
+    /// answers nearly every time, and Native -- the one that rewrites the
+    /// sentence the way a native speaker would say it -- is only reached when
+    /// the grammar is already correct. That is the right default and it is not
+    /// self-evident from the screen, which is why the proposal is now tagged
+    /// with the mode that produced it.
+    static let autoOrder: [RewriteMode] = [.fixGrammar, .clearer, .native]
+
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: Metrics.minWidth, height: 36),
                    styleMask: [.borderless, .nonactivatingPanel],
@@ -267,7 +279,7 @@ final class SelectionBar: NSPanel {
             // "looks good" is exactly what sent someone looking for a bug.
             var refusal: String?
 
-            for mode in [RewriteMode.fixGrammar, .clearer, .native] {
+            for mode in SelectionBar.autoOrder {
                 guard !Task.isCancelled, let self else { return }
                 let outcome: RewriteOutcome
                 do {
@@ -280,7 +292,7 @@ final class SelectionBar: NSPanel {
 
                 switch outcome {
                 case .rewritten(let result) where !result.isEmpty:
-                    self.present(proposal: result)
+                    self.present(proposal: result, from: mode)
                     return
                 case .refused(let why):
                     refusal = refusal ?? why
@@ -353,7 +365,16 @@ final class SelectionBar: NSPanel {
         resize()
     }
 
-    private func present(proposal text: String) {
+    /// Shows a rewrite, tagged with the mode that produced it.
+    ///
+    /// The mode is not decoration. `runAutomatically` tries Fix, Clearer and
+    /// Native in that order and stops at the first that changes anything, so
+    /// what the reader sees is almost always Fix -- the most conservative of
+    /// the three. Untagged, that is indistinguishable from Native, and someone
+    /// judging nib against ChatGPT was comparing Fix's output while believing
+    /// it was Native's.
+    private func present(proposal text: String, from mode: RewriteMode) {
+        proposalView.writtenBy = mode.shortTitle
         proposal = text
         // A new proposal is a new set of changes, so the view goes back to
         // showing the result rather than a diff of the previous one.
@@ -513,7 +534,7 @@ final class SelectionBar: NSPanel {
             do {
                 switch try await onRewrite(mode) {
                 case .rewritten(let result) where !result.isEmpty:
-                    self.present(proposal: result)
+                    self.present(proposal: result, from: mode)
                 case .rewritten, .unchanged:
                     self.show(status: "nothing to change", tint: Theme.Colour.inkMuted)
                 case .refused(let why):

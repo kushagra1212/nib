@@ -190,8 +190,17 @@ enum Theme {
     /// Two letters and a space rather than a pill or a row of its own: it has
     /// to sit inside a card small enough to float over someone's text, and it
     /// is a note about provenance, not a heading.
-    static func aiTag() -> NSAttributedString {
-        NSAttributedString(string: "AI  ", attributes: [
+    /// The tag on model-written text.
+    ///
+    /// Takes a label because "AI" alone does not say *which* rewrite you are
+    /// looking at, and the bar runs three of them. Someone compared the bar's
+    /// suggestion against ChatGPT's, called it nib's Native output, and it was
+    /// Fix's -- the auto-run tries Fix first and stops at the first mode that
+    /// changes anything, so the most conservative rewrite is what is usually on
+    /// screen. Naming the mode is the whole difference between judging the
+    /// model and judging the wrong mode's output.
+    static func aiTag(_ label: String = "AI") -> NSAttributedString {
+        NSAttributedString(string: label.uppercased() + "  ", attributes: [
             .foregroundColor: Colour.rewrite,
             .font: NSFont.systemFont(ofSize: 10, weight: .bold),
         ])
