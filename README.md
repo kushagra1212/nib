@@ -38,6 +38,11 @@ nib to Applications, and run that same second line.
 > it — `--no-quarantine` was removed and now fails as an invalid option — so
 > clearing it afterwards is the way.
 >
+> **Run it before you open nib for the first time.** Measured on a downloaded
+> DMG: launching first gets the process killed outright — no dialog, no message
+> — and macOS removes the app. Clearing the attribute afterwards is then a
+> command pointed at something that is no longer there.
+>
 > Both routes need it. Until nib is notarised, there is no install that does
 > not.
 

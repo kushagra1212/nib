@@ -207,8 +207,51 @@ else
   SIGNED_WITH="ad-hoc (no certificate found)"
 fi
 
+# Check the signature actually sealed, and refuse to ship it if not.
+#
+# Nothing used to look. Every codesign call sent its errors to /dev/null and
+# the build carried on, so a half-written signature was indistinguishable from
+# a good one -- and one shipped, four times.
+#
+# What it looks like: `codesign --verify --deep --strict` reports
+#
+#   file missing: .../whisper.framework/Versions/Current/whisper.cstemp
+#
+# `.cstemp` is codesign's own temporary file. A seal that references one was
+# written by a codesign that did not finish -- which this script can cause
+# directly, since sign_with_timeout kills it with SIGTERM after 20 seconds.
+#
+# The bundle still runs from a local build, which is why it went unnoticed:
+# Gatekeeper only enforces the seal when the app carries a quarantine flag, and
+# a locally built one does not. A downloaded DMG always does. There the kernel
+# kills it on launch -- SIGKILL, exit 137, no message -- and macOS then removes
+# the app. The first run of every download, and nothing to see afterwards.
+verify_signature () {
+  codesign --verify --deep --strict "$APP" 2>&1
+}
+
+if ! problems="$(verify_signature)"; then
+  echo "  signature did not verify, re-signing:"
+  echo "$problems" | sed 's/^/    /'
+  # codesign's leftovers are themselves the thing being sealed, so they go
+  # before the retry rather than after it.
+  find "$APP" -name "*.cstemp" -delete
+  # Synchronously and ad-hoc. The retry exists because the timed path failed;
+  # giving it another deadline would reproduce the same half-written seal.
+  codesign --force --deep --sign - "$APP"
+  SIGNED_WITH="ad-hoc (re-signed after a failed seal)"
+
+  if ! problems="$(verify_signature)"; then
+    echo "$problems" | sed 's/^/    /' >&2
+    echo "  refusing to ship an unsigned bundle -- a downloaded copy of this" >&2
+    echo "  would be killed on launch and deleted by macOS" >&2
+    exit 1
+  fi
+fi
+
 echo "built $APP"
 du -sh "$APP" | awk '{print "  size: " $1}'
+echo "  signature verified"
 
 # The failure this avoids is genuinely confusing: nib stays listed and switched
 # on in Accessibility, but is no longer trusted, because the grant points at the
