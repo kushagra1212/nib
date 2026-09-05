@@ -61,15 +61,30 @@ Type. Mistakes get underlined where you wrote them. Hover one for the fix.
 
 | | Meaning |
 |---|---|
-| <span style="color:#e5484d">**Red**</span> | Spelling, grammar, punctuation |
-| <span style="color:#0090ff">**Blue**</span> | The sentence could read more clearly |
+| <span style="color:#FFA0A0">**Red**</span> | Spelling, grammar, punctuation |
+| <span style="color:#6FB4FF">**Blue**</span> | The sentence could read more clearly |
 
 Hovering shows a card with the change: the old wording struck through, the new
 wording in its place. **Accept** applies it, **Dismiss** hides it, and the
 arrows step through the rest.
 
 Colours follow [Grammarly's convention](https://www.grammarly.com/blog/product/better-writing-with-grammarly/)
-so the meaning is already familiar.
+so the meaning is already familiar, at a fraction of the saturation — these
+surfaces sit on top of a sentence you are trying to read.
+
+### How many mistakes
+
+Selecting text shows a count beside the rewrite buttons: `3 mistakes · 4.2 per
+100 words`, or `no mistakes in 13 words`.
+
+A rate, not a total, because three mistakes in a tweet and three in an essay are
+not the same writing. Below twenty words no rate is shown at all — one slip in
+six words is "17 per 100", which reads as a verdict on you rather than on the
+sentence.
+
+It counts what harper finds: spelling, grammar and punctuation. It does not
+judge whether the writing *sounds* natural, and a sentence can score clean while
+still being worth running through **Native**.
 
 ### The panel
 
@@ -83,12 +98,16 @@ The menu bar icon has **Check Selection** for the same thing without the hotkey.
 
 ```sh
 nib --lint "Their is many erors"        # check text and print suggestions
-nib --rewrite "text to improve"         # run all four rewrite modes
+nib --rewrite "text to improve"         # run all four rewrite modes, with timings
+nib --speak "testing one two three"     # read aloud, printing every stage
+nib --speak-silent "one two three"      # the same, without playing it
 nib --whisper-probe                     # report the speech engine and GPU
 nib --whisper-probe model.bin audio.wav # transcribe a file, no microphone
+nib --model-bench 5                     # time model load, first call, warm calls
 nib --bench 2000                        # measure lint latency
 nib --ax-probe 5                        # report what the focused field exposes
 nib --live-probe 20                     # trace the inline pipeline
+nib --marker-probe                      # check underline placement
 ```
 
 Handy once installed:
@@ -103,7 +122,7 @@ alias nib=/Applications/nib.app/Contents/MacOS/nib
 
 Grammar checking works out of the box and needs no model.
 
-The **Fix / Clearer / Shorter / Freely** buttons and the blue clarity underlines
+The **Fix / Clearer / Shorter / Native** buttons and the blue clarity underlines
 run a language model locally. nib bundles the engine that runs it but no model,
 because the smallest useful one is another 800MB and that is a choice worth
 leaving open. Nothing leaves your machine either way.
@@ -117,6 +136,29 @@ model is already installed, none of this appears.
 To do it by hand instead, put any `.gguf` in
 `~/Library/Application Support/nib/models` and restart nib.
 
+**What the four buttons do**
+
+| | |
+|---|---|
+| **Fix** | Correct the grammar. Change as little else as possible. |
+| **Clearer** | Same meaning, easier to read, roughly the same length. |
+| **Shorter** | Cut it down, keeping every point. |
+| **Native** | Rewrite it the way a native speaker would have said it. |
+
+Selecting text runs Fix, then Clearer, then Native, and shows the first one that
+changes anything — least invasive first, so an unasked-for rewrite fixes the
+mistake and leaves your voice alone.
+
+The consequence is that **Fix answers nearly every time**, because it is reached
+first and something is usually wrong. Native only runs on its own when the
+grammar is already correct. So the suggestion is labelled with the mode that
+produced it — `FIX`, `CLEARER`, `SHORTER`, `NATIVE` — and pressing another
+button asks that question directly.
+
+That label exists because of a real mix-up: nib's Fix output was compared
+against ChatGPT's free rewrite and judged as nib's Native. They are different
+answers to different questions.
+
 There is no step for installing llama.cpp: a build of `llama-server` ships
 inside the app, so the model is the only piece you supply. A Homebrew
 installation is still used if one is there and the bundled copy is not, which
@@ -124,31 +166,47 @@ in practice means a checkout that has not run `Scripts/fetch-llama.sh`.
 
 ### Which model
 
-**Qwen3 0.6B is the floor**, and it is the one nib preselects. Measured on four
-sentences of ordinary mistakes, it corrected three: `we was going … buyed` and
-`I have went` both came out right. It leaves homophones alone — `their/there/
-they're` came back untouched — which is harper's job anyway, and those are the
-underlines you get without any model at all.
+**Qwen3 4B Instruct-2507 is what nib preselects**, at 2.5GB.
+
+It replaced the 0.6B after both were measured on a sentence someone here
+actually wrote:
+
+> Also I do not have option to see the score of the selected text how much is it
+> grammatically correct because I am very naive at English so I can not judge
+> myself.
+
+| | |
+|---|---|
+| **0.6B**, Fix | added one comma |
+| **0.6B**, Native | added a second comma |
+| **4B**, Native | "I also don't have the option to see how grammatically correct the selected text is — I'm quite inexperienced with English, so I can't judge it on my own." |
+
+The 0.6B is a comma inserter on writing like this. That is not a cheap version
+of the feature, it is the feature absent.
+
+**Instruct-2507 rather than plain Qwen3 4B**: the base model thinks out loud
+before answering, and every token of that is latency for output nib throws away.
+
+**The cost is real.** About 1.4s a rewrite against the 0.6B's 0.3s, and 2.5GB
+against 805MB. That is the right trade for something you ask for by pressing a
+button — and it is exactly why the live underlining stays on harper, which
+answers in 30ms and never wakes the model at all.
+
+**Qwen3 0.6B stays on the list** for a small disk, and still fixes everyday
+mistakes: wrong verb forms, tense, plurals.
 
 Gemma 3 270M was tried and is not usable. It fixed only the misspellings, and
 for "clearer" and "shorter" it *described* the sentence — returning
 `"The sentence is too long and wordy."` in 0.04s — instead of rewriting it.
-Anything smaller than 0.6B answers the wrong question.
-
-**Bigger is not reliably better here**, which is why the list has one entry.
-
-Qwen3 1.7B at Q4_K_M is 1.6× the size and was worse in every mode tried. It
-corrected two of the four sentences against the 0.6B's three, returning
-`we was going to the store` unchanged; asked to tighten a rambling sentence it
-deleted the word "maybe" and left the rest, where the 0.6B rewrote it properly.
-
-Qwen3 1.7B at Q8_0 is not offered because it could not be tested: at 2.2GB it
-fails to run on a 16GB machine with a browser open, and llama.cpp reports
-`kIOGPUCommandBufferCallbackErrorOutOfMemory`. nib now reports that as
-*"not enough memory to run this model"* rather than as a parse failure.
 
 None of this limits you to the list — **Choose File…** in the same window takes
 any GGUF, and nib prefers the largest of the models it recognises.
+
+Measured on a 24GB machine. A 2.2GB model was previously seen to fail on a 16GB
+machine with a browser open, reporting
+`kIOGPUCommandBufferCallbackErrorOutOfMemory`; the 4B has not been retested
+against that, which is recorded here rather than assumed away. nib reports it as
+*"not enough memory to run this model"* rather than as a parse failure.
 
 ---
 
@@ -174,6 +232,15 @@ curl -L -o ~/Library/Application\ Support/nib/speech/ggml-small-q5_1.bin \
 macOS will ask for the microphone the first time. Audio is transcribed on this
 machine, is never written to disk, and is discarded when the transcript is
 inserted.
+
+### If you missed it
+
+Dictation writes into whatever app has focus, which is fine until the focus
+moved, the field rejected it, or you were not looking. **Recent Dictation** in
+the menu bar keeps the last hundred transcripts; pick one to copy it.
+
+Stored under `~/Library/Application Support/nib`, readable only by you, and
+never sent anywhere.
 
 ### Teach it your words
 
@@ -228,7 +295,11 @@ third does not, and nib leaves the rest of the machine alone. It also means
 speech never competes with dictation for the GPU.
 
 The model is held between presses, which costs about half a second the first
-time and nothing after. Nothing else runs while it sits there.
+time and nothing after, then is released after two minutes idle.
+
+**Speaking stops when you start dictating.** Pressing ⌃⌥D while nib is reading
+aloud stops the reading first. Otherwise the microphone hears the speech and
+transcribes nib back to itself, and two models sit in memory at once.
 
 **When it does not work**, ask it directly:
 
@@ -319,12 +390,14 @@ Needs Swift 5.9+ and Xcode command line tools.
 
 ```
 Sources/nib/
-  Lint/      harper client, filtering, diffing, edit planning
-  Inline/    underlines, hover card, geometry, live checking
+  Lint/      harper client, filtering, diffing, edit planning, writing score
+  Inline/    underlines, hover card, geometry, live checking, selection bar
   AX/        Accessibility read and write
-  UI/        menu bar, hotkey, panel
-  Rewrite/   llama.cpp lifecycle
-  Dictation/ audio capture, whisper, the recording overlay
+  UI/        menu bar, hotkeys, panels, theme, contrast
+  Rewrite/   llama.cpp lifecycle, model catalogue, prompts
+  Dictation/ audio capture, whisper, the recording overlay, history
+  Speech/    espeak, Kokoro, phonemes, voice pack, playback
+  Support/   memory readout and other small shared pieces
 ```
 
 ---
@@ -345,6 +418,14 @@ Sources/nib/
   three minutes after transcribing, so a rewrite in that window can report
   running out of memory. It says so plainly rather than pretending the model is
   missing.
+- **Reading aloud and dictation do not run together.** Starting one stops the
+  other, on purpose: the microphone would otherwise transcribe nib's own voice.
+- **The rewrite bar is clicked, not typed.** It never takes keyboard focus, so
+  that typing keeps going to the app underneath — which also means there is no
+  Return-to-accept. Esc dismisses everything.
+- **No Developer ID signature yet.** Every rebuild changes the ad-hoc signature,
+  and macOS ties Accessibility and microphone permission to it, so both must be
+  granted again after an update.
 
 ## Credits
 

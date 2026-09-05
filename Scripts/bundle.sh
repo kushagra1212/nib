@@ -65,6 +65,25 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+
+# Stamp the release version into the copy, when one was given.
+#
+# Nothing used to do this. The release workflow takes the version from the tag
+# and uses it to name the DMG, so every published build was correctly named and
+# every one of them reported CFBundleShortVersionString 0.1.0 inside -- v1.0.0
+# through v1.0.3 all shipped claiming to be 0.1.0.
+#
+# Only the copy in dist/ is stamped. Rewriting the checked-in plist would leave
+# a dirty tree after every release build.
+if [[ -n "${VERSION:-}" ]]; then
+  /usr/libexec/PlistBuddy -c \
+    "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c \
+    "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c \
+    "Add :CFBundleVersion string $VERSION" "$APP/Contents/Info.plist"
+  echo "  version $VERSION"
+fi
 cp "$BIN" "$APP/Contents/MacOS/nib"
 
 # The speech engine is a linked framework, not a subprocess, so it goes in

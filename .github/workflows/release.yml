@@ -54,9 +54,10 @@ jobs:
           swift Scripts/make-icon.swift
           iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
 
-      - name: Bundle app
-        run: Scripts/bundle.sh
-
+      # Before bundling, not after. bundle.sh stamps this into the app's
+      # Info.plist, and it used to run first -- which is how v1.0.0 through
+      # v1.0.3 were each packaged under the right filename while reporting
+      # version 0.1.0 from inside the bundle.
       - name: Resolve version
         id: version
         run: |
@@ -66,6 +67,11 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Bundle app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: Scripts/bundle.sh
 
       - name: Build DMG
         env:

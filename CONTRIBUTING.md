@@ -43,11 +43,21 @@ after each install unless you sign with a real certificate.
 ## What this project cares about
 
 **Measure before claiming.** Several decisions here were made by argument
-first, and every one of them was wrong. The rewrite model is 0.6B because a
-1.7B was tried and scored worse; whisper's `small` sits where it does for the
-same reason; `[BLANK_AUDIO]` was fixed twice because the first fix made silence
-produce the word "you" instead. If a change is meant to improve something,
-include the before and after.
+first, and every one of them was wrong. The rewrite model is a 4B because the
+0.6B it replaced turned out to be a comma inserter on real writing, and it was
+only the 0.6B in the first place because a 1.7B had been tried and scored
+worse — both of those were measurements, and the second overturned the first.
+whisper's `small` sits where it does for the same reason; `[BLANK_AUDIO]` was
+fixed twice because the first fix made silence produce the word "you" instead.
+
+The most recent example is worth the space. "Native rewrites worse than
+ChatGPT" was diagnosed here as the model's ceiling and written off. It was
+neither the model nor the guard it was blamed on: the same 4B, asked for three
+rewrites instead of one, produced ChatGPT's answer as its second. The fix was
+moving one sentence to the front of the prompt. The claim had been asserted,
+not tested.
+
+If a change is meant to improve something, include the before and after.
 
 **Comments explain why.** What the code does is legible from the code. What
 belongs in a comment is the thing the next reader would otherwise undo — the
