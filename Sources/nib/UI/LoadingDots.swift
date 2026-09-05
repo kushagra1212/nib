@@ -45,6 +45,23 @@ final class LoadingDots: NSView {
 
     func start() {
         isHidden = false
+        // The status text beside these says what is happening; the dots are
+        // the same fact drawn.
+        setAccessibilityElement(false)
+
+        // Movement that never stops is the kind reduced motion is for. It runs
+        // for as long as the model is thinking, at the edge of vision, next to
+        // the sentence being read -- so when the setting is on the dots stay,
+        // lit and still. Removing them instead would take away the only thing
+        // saying nib is working.
+        guard !Theme.Motion.isReduced else {
+            dots.forEach {
+                $0.removeAllAnimations()
+                $0.opacity = 1
+            }
+            return
+        }
+
         for (index, dot) in dots.enumerated() {
             dot.removeAllAnimations()
 

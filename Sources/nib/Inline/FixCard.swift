@@ -266,7 +266,7 @@ final class FixCard: NSPanel {
     /// The proposed sentence, shown plainly.
     static func clarityText(_ replacement: String) -> NSAttributedString {
         NSAttributedString(string: replacement, attributes: [
-            .foregroundColor: NSColor.labelColor,
+            .foregroundColor: Theme.Colour.ink,
             .font: NSFont.systemFont(ofSize: 14),
         ])
     }
@@ -295,7 +295,7 @@ final class FixCard: NSPanel {
         }
         if !lead.isEmpty {
             out.append(NSAttributedString(string: lead, attributes: [
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: Theme.Colour.ink,
                 .font: NSFont.systemFont(ofSize: 14),
             ]))
         }
@@ -320,7 +320,7 @@ final class FixCard: NSPanel {
         }
         if !tail.isEmpty {
             out.append(NSAttributedString(string: tail, attributes: [
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: Theme.Colour.ink,
                 .font: NSFont.systemFont(ofSize: 14),
             ]))
         }

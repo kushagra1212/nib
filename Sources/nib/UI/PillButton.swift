@@ -169,7 +169,7 @@ final class PillButton: NSButton {
     /// Top and bottom of the gradient, so the capsule reads as lit from above.
     private var gradient: (NSColor, NSColor) {
         guard isEnabled else {
-            let flat = NSColor.controlColor.withAlphaComponent(0.18)
+            let flat = Theme.Colour.controlFill(0.08)
             return (flat, flat)
         }
         // Gilding is a line, not a slab: the chosen segment is washed with the

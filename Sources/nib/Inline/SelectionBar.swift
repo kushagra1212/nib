@@ -114,6 +114,8 @@ final class SelectionBar: NSPanel {
         glyph.image = NSImage(systemSymbolName: "sparkles",
                               accessibilityDescription: "nib")
         glyph.contentTintColor = Theme.Colour.rewrite.withAlphaComponent(0.85)
+        // A brand mark, not information.
+        glyph.setAccessibilityElement(false)
         glyph.imageScaling = .scaleProportionallyUpOrDown
 
         status.font = Theme.Font.caption
@@ -393,14 +395,21 @@ final class SelectionBar: NSPanel {
 
     /// Fades the actions in one after another, so the bar assembles rather
     /// than arriving fully formed.
+    ///
+    /// Skipped entirely when reduced motion is on: a staggered entrance is
+    /// decoration, and it also delays the last button by nearly a fifth of a
+    /// second, which is the wrong trade to keep for someone who has asked for
+    /// less movement.
     private func staggerButtons() {
+        guard !Theme.Motion.isReduced else { return }
         for (index, button) in modeButtons.enumerated() {
             guard let layer = button.layer else { continue }
             let fade = CABasicAnimation(keyPath: "opacity")
             fade.fromValue = 0
             fade.toValue = 1
-            fade.duration = 0.18
-            fade.beginTime = CACurrentMediaTime() + Double(index) * 0.045
+            fade.duration = Theme.Motion.content
+            fade.beginTime = CACurrentMediaTime()
+                + Double(index) * Theme.Motion.stagger
             fade.fillMode = .backwards
             fade.timingFunction = Theme.Motion.easeOut
             layer.add(fade, forKey: "stagger")

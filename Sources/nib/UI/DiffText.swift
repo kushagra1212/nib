@@ -61,7 +61,7 @@ enum DiffText {
         func attributes(_ size: CGFloat) -> [NSAttributedString.Key: Any] {
             switch self {
             case .kept:
-                return [.foregroundColor: NSColor.labelColor,
+                return [.foregroundColor: Theme.Colour.ink,
                         .font: NSFont.systemFont(ofSize: size)]
             case .removed:
                 return [.foregroundColor: Theme.Colour.removed,

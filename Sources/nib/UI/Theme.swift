@@ -23,6 +23,14 @@ enum Theme {
         static let control: CGFloat = 24
         /// Padding inside a control, left and right.
         static let controlPadding: CGFloat = 12
+        /// The smallest a thing you have to click may be.
+        ///
+        /// 24pt square, which is the floor for a pointer target. It is not the
+        /// 44pt asked of a finger -- nothing here is touched -- but it is not
+        /// nothing either, and the chevron that expands a proposal was a 16pt
+        /// square sitting immediately beside the region that accepts a rewrite.
+        /// A near miss there is not a no-op; it replaces the sentence.
+        static let target: CGFloat = 24
         /// One hairline, everywhere something needs an edge.
         static let hairline: CGFloat = 1
         /// Gap between a glyph and its label.
@@ -47,13 +55,49 @@ enum Theme {
     }
 
     enum Motion {
+        /// Whether the reader has asked the system for less movement.
+        ///
+        /// Read live rather than cached. It is a switch in Accessibility
+        /// settings that takes effect immediately, and someone turning it on
+        /// has usually just been made unwell by something moving -- being told
+        /// to restart the app is the wrong answer.
+        ///
+        /// nib is a worse offender than most for this. Its surfaces appear
+        /// beside the sentence you are reading, at the moment you are reading
+        /// it, and they rise and settle with an overshoot as they arrive.
+        /// That is exactly the movement at the edge of vision the setting
+        /// exists to stop.
+        static var isReduced: Bool {
+            NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        }
+
+        /// A duration, or none if movement is not wanted.
+        ///
+        /// Zero rather than a skipped animation, so every caller keeps its
+        /// completion handler. Several of them order a window away or re-enable
+        /// a button when the fade ends, and dropping the animation entirely
+        /// would drop those too.
+        static func duration(_ normal: TimeInterval) -> TimeInterval {
+            isReduced ? 0 : normal
+        }
+
         /// Everything stays under a fifth of a second. Long enough to read as
         /// motion, short enough that it never delays reaching a button.
-        static let appear: TimeInterval = 0.15
-        static let dismiss: TimeInterval = 0.10
-        static let content: TimeInterval = 0.18
-        static let hover: TimeInterval = 0.09
-        static let rise: CGFloat = 7
+        ///
+        /// Computed, not stored, so the reduced-motion setting reaches every
+        /// caller through the value it already asks for. Adding the check at
+        /// each animation instead would mean finding all of them, and the one
+        /// that gets missed is the one that keeps moving.
+        static var appear: TimeInterval { duration(0.15) }
+        static var dismiss: TimeInterval { duration(0.10) }
+        static var content: TimeInterval { duration(0.18) }
+        static var hover: TimeInterval { duration(0.09) }
+        /// Delay between one control fading in and the next.
+        static var stagger: TimeInterval { duration(0.045) }
+        /// How far a surface travels as it arrives. Nothing, when movement is
+        /// not wanted: the panel then fades in where it belongs rather than
+        /// sliding to it.
+        static var rise: CGFloat { isReduced ? 0 : 7 }
 
         static var easeOut: CAMediaTimingFunction {
             CAMediaTimingFunction(name: .easeOut)
@@ -96,14 +140,26 @@ enum Theme {
 
         /// Pompeian red, the pigment on the walls at Herculaneum. Where the
         /// system would use red.
-        static let clay = hex(0xFF7A7A)
+        ///
+        /// Lightened from FF7A7A, which measured 3.96:1 on the bright part of
+        /// the aurora. It survives as an underline at that value -- a line is
+        /// held to 3:1 -- but it is also the colour a refusal is written in,
+        /// and the sentence explaining why nib would not rewrite something is
+        /// a bad place to be the least readable text on screen.
+        static let clay = hex(0xFFA0A0)
         /// Verdigris, aged bronze. Where the system would use green.
         static let sage = hex(0x4FE3C1)
         /// Wedgwood blue. Where the system would use blue.
         static let slate = hex(0x6FB4FF)
         /// Brass. The accent that holds the rest together, used for edges and
         /// selection rather than for fills -- gilding is a line, not a slab.
-        static let taupe = hex(0xB48CFF)
+        ///
+        /// Lightened from B48CFF. Because it marks selection it is drawn as an
+        /// edge, and an edge has to clear 3:1 against what is behind it. Over
+        /// the bright part of the aurora the old value reached 2.9:1, so the
+        /// mark that says which control is chosen was the least visible thing
+        /// on the panel exactly where the panel was busiest.
+        static let taupe = hex(0xC4A6FF)
         static var brass: NSColor { taupe }
 
         /// Ivory and ink. Never pure white or pure black: marble is warm and
@@ -134,7 +190,14 @@ enum Theme {
         /// text sits on aurora rather than on the system's background, and
         /// switching to light mode must not turn it dark-on-dark.
         static let ink = hex(0xF2F5F7)
-        static let inkMuted = hex(0x9FB0BC)
+        /// Lightened from 9FB0BC, which was the worst pairing nib drew.
+        ///
+        /// It carries the status line, the writing score, captions and every
+        /// helper string -- all of it at 11pt, all of it the text someone reads
+        /// when they do not already know what the panel says. Over the bright
+        /// part of the aurora it measured 3.4:1, against the 4.5:1 that text
+        /// this size needs. It is the muted colour, not the faint one.
+        static let inkMuted = hex(0xC6D2DB)
 
         /// The single edge colour. One hairline, one weight, everywhere.
         static let rule = hex(0xFFFFFF, alpha: 0.14)
@@ -293,18 +356,20 @@ final class GlassBackground: NSVisualEffectView {
         refreshRim()
     }
 
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        refreshRim()
-    }
-
+    /// The rim, which does not vary with the system appearance.
+    ///
+    /// It used to: a light stroke in dark mode, a dark one in light mode, which
+    /// is right for a surface that takes its colour from the system. These do
+    /// not. The aurora paints its own near-black base in both appearances, so
+    /// in light mode the panel was drawing a black edge onto a black panel and
+    /// the surface lost its boundary against whatever was behind it.
+    ///
+    /// The same mistake ran through the text: nine places used `labelColor`,
+    /// which in light mode is black at 85% and measured 1.08:1 against this
+    /// base -- the rewrite, the diff and the fix card were all invisible for
+    /// anyone not running dark mode.
     private func refreshRim() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            rim.strokeColor = dark
-                ? NSColor(white: 1, alpha: 0.16).cgColor
-                : NSColor(white: 0, alpha: 0.10).cgColor
-        }
+        rim.strokeColor = NSColor(white: 1, alpha: 0.16).cgColor
     }
 }
 

@@ -52,7 +52,7 @@ final class IssueBadge: NSPanel {
         glyph.contentTintColor = Theme.Colour.correction
 
         label.font = Theme.Font.control
-        label.textColor = .labelColor
+        label.textColor = Theme.Colour.ink
 
         let row = NSStackView(views: [glyph, label])
         row.orientation = .horizontal

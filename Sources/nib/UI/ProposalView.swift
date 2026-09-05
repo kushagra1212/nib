@@ -41,14 +41,42 @@ final class ProposalView: NSView {
     /// The bar runs Fix, then Clearer, then Native, and shows the first one
     /// that changes anything -- so the suggestion on screen is usually Fix's,
     /// and a generic "AI" tag gives the reader no way to know that.
-    var writtenBy: String = "AI"
+    var writtenBy: String = "AI" {
+        didSet { describeForAccessibility() }
+    }
 
     /// Shows something already styled -- the diff -- instead of plain text.
     func show(_ body: NSAttributedString) {
         let out = NSMutableAttributedString(attributedString: Theme.aiTag(writtenBy))
         out.append(body)
         label.attributedStringValue = out
+        describeForAccessibility()
         invalidateIntrinsicContentSize()
+    }
+
+    /// What VoiceOver is told this is.
+    ///
+    /// The view is an `NSView` that accepts a rewrite when clicked, which to
+    /// the accessibility tree is a rectangle that does nothing -- the same
+    /// mistake as a `div` with an onclick. It carries the whole result of the
+    /// feature and it is the only way to accept one, so it says what it is,
+    /// reads out the rewrite it is offering, and can be pressed without a
+    /// mouse.
+    private func describeForAccessibility() {
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        // Which rewrite, so the announcement distinguishes Fix from Native the
+        // same way the visible tag does.
+        setAccessibilityLabel(writtenBy == "AI"
+            ? "Accept suggestion"
+            : "Accept \(writtenBy) rewrite")
+        setAccessibilityValue(text)
+        setAccessibilityHelp("Replaces the selected text with this rewrite.")
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onAccept?()
+        return true
     }
 
     var text: String = "" {
@@ -59,10 +87,11 @@ final class ProposalView: NSView {
             // than a spelling fix, and the reader should know what wrote it.
             let out = NSMutableAttributedString(attributedString: Theme.aiTag(writtenBy))
             out.append(NSAttributedString(string: text, attributes: [
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: Theme.Colour.ink,
                 .font: Theme.Font.body,
             ]))
             label.attributedStringValue = out
+            describeForAccessibility()
             invalidateIntrinsicContentSize()
         }
     }
@@ -80,7 +109,7 @@ final class ProposalView: NSView {
         layer?.borderWidth = 1
 
         label.font = Theme.Font.body
-        label.textColor = .labelColor
+        label.textColor = Theme.Colour.ink
         label.lineBreakMode = .byWordWrapping
         label.maximumNumberOfLines = 4
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -89,6 +118,9 @@ final class ProposalView: NSView {
         expander.isBordered = false
         expander.bezelStyle = .inline
         expander.imagePosition = .imageOnly
+        // The button grew to 24 for the hit area; the glyph must not grow
+        // with it, or the chevron starts competing with the text beside it.
+        expander.imageScaling = .scaleNone
         expander.image = NSImage(systemSymbolName: "chevron.down",
                                  accessibilityDescription: "Show all")
         expander.contentTintColor = Theme.Colour.inkMuted
@@ -98,10 +130,23 @@ final class ProposalView: NSView {
         expander.translatesAutoresizingMaskIntoConstraints = false
         addSubview(expander)
 
-        // A return glyph, so the affordance is legible without a caption.
-        hint.image = NSImage(systemSymbolName: "return",
+        // A tick, not a return arrow.
+        //
+        // It was `return`, which reads as "press Return to accept" -- and
+        // Return does nothing. The only key nib watches is Esc, and it cannot
+        // watch Return either: a global monitor observes without consuming, so
+        // the keystroke would accept the rewrite *and* insert a newline into
+        // the sentence it just replaced. Since the bar deliberately never takes
+        // key focus, there is no plain keystroke it can honestly claim.
+        //
+        // So the glyph now says what is true: this is the thing you click to
+        // accept.
+        hint.image = NSImage(systemSymbolName: "checkmark",
                              accessibilityDescription: "Accept")
         hint.contentTintColor = Theme.Colour.inkMuted
+        // Decoration. The view around it is the button and carries the name;
+        // announcing "Accept" twice is noise, not help.
+        hint.setAccessibilityElement(false)
         hint.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hint)
 
@@ -111,8 +156,14 @@ final class ProposalView: NSView {
             label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
             expander.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 6),
             expander.centerYAnchor.constraint(equalTo: centerYAnchor),
-            expander.widthAnchor.constraint(equalToConstant: 16),
-            expander.heightAnchor.constraint(equalToConstant: 16),
+            // 24, not 16. The chevron is still drawn at 16 -- `scaleNone`
+            // keeps the glyph where it was -- but the thing you have to hit
+            // was a 16pt square, under the 24pt floor for a pointer target,
+            // and it sits directly beside the much larger area that accepts
+            // the rewrite. Missing it by two points does not do nothing; it
+            // replaces the sentence.
+            expander.widthAnchor.constraint(equalToConstant: Theme.Metric.target),
+            expander.heightAnchor.constraint(equalToConstant: Theme.Metric.target),
             hint.leadingAnchor.constraint(equalTo: expander.trailingAnchor, constant: 4),
             hint.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             hint.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -167,7 +218,7 @@ final class ProposalView: NSView {
             context.duration = Theme.Motion.hover
             layer?.backgroundColor = (hovering
                 ? tint.withAlphaComponent(0.16)
-                : NSColor.controlColor.withAlphaComponent(0.30)).cgColor
+                : Theme.Colour.controlFill(0.10)).cgColor
             layer?.borderColor = (hovering
                 ? tint.withAlphaComponent(0.55)
                 : NSColor.clear).cgColor

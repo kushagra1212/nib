@@ -22,7 +22,11 @@ import AppKit
 final class AuroraBackground: NSView {
     /// Where a light sits, as a fraction of the view, and how large it is
     /// relative to the view's width.
-    private struct Light {
+    ///
+    /// Not private: `Contrast` reads the same values to work out how bright
+    /// this backdrop can get under a caption, and two copies of these numbers
+    /// would let the check pass while the panel it describes went dark.
+    struct Light {
         let colour: NSColor
         let centre: CGPoint
         let radius: CGFloat
@@ -31,9 +35,17 @@ final class AuroraBackground: NSView {
     private let base = CALayer()
     private var lights: [CAGradientLayer] = []
 
+    /// Near-black with a blue cast rather than neutral: a warm or neutral base
+    /// makes the teal look like a stain on grey.
+    static let baseColour = NSColor(srgbRed: 0.055, green: 0.06, blue: 0.08,
+                                    alpha: 1)
+
+    /// Where the gradient's alpha stops sit, as a fraction of the radius.
+    static let stops: [CGFloat] = [0, 0.45, 1]
+
     /// Off-centre and different sizes. Three lights at even spacing reads as a
     /// pattern; the effect depends on looking unplanned.
-    private static let plan: [Light] = [
+    static let plan: [Light] = [
         Light(colour: NSColor(srgbRed: 0.22, green: 0.78, blue: 0.72, alpha: 1),
               centre: CGPoint(x: 0.12, y: 0.85), radius: 0.55),
         Light(colour: NSColor(srgbRed: 0.55, green: 0.36, blue: 0.92, alpha: 1),
@@ -45,7 +57,14 @@ final class AuroraBackground: NSView {
     /// How strongly the lights show. Low, because this sits behind text that
     /// has to stay the most legible thing on the panel -- the aurora is a
     /// backdrop, not a subject.
-    private static let intensity: CGFloat = 0.38
+    ///
+    /// 0.28, down from 0.38, and the number was measured rather than chosen.
+    /// Where the violet and the blue overlap, the backdrop climbed to a mid
+    /// blue bright enough that the muted text on top of it fell to 3.4:1 and
+    /// the selection tint to 2.9:1 -- under the 4.5:1 that small text needs and
+    /// under the 3:1 that a control edge needs. At 0.28 the same worst point
+    /// leaves 6.5:1 and 4.9:1. `ContrastTests` holds it there.
+    static let intensity: CGFloat = 0.28
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -56,12 +75,10 @@ final class AuroraBackground: NSView {
 
     private func build() {
         wantsLayer = true
+        setAccessibilityElement(false)
         guard let host = layer else { return }
 
-        // Near-black with a blue cast rather than neutral: a warm or neutral
-        // base makes the teal look like a stain on grey.
-        base.backgroundColor = NSColor(srgbRed: 0.055, green: 0.06, blue: 0.08,
-                                       alpha: 1).cgColor
+        base.backgroundColor = Self.baseColour.cgColor
         host.addSublayer(base)
 
         for light in Self.plan {
@@ -75,7 +92,7 @@ final class AuroraBackground: NSView {
                 light.colour.withAlphaComponent(Self.intensity * 0.45).cgColor,
                 light.colour.withAlphaComponent(0).cgColor,
             ]
-            gradient.locations = [0, 0.45, 1]
+            gradient.locations = Self.stops.map { NSNumber(value: Double($0)) }
             // Screen, so overlapping lights add rather than paint over each
             // other. Normal blending would let the last light drawn win, which
             // is the flat look this is trying to avoid.

@@ -84,8 +84,8 @@ final class SuggestionPanel: NSPanel {
         textView.textContainerInset = .zero
         textView.isRichText = false
         textView.font = Theme.Font.body
-        textView.textColor = .labelColor
-        textView.insertionPointColor = .labelColor
+        textView.textColor = Theme.Colour.ink
+        textView.insertionPointColor = Theme.Colour.ink
         textView.drawsBackground = false
 
         textScroll.documentView = textView
