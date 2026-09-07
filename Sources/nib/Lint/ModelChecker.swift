@@ -146,6 +146,27 @@ actor ModelChecker {
     ///
     /// Middle deletions are a matter of taste and belong to the mode. A
     /// truncated ending is wrong in every mode.
+    /// Whether a rewrite stops mid-sentence.
+    ///
+    /// `droppedTail` alone cannot tell truncation from reordering, and that
+    /// difference is a false refusal on ordinary text. "…it only runs for first
+    /// time login for a particular user" rewritten as "…runs only on a
+    /// particular user's first login." keeps every word and loses nothing, but
+    /// the last surviving word now sits several words earlier in the original,
+    /// so the tail count says four words were dropped. A 29-word sentence with
+    /// no mistakes in it was being refused for cutting off an ending that was
+    /// still there.
+    ///
+    /// Something that really was cut off does not end in a full stop. Pairing
+    /// the two keeps the guard that matters -- a rewrite that stops halfway is
+    /// still refused -- and stops it firing on a sentence that was merely
+    /// rearranged.
+    static func looksUnfinished(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let last = trimmed.last else { return true }
+        return !".!?…\"')]}»”’".contains(last)
+    }
+
     nonisolated func droppedTail(original: String, corrected: String) -> Int {
         let before = WordDiff.tokenize(original).map { $0.text.lowercased() }
         let after = WordDiff.tokenize(corrected).map { $0.text.lowercased() }
@@ -230,7 +251,12 @@ actor ModelChecker {
             // Tightening a sentence is what clarity is for, so a run of
             // dropped words in the middle is allowed here. Losing the end is
             // not: that is a truncation whatever it is called.
+            // Same pairing as the selection path: a tail that no longer lines
+            // up is only a truncation if the rewrite also stops mid-sentence.
+            // Clarity reorders endings constantly, so the count alone silently
+            // threw away most of what this pass produced.
             guard droppedTail(original: sentence.text, corrected: rewritten) < 3
+                    || !Self.looksUnfinished(rewritten)
             else {
                 Log.write("clarity \"\(short)\": truncated the ending")
                 continue
@@ -282,7 +308,13 @@ actor ModelChecker {
         // A sentence that stops early is wrong in every mode, however freely
         // it was asked to rewrite: the end of what someone wrote is missing
         // and nothing says so.
-        if droppedTail(original: text, corrected: result) >= 3 {
+        // Both conditions, not either. The tail count finds a rewrite whose
+        // ending does not line up with the original; only the second says it
+        // ended because the model stopped rather than because it rephrased.
+        // A budget truncation never reaches here at all now -- the engine reads
+        // finish_reason and throws before returning a short reply.
+        if droppedTail(original: text, corrected: result) >= 3,
+           Self.looksUnfinished(result) {
             Log.write("rewrite truncated the ending, mode=\(mode.rawValue)")
             return .refused("that rewrite cut off the ending")
         }
