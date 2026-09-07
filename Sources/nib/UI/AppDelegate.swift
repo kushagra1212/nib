@@ -2,6 +2,16 @@ import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
+    /// Built on first use, not at init: HealthWindow is main-actor isolated
+    /// and a stored property would construct it before the actor exists.
+    private var health: HealthWindow?
+    /// What each feature reported last time it failed. An error that actually
+    /// happened beats one inferred from which files are on disk.
+    private var lastFailures: [Feature: String] = [:]
+    /// Whether llama-server is up. Cached because `isLoaded` is actor-isolated
+    /// and the report is built synchronously; refreshed before each render, so
+    /// the worst case is one stale frame.
+    private var rewriterAwake = false
     private let hotkey = HotkeyMonitor()
     private let panel = SuggestionPanel()
     private var engine: HarperEngine?
@@ -695,6 +705,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         liveDiagnose.target = self
         menu.addItem(liveDiagnose)
 
+        // Above the two Diagnose items because it answers the question that
+        // sends people to them: which part is broken. The Diagnose items go
+        // deep on one subsystem each; this says which subsystem to look at.
+        let statusEntry = NSMenuItem(title: "Status…", action: #selector(showHealth),
+                                     keyEquivalent: "")
+        statusEntry.target = self
+        menu.insertItem(statusEntry, at: menu.index(of: liveDiagnose) - 1)
+
         menu.addItem(withTitle: "Dictation Words…",
                      action: #selector(editVocabulary),
                      keyEquivalent: "").target = self
@@ -927,6 +945,129 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func modelChecker() -> ModelChecker? {
         guard let rewriter else { return nil }
         return ModelChecker(rewriter: rewriter)
+    }
+
+    // MARK: - Status
+
+    @MainActor
+    @objc private func showHealth() {
+        let window = health ?? HealthWindow()
+        health = window
+        window.context = { [weak self] in self?.healthContext() ?? .empty() }
+        window.onRestart = { [weak self] in self?.restart($0) }
+        window.onRestartApp = { [weak self] in self?.restartApp() }
+        window.onFix = { [weak self] feature in
+            switch feature {
+            case .rewrite: self?.showModelSetup()
+            case .speech: self?.showVoiceSetup()
+            case .dictation: self?.offerSpeechModel()
+            default: break
+            }
+        }
+        window.show()
+
+        // Asked after showing rather than before, so the panel appears at once
+        // and corrects itself a moment later instead of waiting on the actor.
+        Task { [weak self] in
+            let awake = await self?.rewriter?.isLoaded ?? false
+            await MainActor.run {
+                self?.rewriterAwake = awake
+                self?.health?.refresh()
+            }
+        }
+    }
+
+    /// The live half of the report. Everything else `Health` reads off disk.
+    @MainActor
+    private func healthContext() -> HealthContext {
+        HealthContext(
+            accessibilityTrusted: AXAccess.isTrusted,
+            grammarRunning: engine != nil && lastFailures[.grammar] == nil,
+            rewriterLoaded: rewriterAwake,
+            liveCheckingEnabled: live?.isRunning == true,
+            hotkeys: [
+                ("Check Selection", hotkey.active?.label),
+                ("Dictate", dictationHotkey.active?.label),
+                ("Speak", speakHotkey.active?.label),
+                ("Stop speaking", hushHotkey.active?.label),
+            ],
+            lastFailures: lastFailures)
+    }
+
+    /// Restarts one feature, and says what happened.
+    ///
+    /// Each of these is the stop the subsystem already had, paired with the
+    /// start it already had. Nothing here is new machinery -- what was missing
+    /// was a way to reach it without quitting the whole app.
+    @MainActor
+    private func restart(_ feature: Feature) -> String? {
+        switch feature {
+        case .grammar:
+            engine?.stop()
+            guard let harper = locateHarper() else {
+                lastFailures[.grammar] = "harper-ls is missing from the app bundle"
+                return "harper-ls is missing from the bundle -- reinstall nib."
+            }
+            engine = HarperEngine(executable: harper)
+            lastFailures[.grammar] = nil
+            Task { [weak self] in
+                do { try await self?.engine?.start() } catch {
+                    await MainActor.run {
+                        self?.lastFailures[.grammar] = "\(error)"
+                        self?.health?.refresh()
+                    }
+                }
+            }
+            return "Grammar checking restarted."
+
+        case .rewrite:
+            // Shutting down is the whole restart: the next rewrite starts a
+            // fresh llama-server, and not starting one now leaves the 2.7GB
+            // returned in the meantime.
+            Task { [weak self] in await self?.rewriter?.shutdown() }
+            rewriterAwake = false
+            lastFailures[.rewrite] = nil
+            return "Rewrite server stopped. The next rewrite starts a fresh one."
+
+        case .hotkeys:
+            let restored = [hotkey, dictationHotkey, speakHotkey, hushHotkey]
+                .filter { $0.active != nil }.count
+            return restored == 4
+                ? "All four shortcuts are already registered."
+                : "\(restored) of 4 registered. Quit whatever else holds the "
+                    + "others, then restart nib."
+
+        case .liveChecking:
+            guard let engine else { return "Grammar checking must work first." }
+            live?.stop()
+            live = makeLiveChecker(engine: engine)
+            live?.start()
+            lastFailures[.liveChecking] = nil
+            liveMenuItem?.state = .on
+            return "Underlining restarted."
+
+        case .accessibility, .dictation, .speech:
+            return nil
+        }
+    }
+
+    /// Relaunches nib.
+    ///
+    /// A new instance is started before this one dies, so a failure to launch
+    /// leaves the running app rather than nothing at all.
+    @MainActor
+    private func restartApp() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(
+            at: Bundle.main.bundleURL, configuration: configuration
+        ) { app, error in
+            guard app != nil, error == nil else {
+                Log.write("restart failed: \(String(describing: error))")
+                return
+            }
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     @MainActor
