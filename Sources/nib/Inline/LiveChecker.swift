@@ -440,12 +440,36 @@ final class LiveChecker {
             return
         }
 
+        // Captured now, not read again after the wait.
+        //
+        // Obsidian pops its own formatting toolbar the moment text is
+        // selected, and that toolbar takes accessibility focus -- the log shows
+        // "focus -> none app=Obsidian" while Obsidian is still frontmost. The
+        // focus handler clears `element`, so 250ms later the guard failed and
+        // the bar never appeared, silently, on every selection.
+        //
+        // The selection came from this element. A popup in the same app taking
+        // focus does not make it the wrong one to measure against.
+        guard let element = self.element else {
+            selectionBar.dismiss()
+            overlay.isSuppressed = false
+            return
+        }
+
         selectionTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 250_000_000)
-            guard !Task.isCancelled, let self, let element = self.element else { return }
+            guard !Task.isCancelled, let self else { return }
 
             let rects = AXGeometry.lineRects(for: range, in: element)
-            guard !rects.isEmpty else { return }
+            // Logged rather than returned in silence. An editor that reports no
+            // bounds for a range it just reported as selected is the other way
+            // this fails, and it looked identical from outside: no bar, no
+            // reason, nothing written down.
+            guard !rects.isEmpty else {
+                Log.write("selection bar: no bounds for range "
+                          + "\(range.location),\(range.length) in \(element.role ?? "?")")
+                return
+            }
             // The whole selection, not its first line. The bar has to know
             // what it must not cover, and a multi-line selection is covered by
             // a bar placed clear of only its top line.
