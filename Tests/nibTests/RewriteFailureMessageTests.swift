@@ -49,11 +49,42 @@ final class RewriteFailureMessageTests: XCTestCase {
             .badResponse,
             .outOfMemory,
             .rejected(status: 500, detail: "x"),
+            .truncated,
         ]
         for error in known {
             XCTAssertNotEqual(SelectionBar.message(for: error), fallback,
                               "\(error) has no message of its own")
         }
+    }
+
+    /// The other half of the same bug, and the more common half. The sweep
+    /// above only covers RewriteError, but URLSession throws URLError -- so
+    /// every timeout and refused connection reached the default branch and was
+    /// reported as "model unavailable" on a machine where the model was fine.
+    ///
+    /// llama-server shuts down after 120 seconds idle, which makes this
+    /// routine: the first rewrite after a pause waits on a cold start.
+    func testTransportFailuresAreNotCalledUnavailable() {
+        let fallback = SelectionBar.message(for: CancellationError())
+        let codes: [URLError.Code] = [
+            .timedOut, .cannotConnectToHost, .networkConnectionLost,
+            .cannotFindHost, .notConnectedToInternet,
+        ]
+        for code in codes {
+            let message = SelectionBar.message(for: URLError(code))
+            XCTAssertNotEqual(message, fallback, "\(code) reads as unavailable")
+            XCTAssertFalse(message.contains("unavailable"), message)
+        }
+    }
+
+    /// A timeout is worth retrying and says so; a selection that does not fit
+    /// is not, and says something different.
+    func testTimeoutAndTruncationGiveDifferentAdvice() {
+        let timeout = SelectionBar.message(for: URLError(.timedOut))
+        let truncated = SelectionBar.message(for: RewriteError.truncated)
+        XCTAssertTrue(timeout.contains("again"), timeout)
+        XCTAssertTrue(truncated.contains("long"), truncated)
+        XCTAssertNotEqual(timeout, truncated)
     }
 
     /// Short enough for a bar that sits over someone's text.

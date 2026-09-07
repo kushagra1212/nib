@@ -187,6 +187,11 @@ enum RewriteError: Error, CustomStringConvertible {
     case rejected(status: Int, detail: String)
     /// Metal could not find room for the model.
     case outOfMemory
+    /// The reply ran out of tokens twice, so the selection is too long for the
+    /// context window. Distinct from a model that stopped early on its own: one
+    /// is fixed by selecting less, the other is not fixed by anything the user
+    /// can do, and telling them apart is the point of reading `finish_reason`.
+    case truncated
 
     var description: String {
         switch self {
@@ -200,6 +205,8 @@ enum RewriteError: Error, CustomStringConvertible {
         case .outOfMemory:
             return "not enough memory to run this model -- try a smaller one, "
                 + "or close some apps"
+        case .truncated:
+            return "the selection is too long to rewrite in one pass"
         }
     }
 }
@@ -229,7 +236,11 @@ actor RewriteEngine {
         /// twice an hour, saved for everyone else.
         var idleTimeout: TimeInterval = 120
         var contextSize = 2048
-        var maxTokens = 512
+        /// A policy ceiling, not a physical one -- `tokenBudget` clamps this
+        /// against what is actually left of the context window. It was 512,
+        /// which silently truncated any selection long enough to need more,
+        /// while the window had room to spare.
+        var maxTokens = 1024
         /// Greedy. Correcting a sentence has a right answer, so sampling adds
         /// latency and variance in exchange for nothing. It also makes the
         /// cache useful: the same input now yields the same output.
@@ -332,6 +343,15 @@ actor RewriteEngine {
     // MARK: - Rewriting
 
     func rewrite(_ text: String, mode: RewriteMode) async throws -> String {
+        // Refused before the model is woken, not after two doomed attempts. A
+        // selection whose own tokens fill the window leaves nothing for a
+        // reply, so no budget rescues it -- and paying a cold start plus two
+        // requests to discover that is time the user spends watching dots.
+        if text.count / 4 + Self.promptOverhead >= config.contextSize {
+            Log.write("selection too long for the window: \(text.count) chars")
+            throw RewriteError.truncated
+        }
+
         let port = try await ensureRunning()
         scheduleIdleShutdown()
 
@@ -354,39 +374,66 @@ actor RewriteEngine {
         }
         messages.append(["role": "user", "content": text])
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "messages": messages,
-            "temperature": config.temperature,
-            "top_k": 1,
-            "max_tokens": Self.tokenBudget(for: text, limit: config.maxTokens),
-            "stream": false,
-            // Belt and braces alongside the server flag: some templates only
-            // honour thinking control passed per request.
-            "chat_template_kwargs": ["enable_thinking": false],
-        ])
+        // Two attempts at most. A reply that stopped because it ran out of room
+        // is not a bad rewrite, it is a budget that was too small -- and the
+        // guard downstream cannot tell those apart, because all it sees is an
+        // ending that is missing. That is what surfaced as "that rewrite cut
+        // off the ending" on text nothing was wrong with. Doubling once fixes
+        // the common case; still truncating after that is worth reporting as
+        // itself rather than blamed on the model's judgement.
+        var budget = Self.tokenBudget(for: text, limit: config.maxTokens,
+                                      context: config.contextSize)
 
-        // Cleared immediately before the request, so anything the server logs
-        // belongs to this one rather than to something that failed earlier.
-        errorLog.clear()
-        let (data, response) = try await URLSession.shared.data(for: request)
+        for attempt in 1...2 {
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "messages": messages,
+                "temperature": config.temperature,
+                "top_k": 1,
+                "max_tokens": budget,
+                "stream": false,
+                // Belt and braces alongside the server flag: some templates only
+                // honour thinking control passed per request.
+                "chat_template_kwargs": ["enable_thinking": false],
+            ])
 
-        // A refusal is not a parse problem, and reporting it as one costs an
-        // afternoon: "could not parse the model's response" says nothing about
-        // what to do next, and sends you looking for a parsing bug that is not
-        // there.
-        if let http = response as? HTTPURLResponse,
-           !(200..<300).contains(http.statusCode) {
-            throw Self.failure(status: http.statusCode, body: data,
-                               log: errorLog.recent)
+            // Cleared immediately before the request, so anything the server
+            // logs belongs to this one rather than to something that failed
+            // earlier.
+            errorLog.clear()
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            // A refusal is not a parse problem, and reporting it as one costs an
+            // afternoon: "could not parse the model's response" says nothing about
+            // what to do next, and sends you looking for a parsing bug that is not
+            // there.
+            if let http = response as? HTTPURLResponse,
+               !(200..<300).contains(http.statusCode) {
+                throw Self.failure(status: http.statusCode, body: data,
+                                   log: errorLog.recent)
+            }
+
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let first = choices.first,
+                  let message = first["message"] as? [String: Any],
+                  let content = message["content"] as? String
+            else { throw RewriteError.badResponse }
+
+            // The server states this directly. Not reading it was the whole
+            // problem: a reply cut short by the cap looks exactly like a model
+            // that chose to stop, and only one of those is nib's fault.
+            guard (first["finish_reason"] as? String) == "length" else {
+                return Self.clean(content)
+            }
+
+            Log.write("rewrite hit the token cap at \(budget), attempt \(attempt)")
+            let room = Self.headroom(for: text, context: config.contextSize)
+            let doubled = min(room, budget * 2)
+            if doubled <= budget { break }
+            budget = doubled
         }
 
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let message = choices.first?["message"] as? [String: Any],
-              let content = message["content"] as? String
-        else { throw RewriteError.badResponse }
-
-        return Self.clean(content)
+        throw RewriteError.truncated
     }
 
     /// Turns an error response into something worth reading.
@@ -412,15 +459,41 @@ actor RewriteEngine {
                              .trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    /// The system message and the worked example, which are not in `text` but
+    /// do occupy the window. Deliberately generous: undercounting here spends
+    /// the difference on a truncated reply.
+    static let promptOverhead = 256
+
+    /// How much of the context window is left for the reply.
+    ///
+    /// The prompt and the reply share one window. Asking for more tokens than
+    /// remain does not extend it, it truncates the reply, and the only visible
+    /// sign is the ending quietly missing.
+    static func headroom(for text: String, context: Int) -> Int {
+        max(128, context - (text.count / 4) - promptOverhead)
+    }
+
     /// Caps generation to a little more than the input.
     ///
-    /// A correction is about as long as what it corrects, so a flat 512-token
-    /// ceiling only ever mattered when the model had started rambling -- and
-    /// then it made us wait for the rambling. Roughly four characters per
-    /// token, with headroom for a longer rewrite.
-    static func tokenBudget(for text: String, limit: Int) -> Int {
+    /// A correction is about as long as what it corrects, so a flat ceiling
+    /// only ever mattered when the model had started rambling -- and then it
+    /// made us wait for the rambling. Roughly four characters per token, with
+    /// headroom for a longer rewrite.
+    ///
+    /// Three ceilings now, and it used to know only one. `limit` is policy.
+    /// `headroom` is physics. `wanted` is the estimate. The missing one was
+    /// physics: a 4000-character selection asked for 512 tokens against a
+    /// 2048-token window and could not have finished, so every rewrite of a
+    /// long paragraph came back with the ending gone and was refused for it.
+    ///
+    /// The multiplier is 2.0 rather than 1.8 because Native English legitimately
+    /// expands -- idiomatic English is often longer than the phrasing it
+    /// replaces, and a budget sized for a correction clips a translation.
+    static func tokenBudget(for text: String, limit: Int,
+                            context: Int = 2048) -> Int {
         let estimated = text.count / 4
-        return min(limit, max(64, Int(Double(estimated) * 1.8) + 32))
+        let wanted = max(128, Int(Double(estimated) * 2.0) + 96)
+        return min(limit, headroom(for: text, context: context), wanted)
     }
 
     /// Strips the scaffolding small models add despite being told not to.

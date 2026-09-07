@@ -346,6 +346,26 @@ final class SelectionBar: NSPanel {
             return "not enough memory -- try again in a moment"
         case RewriteError.rejected(let status, _):
             return "model refused (\(status))"
+        // Two attempts both ran out of tokens, so the selection does not fit
+        // the context window. Actionable, and nothing to do with availability.
+        case RewriteError.truncated:
+            return "selection too long -- rewrite a paragraph at a time"
+        // The other half of the "unavailable" bug, and the more common half.
+        // URLSession throws URLError, which is not a RewriteError, so every
+        // timeout and refused connection fell to the default branch and was
+        // reported as though the model were missing. llama-server shuts down
+        // after 120s idle, so the first rewrite after a pause waits on a cold
+        // start and can time out with the model sitting right there.
+        case let url as URLError:
+            switch url.code {
+            case .timedOut:
+                return "model took too long -- try again"
+            case .cannotConnectToHost, .networkConnectionLost,
+                 .cannotFindHost, .notConnectedToInternet:
+                return "model server stopped -- try again"
+            default:
+                return "model connection failed (\(url.code.rawValue))"
+            }
         default:
             return "model unavailable"
         }
