@@ -17,6 +17,28 @@ struct TextTarget {
     /// True when the user had an actual selection, as opposed to us taking the
     /// whole field. Determines whether a rewrite replaces part or all of it.
     let hadSelection: Bool
+    /// Whether `range` is a real offset into the field, or a placeholder
+    /// covering all of `text`.
+    ///
+    /// The difference destroys documents. When the field will not give a range
+    /// we can trust, `text` becomes the selection alone and `range` becomes
+    /// 0..<text.length -- which means "all of this", not "the first N
+    /// characters of the document". Writing back by setting that as the
+    /// selected range picks the opening of the document and types over it.
+    ///
+    /// In Obsidian that is every rewrite: the reported offsets never match, so
+    /// the placeholder is always what remains. Something has to carry the
+    /// distinction to the writer, because an NSRange cannot.
+    let rangeIsAbsolute: Bool
+
+    init(text: String, range: NSRange, source: Source, hadSelection: Bool,
+         rangeIsAbsolute: Bool = true) {
+        self.text = text
+        self.range = range
+        self.source = source
+        self.hadSelection = hadSelection
+        self.rangeIsAbsolute = rangeIsAbsolute
+    }
 
     var selectedText: String {
         guard let r = Range(range, in: text) else { return text }
@@ -80,9 +102,14 @@ enum TextGrabber {
                                       source: .accessibility(element), hadSelection: true)
                 }
             }
+            // The range here covers all of `selected`, not a position in the
+            // field. Flagged, so the writer types over what the user already
+            // has selected instead of selecting 0..<length and overwriting the
+            // start of the document.
             return TextTarget(text: selected,
                               range: NSRange(location: 0, length: (selected as NSString).length),
-                              source: .accessibility(element), hadSelection: true)
+                              source: .accessibility(element), hadSelection: true,
+                              rangeIsAbsolute: false)
         }
 
         for attribute in valueAttributes {
@@ -181,7 +208,17 @@ enum TextWriter {
     }
 
     /// Selects the span that is about to be replaced.
+    ///
+    /// Refuses when the range is a placeholder rather than a position in the
+    /// field. Setting 0..<length as the selection there would highlight the
+    /// opening of the document and type the rewrite over it -- which is what
+    /// corrupted a note in Obsidian, appending the replaced words to a
+    /// paragraph elsewhere.
+    ///
+    /// The user's own selection is already correct in that case, and typing
+    /// replaces a selection anyway. There is nothing to select.
     private static func selectAll(_ target: TextTarget, on element: AXElement) -> Bool {
+        guard target.rangeIsAbsolute else { return target.hadSelection }
         var range = CFRange(location: target.range.location, length: target.range.length)
         guard let axRange = AXValueCreate(.cfRange, &range) else { return false }
         return element.set(kAXSelectedTextRangeAttribute, to: axRange)
