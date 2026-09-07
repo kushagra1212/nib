@@ -460,7 +460,18 @@ final class LiveChecker {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled, let self else { return }
 
-            let rects = AXGeometry.lineRects(for: range, in: element)
+            var rects = AXGeometry.lineRects(for: range, in: element)
+            if rects.isEmpty {
+                // Obsidian answers neither the whole-range nor the
+                // per-character query, so both paths above come back empty on
+                // a selection that is plainly in bounds. Asking for the
+                // selection in Chromium's own terms works, and needs no
+                // offsets -- which is the part that is unreliable here.
+                rects = AXGeometry.selectionRects(in: element)
+                if !rects.isEmpty {
+                    Log.write("selection bar: fell back to the marker range")
+                }
+            }
             // Logged rather than returned in silence. An editor that reports no
             // bounds for a range it just reported as selected is the other way
             // this fails, and it looked identical from outside: no bar, no

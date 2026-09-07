@@ -92,6 +92,27 @@ enum AXGeometry {
                      + lineRects(for: right, in: element, depth: depth + 1))
     }
 
+    /// The selection's own box, asked for the way Chromium answers.
+    ///
+    /// Obsidian answers neither form of the range query. Measured: a selection
+    /// of 79 characters at offset 1964, inside a field of 2133 -- comfortably in
+    /// bounds -- returns nothing for the whole range and nothing per character,
+    /// so both existing paths come back empty and the bar is never drawn.
+    ///
+    /// `AXSelectedTextMarkerRange` is the same selection expressed in Chromium's
+    /// own terms, and it answers. No offsets are involved, which is why it
+    /// survives the virtualisation that makes character offsets unreliable here.
+    ///
+    /// Only good for the current selection -- markers for an arbitrary range
+    /// would have to be walked -- which is exactly what the selection bar needs.
+    static func selectionRects(in element: AXElement) -> [CGRect] {
+        guard let markerRange = element.value(for: "AXSelectedTextMarkerRange"),
+              let box = element.bounds(forMarkerRange: markerRange),
+              box.width > 0, box.height > 0
+        else { return [] }
+        return [toCocoa(box)]
+    }
+
     /// Measures each character separately and joins the results per line.
     ///
     /// The fallback for apps that only answer single-character range queries.
