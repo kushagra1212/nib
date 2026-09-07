@@ -79,6 +79,10 @@ final class HealthWindow: NSObject, NSWindowDelegate {
         render()
         place(window)
         raise(window)
+        // Logged so "nothing happened" can be told apart from "the action never
+        // ran", which is exactly the pair that had to be guessed between when
+        // the window was built and then never ordered in.
+        Log.write("status panel opened")
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -251,13 +255,29 @@ final class HealthWindow: NSObject, NSWindowDelegate {
         return view
     }
 
+    /// On the screen the pointer is on, slightly above centre.
+    ///
+    /// Not `window.center()`: this opens from a menu bar item, which may be on
+    /// a second display, and centring puts it on the main one instead.
     private func place(_ window: NSWindow) {
-        if window.frame.origin == .zero { window.center() }
+        let pointer = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(pointer) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return }
+        let size = window.frame.size
+        window.setFrameOrigin(NSPoint(x: visible.midX - size.width / 2,
+                                      y: visible.midY - size.height / 2
+                                        + visible.height * 0.08))
     }
 
+    /// `orderFrontRegardless` is the load-bearing line, and leaving it out is
+    /// what made Status… do nothing at all. nib is a menu bar accessory, and an
+    /// accessory app that is not frontmost does not get its window ordered in
+    /// by `makeKeyAndOrderFront` alone -- the window is created, the action
+    /// runs, and nothing appears.
     private func raise(_ window: NSWindow) {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 }
 

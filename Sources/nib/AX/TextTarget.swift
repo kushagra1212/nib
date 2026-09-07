@@ -75,7 +75,7 @@ enum TextGrabber {
             if let full = element.string(for: kAXValueAttribute),
                let cfRange = element.range(for: kAXSelectedTextRangeAttribute) {
                 let range = NSRange(location: cfRange.location, length: cfRange.length)
-                if NSMaxRange(range) <= (full as NSString).length {
+                if Self.rangeSelects(selected, in: full, at: range) {
                     return TextTarget(text: full, range: range,
                                       source: .accessibility(element), hadSelection: true)
                 }
@@ -92,6 +92,29 @@ enum TextGrabber {
                               source: .accessibility(element), hadSelection: false)
         }
         return nil
+    }
+
+    /// Whether `range` into `full` really is the selection the app reported.
+    ///
+    /// Fitting is not the same as matching, and the difference is the whole
+    /// bug. This used to check only `NSMaxRange(range) <= full.length`, which
+    /// asks whether the slice is in bounds -- not whether it is the right one.
+    ///
+    /// Obsidian is where that comes apart. CodeMirror 6 virtualises: the value
+    /// exposed over AX is only the lines currently rendered, and it grows and
+    /// shrinks as you scroll, while the selected range is reported against a
+    /// different basis. The two do not share an origin, so the slice is offset
+    /// and lands earlier in the document -- speaking a paragraph you did not
+    /// select, and rewriting one you did not mean to touch, both silently.
+    ///
+    /// Comparing the slice against the text the app already handed us costs one
+    /// string comparison and cannot be fooled by an offset that happens to fit.
+    static func rangeSelects(_ selected: String, in full: String,
+                             at range: NSRange) -> Bool {
+        let text = full as NSString
+        guard range.location >= 0, range.length >= 0,
+              NSMaxRange(range) <= text.length else { return false }
+        return text.substring(with: range) == selected
     }
 
     /// Last resort for apps that expose nothing useful over AX: copy the
