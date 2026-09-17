@@ -55,11 +55,18 @@ RUN set -eux; \
     curl -fsSL -o /tmp/icu.tgz \
       "https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION}/icu4c-${ICU_VERSION}-sources.tgz"; \
     mkdir -p /build && tar -xzf /tmp/icu.tgz -C /build && rm /tmp/icu.tgz; \
-    # Native build first: only its tools are used, so it is never installed.
+    # Native build first. The cross builds need its tools, and it is installed
+    # as well so the core's own test suite can run in this image against the
+    # same ICU version the other two targets use.
+    #
+    # Ubuntu 24.04 packages ICU 74, which is below the floor CMakeLists asks
+    # for, and testing segmentation against one ICU while shipping another is
+    # how a golden starts failing for a reason nobody can find.
     mkdir -p /build/icu-native && cd /build/icu-native; \
-    /build/icu/source/configure \
+    /build/icu/source/configure --prefix=/opt/icu/native \
         --disable-tests --disable-samples --disable-extras >/dev/null; \
     make -j"$(nproc)" >/dev/null; \
+    make install >/dev/null; \
     for arch in x86_64 aarch64; do \
       mkdir -p "/build/icu-$arch" && cd "/build/icu-$arch"; \
       /build/icu/source/configure \
