@@ -81,9 +81,33 @@ would still write a file where it was asked to.
 llvm-mingw asset by `uname -m`, so the same Dockerfile works on Apple silicon locally and on
 GitHub's x86_64 Ubuntu runners.
 
-### MSI packaging
+### MSI packaging — FAIL
 
-Recorded by Task 3.
+WiX v5.0.2 installs as a dotnet tool in the Linux container and runs, but refuses to build:
+
+```
+wix.exe : warning WIX0000: The WiX Toolset only supports Windows. If you would like to
+          help bring WiX to other platforms, join us at https://wixtoolset.org.
+          All behavior after this point is undefined.
+spike.wxs(9) : error WIX0389: The Directory/@Name attribute's value, 'nib', is not a
+               relative path.
+```
+
+`nib` is plainly a relative path. Retried with a different name (`nibspike`) and the error is
+identical, so this is not the name or the construct — WiX's path validation does not work
+off-Windows, exactly as its own warning says.
+
+**Consequence: MSI packaging happens on the `windows-latest` CI runner, not in Docker.** This
+costs nothing at release time, because packaging was always going to run in CI. What it costs
+is local iteration — the installer cannot be built or inspected from this Mac, so changes to
+the `.wxs` are verified by pushing.
+
+Not worth working around. The alternative is Wine, which would put an unsupported toolset on
+an unsupported platform and call the result an installer.
+
+### Managed build
+
+Recorded by Task 4.
 
 ### Managed build
 
