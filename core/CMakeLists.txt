@@ -1,4 +1,12 @@
 cmake_minimum_required(VERSION 3.24)
+
+# Set before project(), which is when the compiler is probed and the value is
+# baked into every object. nib supports macOS 13 Ventura, and a core built
+# against a newer SDK default would link fine here and refuse to load there.
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "macOS deployment target")
+endif()
+
 project(nibcore LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -51,6 +59,22 @@ target_link_libraries(nibcore_obj PUBLIC ICU::uc ICU::i18n ICU::data)
 add_library(nibcore SHARED $<TARGET_OBJECTS:nibcore_obj>)
 target_include_directories(nibcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(nibcore PRIVATE ICU::uc ICU::i18n ICU::data)
+
+# An absolute install name during development.
+#
+# SwiftPM builds the app and the test bundle at different depths, so no single
+# @executable_path rpath reaches core/build from both -- the test bundle sits
+# four directories deeper and fails to load. Pointing at the build directory
+# absolutely makes every locally built binary find it, and bundle.sh rewrites
+# the name with install_name_tool when it copies the dylib into nib.app, which
+# is the only build whose location is fixed.
+if(APPLE)
+    # BUILD_WITH_INSTALL_NAME_DIR as well: on its own INSTALL_NAME_DIR applies
+    # only to an installed copy, and nothing here is ever installed.
+    set_target_properties(nibcore PROPERTIES
+        INSTALL_NAME_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+        BUILD_WITH_INSTALL_NAME_DIR TRUE)
+endif()
 
 # Tests are host-native and never cross-compiled: they exist to check the
 # logic, which is identical on every target.

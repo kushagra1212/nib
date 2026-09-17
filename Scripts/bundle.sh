@@ -44,6 +44,13 @@ if [[ ! -x "$MACOS/vendor/llama/llama-server" ]]; then
   echo "llama-server missing -- run: Scripts/fetch-llama.sh" >&2
   exit 1
 fi
+CORE_DYLIB="$ROOT/core/build/libnibcore.dylib"
+if [[ ! -f "$CORE_DYLIB" ]]; then
+  echo "libnibcore missing -- run:" >&2
+  echo "  cmake -S core -B core/build -G Ninja -DICU_ROOT=\"\$(brew --prefix icu4c)\"" >&2
+  echo "  cmake --build core/build" >&2
+  exit 1
+fi
 WHISPER="$MACOS/vendor/whisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework"
 if [[ ! -d "$WHISPER" ]]; then
   echo "whisper.xcframework missing -- run: Scripts/fetch-whisper.sh" >&2
@@ -99,6 +106,37 @@ mkdir -p "$APP/Contents/Frameworks"
 cp -R "$WHISPER" "$APP/Contents/Frameworks/whisper.framework"
 install_name_tool -add_rpath "@executable_path/../Frameworks" \
   "$APP/Contents/MacOS/nib" 2>/dev/null || true
+
+# The shared core, and the ICU it links.
+#
+# core/build/libnibcore.dylib carries an absolute install name so that binaries
+# built in a checkout can find it at any depth -- SwiftPM puts the app and the
+# test bundle four directories apart, and no single @executable_path reaches
+# both. A shipped app is the one build whose layout is fixed, so the name is
+# rewritten here to @rpath and the dylib travels in Frameworks.
+#
+# ICU comes along because libnibcore records Homebrew's absolute paths, which
+# exist on no one else's machine.
+cp "$CORE_DYLIB" "$APP/Contents/Frameworks/libnibcore.dylib"
+install_name_tool -id "@rpath/libnibcore.dylib" \
+  "$APP/Contents/Frameworks/libnibcore.dylib"
+install_name_tool -change "$CORE_DYLIB" "@rpath/libnibcore.dylib" \
+  "$APP/Contents/MacOS/nib"
+
+for icu in $(otool -L "$CORE_DYLIB" | awk '/libicu/ {print $1}'); do
+  name="$(basename "$icu")"
+  cp "$icu" "$APP/Contents/Frameworks/$name"
+  chmod u+w "$APP/Contents/Frameworks/$name"
+  install_name_tool -id "@rpath/$name" "$APP/Contents/Frameworks/$name"
+  install_name_tool -change "$icu" "@rpath/$name" \
+    "$APP/Contents/Frameworks/libnibcore.dylib"
+  # ICU's own libraries reference each other by the same absolute paths.
+  for other in $(otool -L "$CORE_DYLIB" | awk '/libicu/ {print $1}'); do
+    install_name_tool -change "$other" "@rpath/$(basename "$other")" \
+      "$APP/Contents/Frameworks/$name" 2>/dev/null || true
+  done
+done
+
 cp "$MACOS/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 
 # Apache-2.0 section 4 requires shipping the licence with the binary, and

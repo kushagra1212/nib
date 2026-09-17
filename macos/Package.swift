@@ -30,10 +30,38 @@ let package = Package(
             exclude: ["onnxruntime/LICENSE"],
             publicHeadersPath: "include"
         ),
+        // The shared C++ core, which Windows uses too.
+        //
+        // Built by CMake rather than SwiftPM -- it has to produce a Windows DLL
+        // from a Linux container as well as a dylib here, and SwiftPM does
+        // neither. Run before any swift build:
+        //
+        //   cmake -S core -B core/build -G Ninja \
+        //         -DICU_ROOT="$(brew --prefix icu4c)"
+        //   cmake --build core/build
+        .systemLibrary(
+            name: "CNibCore",
+            path: "Sources/CNibCore"
+        ),
         .executableTarget(
             name: "nib",
-            dependencies: ["whisper", "CKokoro"],
-            path: "Sources/nib"
+            dependencies: ["whisper", "CKokoro", "CNibCore"],
+            path: "Sources/nib",
+            linkerSettings: [
+                // Relative to the package directory, which is macos/.
+                // -Xlinker rather than -Wl: swiftc passes these through to ld
+                // itself and rejects the comma-joined form.
+                //
+                // Two rpaths. The first is where bundle.sh puts the dylib
+                // inside nib.app; the second is core/build, so a plain
+                // `swift run` from a checkout finds it without bundling.
+                .unsafeFlags([
+                    "-L../core/build",
+                    "-lnibcore",
+                    "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks",
+                    "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../core/build",
+                ])
+            ]
         ),
         .testTarget(
             name: "nibTests",

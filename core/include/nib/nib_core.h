@@ -3,7 +3,11 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "nib/version.h"
+/* Relative, not "nib/version.h". CMake puts core/include on the search path,
+   but SwiftPM reaches this header through a module map with no include path at
+   all, and a quoted include resolves against this file's own directory first.
+   One form that works for every consumer. */
+#include "version.h"
 
 #ifdef __cplusplus
 extern "C" {
