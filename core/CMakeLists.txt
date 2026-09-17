@@ -38,6 +38,7 @@ endif()
 add_library(nibcore_obj OBJECT
     src/abi/abi_version.cpp
     src/text/word_tokenize.cpp
+    src/text/sentence_split.cpp
 )
 target_include_directories(nibcore_obj
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -66,6 +67,7 @@ if(NIB_CORE_TESTS AND NOT CMAKE_CROSSCOMPILING)
         tests/test_abi_version.cpp
         tests/golden_loader.cpp
         tests/test_word_tokenize.cpp
+        tests/test_sentence_split.cpp
     )
     target_link_libraries(nibcore_tests
         PRIVATE nibcore_obj Catch2::Catch2WithMain nlohmann_json::nlohmann_json

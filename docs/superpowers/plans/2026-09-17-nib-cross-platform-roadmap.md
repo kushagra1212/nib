@@ -154,6 +154,26 @@ error, not a crash.
 hand-written assertions, not goldens. This is exactly why goldens get captured from the
 *shipped* binary before any module moves — see Phase 0 Task 6.
 
+**Foundation is not a thin wrapper over ICU, and the gap is invisible until measured.**
+Found in Phase 0, and recorded here because the same shape will recur for every Foundation API
+the core replaces. Three layers of surprise in one function:
+
+1. `enumerateSubstrings(.bySentences, .localized)` is ICU's sentence `BreakIterator` *plus*
+   CLDR abbreviation exceptions. Raw ICU breaks after `"Dr."`; Foundation does not.
+2. Those exceptions are missing from Homebrew's ICU 78 — every locale answers
+   `U_USING_DEFAULT_WARNING` with no suppressions. Apple's ICU carries the data; a package
+   manager's need not.
+3. ICU's own fix for this, `FilteredBreakIteratorBuilder::suppressBreakAfter`, reports success
+   for every entry and then only suppresses single-period abbreviations. `"e.g."`, `"i.e."`,
+   `"a.m."`, `"U.S."` and `"Ph.D."` still break — precisely the ones that matter for prose.
+
+The core therefore carries its own 62-entry exception list, derived by putting 266 candidates
+through Foundation and recording which it declined to break after, and filters ICU's boundaries
+itself. Verified by cross-checking all 266 against both implementations: identical.
+
+The lesson for Phase 1: **do not assume a Foundation call maps onto its obvious C++ equivalent.**
+Measure the current behaviour, record it, then match the recording.
+
 ---
 
 ## Not doing
