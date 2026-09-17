@@ -35,9 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // handler, so sharing one would make hush start speech as well.
     private let speakHotkey = HotkeyMonitor(identifier: 3)
     private let hushHotkey = HotkeyMonitor(identifier: 4)
+    private var practiceMenuItem: NSMenuItem?
+    private let practiceHotkey = HotkeyMonitor(identifier: 5)
     @MainActor private lazy var speech = makeSpeech()
     /// Both own main-actor state, so they are built on first use there.
     @MainActor private lazy var dictation = makeDictation()
+    @MainActor private lazy var practice = makePractice()
     @MainActor private lazy var dictationOverlay = makeDictationOverlay()
     /// Built on first use. It owns a window, so it stays on the main actor.
     @MainActor private lazy var modelSetup = makeModelSetup()
@@ -118,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func restoreHotkeys(after notification: Notification.Name) {
-        let restored = [hotkey, dictationHotkey, speakHotkey, hushHotkey]
+        let restored = [hotkey, dictationHotkey, speakHotkey, hushHotkey, practiceHotkey]
             .compactMap { $0.reregister()?.label }
         Log.write("woke (\(notification.rawValue)); hotkeys back: "
                   + (restored.isEmpty ? "none were registered" : restored.joined(separator: " ")))
@@ -158,11 +161,83 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             Log.write("dictation hotkey unavailable -- something else holds it")
         }
+        if let combo = practiceHotkey.start(preferring: [.controlOptionP],
+                                            onFire: { [weak self] in
+                                                self?.practice.toggle()
+                                            }) {
+            Log.write("practice hotkey registered on \(combo.label)")
+        } else {
+            Log.write("practice hotkey unavailable -- something else holds ⌃⌥P")
+        }
+
         // Compiles whisper's Metal shaders now rather than during the first
         // dictation, where the wait would be half a minute.
         if SpeechModelCatalog.installed() != nil {
             DictationController.warmUpMetal()
         }
+    }
+
+    // MARK: - Practice
+
+    /// Wired like dictation, minus the typing.
+    ///
+    /// Shares the same two courtesies: free the GPU before the speech model
+    /// loads, and stop reading aloud before the microphone opens -- otherwise
+    /// nib records its own voice and transcribes it as though you had said it.
+    @MainActor
+    private func makePractice() -> PracticeController {
+        let controller = PracticeController()
+        controller.willRecord = { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.speech.state.isBusy else { return }
+                Log.write("speech: stopped, a practice take is starting")
+                self.speech.hush()
+            }
+        }
+        controller.willTranscribe = { [weak self] in
+            guard let rewriter = self?.rewriter else { return }
+            Task { await rewriter.shutdown() }
+        }
+        controller.onNeedsModel = { [weak self] in self?.offerSpeechModel() }
+        controller.onStateChange = { [weak self] state in
+            MainActor.assumeIsolated {
+                self?.updatePracticeMenuItem()
+                // Revealed rather than opened. Which app should own a .md is
+                // the user's business, and a take is usually one of several
+                // being compared -- the folder is more use than the file.
+                if case .finished(let url) = state {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+                if case .failed(let why) = state {
+                    Log.write("practice failed: \(why)")
+                }
+            }
+        }
+        return controller
+    }
+
+    @MainActor
+    private func updatePracticeMenuItem() {
+        guard let item = practiceMenuItem else { return }
+        let combo = practiceHotkey.active?.label ?? "unavailable"
+        switch practice.state {
+        case .recording:    item.title = "Stop Practice Take  (\(combo))"
+        case .transcribing: item.title = "Scoring the take…"
+        default:            item.title = "Practice Take  (\(combo))"
+        }
+    }
+
+    @MainActor
+    @objc private func togglePractice() {
+        practice.toggle()
+    }
+
+    @MainActor
+    @objc private func openPracticeFolder() {
+        let folder = PracticeController.folder
+        try? FileManager.default.createDirectory(at: folder,
+                                                 withIntermediateDirectories: true)
+        NSWorkspace.shared.open(folder)
     }
 
     @MainActor
@@ -647,6 +722,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(historyItem)
         historyMenuItem = historyItem
         MainActor.assumeIsolated { rebuildHistoryMenu() }
+
+        // Practice sits under dictation because it is the same microphone and
+        // the same model, pointed at yourself rather than at a text field.
+        let practiceItem = NSMenuItem(title: "Practice Take",
+                                      action: #selector(togglePractice),
+                                      keyEquivalent: "")
+        practiceItem.target = self
+        menu.addItem(practiceItem)
+        practiceMenuItem = practiceItem
+        MainActor.assumeIsolated { updatePracticeMenuItem() }
+
+        let practiceFolderItem = NSMenuItem(title: "Practice Takes…",
+                                            action: #selector(openPracticeFolder),
+                                            keyEquivalent: "")
+        practiceFolderItem.target = self
+        menu.addItem(practiceFolderItem)
 
         let speakItem = NSMenuItem(title: "Speak Selection",
                                    action: #selector(toggleSpeech), keyEquivalent: "")

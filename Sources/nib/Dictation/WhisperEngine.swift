@@ -155,10 +155,22 @@ actor WhisperEngine {
     ///   "useMemo" and "AXUIElement" survive being dictated; a general
     ///   recogniser writes them as ordinary words.
     func transcribe(samples: [Float], prompt: String? = nil) throws -> String {
+        let segments = try transcribeSegments(samples: samples, prompt: prompt)
+        return Self.clean(segments.map(\.text).joined())
+    }
+
+    /// The same transcription, with each segment's start and end kept.
+    ///
+    /// Dictation throws the timings away because it only needs the words. A
+    /// practice take needs them: the gap between two segments is a pause, and
+    /// the pauses are most of what makes someone sound unprepared. There is no
+    /// second decode -- this is the one whisper already did, unflattened.
+    func transcribeSegments(samples: [Float],
+                            prompt: String? = nil) throws -> [SpokenSegment] {
         guard !samples.isEmpty else { throw Failure.noAudio }
         // Asked before the model is loaded, so an accidental toggle costs
         // nothing at all rather than a model load and an invented sentence.
-        guard !AudioSamples.isSilent(samples) else { return "" }
+        guard !AudioSamples.isSilent(samples) else { return [] }
         let context = try ensureLoaded()
 
         // Beam search rather than greedy.
@@ -228,7 +240,7 @@ actor WhisperEngine {
         }
         guard status == 0 else { throw Failure.transcriptionFailed(status) }
 
-        var text = ""
+        var segments: [SpokenSegment] = []
         for segment in 0..<whisper_full_n_segments(context) {
             // Whisper invents words for silence. Four seconds of a silent WAV
             // transcribes as "you", and "Thank you." is the other common one --
@@ -241,8 +253,12 @@ actor WhisperEngine {
             // one.
             let silence = whisper_full_get_segment_no_speech_prob(context, segment)
             guard silence < Self.noSpeechLimit else { continue }
-            text += String(cString: whisper_full_get_segment_text(context, segment))
+            // whisper reports centiseconds, not seconds.
+            segments.append(SpokenSegment(
+                text: String(cString: whisper_full_get_segment_text(context, segment)),
+                start: Double(whisper_full_get_segment_t0(context, segment)) / 100,
+                end: Double(whisper_full_get_segment_t1(context, segment)) / 100))
         }
-        return Self.clean(text)
+        return segments
     }
 }

@@ -55,6 +55,15 @@ final class HotkeyMonitor {
             modifiers: UInt32(controlKey | shiftKey),
             label: "⌃⇧H"
         )
+
+        /// Record a practice take. Sits next to dictation's ⌃⌥D because the
+        /// two are the same gesture pointed at different ends: one puts the
+        /// words in a field, the other keeps them to play back.
+        static let controlOptionP = Combo(
+            keyCode: UInt32(kVK_ANSI_P),
+            modifiers: UInt32(controlKey | optionKey),
+            label: "⌃⌥P"
+        )
     }
 
     private var handler: EventHandlerRef?
