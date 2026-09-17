@@ -10,7 +10,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/dist/nib.app"
 
 if [[ ! -d "$APP" ]]; then
-  echo "no app at $APP -- run: swift build -c release && Scripts/bundle.sh" >&2
+  echo "no app at $APP -- run: swift build -c release --package-path macos" \
+       "&& Scripts/bundle.sh" >&2
   exit 1
 fi
 

@@ -1,7 +1,10 @@
 .DS_Store
-.build/
-.swiftpm/
-vendor/
+macos/.build/
+macos/.swiftpm/
+macos/vendor/
+core/build/
+windows/**/bin/
+windows/**/obj/
 dist/
 *.app
 models/

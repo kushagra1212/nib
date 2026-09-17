@@ -16,7 +16,8 @@ set -euo pipefail
 BUILD="${WHISPER_BUILD:-b4938}"
 SHA256="dcc6cdc6d6902d11893434ceda70c23a2a64450f65a1b570035c9908988dfedd"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$ROOT/vendor/whisper"
+MACOS="$ROOT/macos"
+DEST="$MACOS/vendor/whisper"
 FRAMEWORK="$DEST/whisper.xcframework"
 SLICE="macos-arm64_x86_64"
 

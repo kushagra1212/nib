@@ -7,9 +7,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MACOS="$ROOT/macos"
 CONFIG="${CONFIG:-release}"
 APP="$ROOT/dist/nib.app"
-BIN="$ROOT/.build/$CONFIG/nib"
+BIN="$MACOS/.build/$CONFIG/nib"
 
 if [[ ! -x "$BIN" ]]; then
   echo "no binary at $BIN -- run: swift build -c $CONFIG" >&2
@@ -21,29 +22,29 @@ fi
 # `swift build` defaults to debug while this script reads release, so building
 # and then bundling silently ships whatever was in .build/release from before.
 # A whole afternoon went into debugging behaviour that was never in the app.
-NEWEST_SOURCE="$(find "$ROOT/Sources" -name '*.swift' -newer "$BIN" -print -quit)"
+NEWEST_SOURCE="$(find "$MACOS/Sources" -name '*.swift' -newer "$BIN" -print -quit)"
 if [[ -n "$NEWEST_SOURCE" ]]; then
   echo "STALE: $BIN predates $(basename "$NEWEST_SOURCE")" >&2
   echo "  run: swift build -c $CONFIG" >&2
   exit 1
 fi
-if [[ ! -x "$ROOT/vendor/harper-ls" ]]; then
+if [[ ! -x "$MACOS/vendor/harper-ls" ]]; then
   echo "harper-ls missing -- run: Scripts/fetch-harper.sh" >&2
   exit 1
 fi
-if [[ ! -f "$ROOT/vendor/espeak/libespeak-ng.dylib" ]]; then
+if [[ ! -f "$MACOS/vendor/espeak/libespeak-ng.dylib" ]]; then
   echo "espeak-ng missing -- run: Scripts/fetch-espeak.sh" >&2
   exit 1
 fi
-if [[ ! -f "$ROOT/vendor/onnx/libonnxruntime.dylib" ]]; then
+if [[ ! -f "$MACOS/vendor/onnx/libonnxruntime.dylib" ]]; then
   echo "onnxruntime missing -- run: Scripts/fetch-onnx.sh" >&2
   exit 1
 fi
-if [[ ! -x "$ROOT/vendor/llama/llama-server" ]]; then
+if [[ ! -x "$MACOS/vendor/llama/llama-server" ]]; then
   echo "llama-server missing -- run: Scripts/fetch-llama.sh" >&2
   exit 1
 fi
-WHISPER="$ROOT/vendor/whisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework"
+WHISPER="$MACOS/vendor/whisper/whisper.xcframework/macos-arm64_x86_64/whisper.framework"
 if [[ ! -d "$WHISPER" ]]; then
   echo "whisper.xcframework missing -- run: Scripts/fetch-whisper.sh" >&2
   exit 1
@@ -64,7 +65,7 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$MACOS/Resources/Info.plist" "$APP/Contents/Info.plist"
 
 # Stamp the release version into the copy, when one was given.
 #
@@ -98,7 +99,7 @@ mkdir -p "$APP/Contents/Frameworks"
 cp -R "$WHISPER" "$APP/Contents/Frameworks/whisper.framework"
 install_name_tool -add_rpath "@executable_path/../Frameworks" \
   "$APP/Contents/MacOS/nib" 2>/dev/null || true
-cp "$ROOT/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
+cp "$MACOS/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 
 # Apache-2.0 section 4 requires shipping the licence with the binary, and
 # harper-ls is Apache-2.0. Both licences travel inside the app, not only in
@@ -111,7 +112,7 @@ cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE.txt"
 # They have to stay together: llama-server finds the libraries through an
 # rpath of @loader_path, which means "beside me". Move the binary out on its
 # own and it fails in dyld before it reaches main().
-cp -R "$ROOT/vendor/llama" "$APP/Contents/Resources/llama"
+cp -R "$MACOS/vendor/llama" "$APP/Contents/Resources/llama"
 
 # The speech engine: the phonemiser, its dictionaries, and the runtime.
 #
@@ -122,19 +123,19 @@ cp -R "$ROOT/vendor/llama" "$APP/Contents/Resources/llama"
 # The dictionaries are 19MB and are not optional. espeak with no data phonemises
 # English as nothing, which reaches the model as an empty token list and speaks
 # silence -- a failure with no error attached to it.
-cp -R "$ROOT/vendor/espeak" "$APP/Contents/Resources/espeak"
+cp -R "$MACOS/vendor/espeak" "$APP/Contents/Resources/espeak"
 mkdir -p "$APP/Contents/Resources/onnx"
-cp "$ROOT/vendor/onnx/libonnxruntime.dylib" "$APP/Contents/Resources/onnx/"
-cp "$ROOT/vendor/onnx/LICENSE" "$APP/Contents/Resources/onnx/LICENSE"
-cp "$ROOT/vendor/onnx/ThirdPartyNotices.txt" \
+cp "$MACOS/vendor/onnx/libonnxruntime.dylib" "$APP/Contents/Resources/onnx/"
+cp "$MACOS/vendor/onnx/LICENSE" "$APP/Contents/Resources/onnx/LICENSE"
+cp "$MACOS/vendor/onnx/ThirdPartyNotices.txt" \
    "$APP/Contents/Resources/onnx/ThirdPartyNotices.txt"
 
 # Drop the fetch marker; it says which wheel the files came from, which is
 # useful in a checkout and noise in a shipped app.
 rm -f "$APP/Contents/Resources/espeak/.version"
 
-if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
-  cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+if [[ -f "$MACOS/Resources/AppIcon.icns" ]]; then
+  cp "$MACOS/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 else
   echo "  no icon; run: swift Scripts/make-icon.swift && iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns"
 fi

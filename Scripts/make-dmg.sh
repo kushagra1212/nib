@@ -6,8 +6,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MACOS="$ROOT/macos"
 APP="$ROOT/dist/nib.app"
-VERSION="${VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT/Resources/Info.plist")}"
+VERSION="${VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$MACOS/Resources/Info.plist")}"
 DMG="$ROOT/dist/nib-${VERSION}.dmg"
 STAGING="$ROOT/dist/dmg"
 

@@ -44,15 +44,15 @@ jobs:
         run: Scripts/fetch-onnx.sh
 
       - name: Test
-        run: swift test
+        run: swift test --package-path macos
 
       - name: Build
-        run: swift build -c release
+        run: swift build -c release --package-path macos
 
       - name: Generate icon
         run: |
           swift Scripts/make-icon.swift
-          iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
+          iconutil -c icns macos/Resources/AppIcon.iconset -o macos/Resources/AppIcon.icns
 
       # Before bundling, not after. bundle.sh stamps this into the app's
       # Info.plist, and it used to run first -- which is how v1.0.0 through

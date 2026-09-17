@@ -19,7 +19,8 @@ URL="https://files.pythonhosted.org/packages/a8/26/258c0cd43b9bc1043301c5f61767d
 SHA256="d27cdca31112226e7299d8562e889d3e38a1e48055c9ee381b45d669072ee59f"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$ROOT/vendor/espeak"
+MACOS="$ROOT/macos"
+DEST="$MACOS/vendor/espeak"
 LIB="$DEST/libespeak-ng.dylib"
 
 if [[ "$(uname -m)" != "arm64" ]]; then
