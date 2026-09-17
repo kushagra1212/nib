@@ -42,8 +42,15 @@ ENV PATH="/opt/llvm-mingw/bin:${PATH}"
 # it has just built to generate data, so a native build has to exist first and
 # be handed to the cross builds with --with-cross-build.
 #
-# Static, so the DLL nib ships carries its own ICU and there are no loose
-# icu*.dll files next to it that Windows might resolve to a different copy.
+# Shared, not static, and with tools enabled.
+#
+# The static route builds and then fails at runtime. --enable-static needs
+# --disable-tools to get past a link error in ICU's own makeconv, and
+# --disable-tools also removes pkgdata, which is what assembles ICU's data.
+# The build then silently substitutes stubdata: libsicudt.a came out at 800
+# bytes containing one object, the DLL linked fine, and it would have reached a
+# Windows machine before anyone learned there were no break-iterator rules in
+# it. Shared keeps the tools, so the data is real.
 RUN set -eux; \
     curl -fsSL -o /tmp/icu.tgz \
       "https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION}/icu4c-${ICU_VERSION}-sources.tgz"; \
@@ -59,12 +66,16 @@ RUN set -eux; \
         --host="$arch-w64-mingw32" \
         --with-cross-build=/build/icu-native \
         --prefix="/opt/icu/$arch" \
-        --enable-static --disable-shared \
+        --enable-shared --disable-static \
         --disable-tests --disable-samples --disable-extras \
         CC="$arch-w64-mingw32-clang" \
         CXX="$arch-w64-mingw32-clang++" \
         AR=llvm-ar RANLIB=llvm-ranlib >/dev/null; \
       make -j"$(nproc)" >/dev/null; \
+      # ICU installs the static data library into $prefix/bin for Windows
+      # targets -- where a DLL would go -- and does not create the directory
+      # first. Without this, every build gets as far as install and stops.
+      mkdir -p "/opt/icu/$arch/bin" "/opt/icu/$arch/lib"; \
       make install >/dev/null; \
     done; \
     rm -rf /build

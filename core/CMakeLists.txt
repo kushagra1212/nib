@@ -56,9 +56,19 @@ target_include_directories(nibcore_obj
 target_compile_definitions(nibcore_obj PRIVATE NIB_CORE_BUILDING)
 target_link_libraries(nibcore_obj PUBLIC ICU::uc ICU::i18n ICU::data)
 
+
 add_library(nibcore SHARED $<TARGET_OBJECTS:nibcore_obj>)
 target_include_directories(nibcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(nibcore PRIVATE ICU::uc ICU::i18n ICU::data)
+
+# Link llvm-mingw's C++ runtime into the DLL.
+#
+# Left shared, libnibcore.dll imports libc++.dll and libunwind.dll, and the
+# installer would have to carry two more files whose only purpose is to satisfy
+# a toolchain choice. Static costs a few hundred kilobytes once.
+if(MINGW)
+    target_link_options(nibcore PRIVATE -static -static-libgcc -static-libstdc++)
+endif()
 
 # An absolute install name during development.
 #

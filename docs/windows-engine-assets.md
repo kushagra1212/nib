@@ -124,6 +124,50 @@ build output under `bin/`, which the bind mount leaves behind.
 
 **Consequence: the Windows UI iterates locally.** Only the MSI has to wait for CI.
 
+### ICU for Windows — PASS, after three wrong turns
+
+ICU is the core's one hard dependency and there is no Windows package for this toolchain, so
+the image builds it: a native Linux build first (its tools are needed and it is never
+installed), then a cross build per architecture with `--with-cross-build`.
+
+Three failures worth recording, because each looked like success:
+
+1. **`--enable-static` does not link.** ICU builds its own Windows-side tools and links them
+   against short names the static build never produces:
+   `lld: error: unable to find library -licuin`, failing `makeconv.exe`.
+2. **`--disable-tools` gets past that and silently destroys the data.** `pkgdata` is one of the
+   tools, and it is what assembles ICU's data. The build substitutes stub data without saying
+   so: `libsicudt.a` came out at **800 bytes** containing one object, `stubdata.ao`. The DLL
+   linked, looked right at 1.6MB, and would have reached a Windows machine before anyone
+   discovered it had no break-iterator rules in it. A build that fails is better than this.
+3. **`make install` stops before copying anything.** ICU puts the data library in
+   `$prefix/bin` for Windows targets and does not create the directory.
+
+Shared linkage is what works, and the data is then real: `icudt78.dll` is 33MB rather than
+800 bytes.
+
+```
+libnibcore.dll  PE32+ AMD64 (x64)  461,312 bytes
+libnibcore.dll  PE32+ ARM64        455,680 bytes
+imports (both): KERNEL32.dll, api-ms-win-crt-*.dll, icuuc78.dll
+```
+
+llvm-mingw's C++ runtime is linked statically, so the imports are only Windows' own UCRT and
+ICU — no `libc++.dll` or `libunwind.dll` for the installer to carry.
+
+**The MSI ships three files for the core:** `libnibcore.dll`, `icuuc78.dll`, and `icudt78.dll`
+(33MB, loaded by icuuc at runtime).
+
+### Still open: ICU for macOS
+
+The same problem, unsolved on the other side. Homebrew's `icu4c@78` is built for **macOS 15.0**
+and nib supports **Ventura 13**, so the bundled app works on a modern Mac and would fail on the
+oldest one the README promises. `bundle.sh` copies the three dylibs and rewrites their paths,
+which is correct mechanically and does not fix the deployment target.
+
+The fix is to build ICU for macOS the way this image builds it for Windows, with
+`CMAKE_OSX_DEPLOYMENT_TARGET=13.0`. One recipe would then serve all three targets.
+
 ## Verdicts
 
 | Spike | Result | Consequence |
