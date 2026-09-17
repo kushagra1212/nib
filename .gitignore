@@ -5,6 +5,9 @@ macos/vendor/
 core/build/
 windows/**/bin/
 windows/**/obj/
+Scripts/spike/**/bin/
+Scripts/spike/**/obj/
 dist/
 *.app
 models/
+.cache/

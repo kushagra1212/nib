@@ -105,10 +105,29 @@ the `.wxs` are verified by pushing.
 Not worth working around. The alternative is Wine, which would put an unsupported toolset on
 an unsupported platform and call the result an installer.
 
-### Managed build
+### Managed build — PASS
 
-Recorded by Task 4.
+.NET 9 with `EnableWindowsTargeting` publishes a self-contained WPF application from the Linux
+container for both architectures:
 
-### Managed build
+```
+bin/Release/net9.0-windows/win-x64/wpfspike.exe:   PE32+ AMD64 (x64) (156,160 bytes)
+bin/Release/net9.0-windows/win-arm64/wpfspike.exe: PE32+ ARM64       (137,216 bytes)
+```
 
-Recorded by Task 4.
+The published output carries the full desktop stack — `Accessibility.dll`,
+`DirectWriteForwarder.dll`, `coreclr.dll` — so this is a real WPF publish rather than a restore
+that happened not to fail.
+
+`python3` is absent from the .NET SDK image, so the PE check runs on the host against the
+build output under `bin/`, which the bind mount leaves behind.
+
+**Consequence: the Windows UI iterates locally.** Only the MSI has to wait for CI.
+
+## Verdicts
+
+| Spike | Result | Consequence |
+|---|---|---|
+| C++ cross-compile, both arches | PASS | core builds and iterates locally |
+| WiX MSI on Linux | FAIL | installer is built on `windows-latest` only |
+| WPF publish on Linux, both arches | PASS | Windows UI iterates locally |
