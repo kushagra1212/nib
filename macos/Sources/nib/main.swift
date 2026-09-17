@@ -403,6 +403,13 @@ if args.first == "--lint" {
     exit(await runLintCLI(text))
 }
 
+// Not in --help. This exists for the port, not for anyone using nib, and
+// running it overwrites the recording the port is checked against.
+if args.first == "--capture-goldens" {
+    CaptureGoldens.run()
+    exit(0)
+}
+
 if args.first == "--help" || args.first == "-h" {
     print("""
     nib — offline writing assistant

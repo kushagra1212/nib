@@ -63,5 +63,28 @@ llama.cpp's disappear.
 
 ## Toolchain
 
-Filled in by Task 2 (cross-compilation), Task 3 (MSI packaging) and Task 4 (managed build).
-Each records its verdict here, pass or fail.
+### Cross-compilation — PASS
+
+llvm-mingw 20250528 in a Linux container, on Docker for Mac on Apple silicon, produces real PE
+binaries for both Windows architectures:
+
+```
+/tmp/hello-x64.exe:   PE32+ AMD64 (x64)  (86,528 bytes)
+/tmp/hello-arm64.exe: PE32+ ARM64        (84,480 bytes)
+```
+
+The machine type is read out of the PE header rather than taken from `file`, and rather than
+trusted from the output filename — a toolchain that silently fell back to building for the host
+would still write a file where it was asked to.
+
+`file` is not installed in the image; the check uses Python, which is. The image selects its
+llvm-mingw asset by `uname -m`, so the same Dockerfile works on Apple silicon locally and on
+GitHub's x86_64 Ubuntu runners.
+
+### MSI packaging
+
+Recorded by Task 3.
+
+### Managed build
+
+Recorded by Task 4.

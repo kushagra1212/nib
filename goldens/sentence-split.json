@@ -1,0 +1,435 @@
+{
+  "cases" : [
+    {
+      "input" : "",
+      "minimumWords" : 3,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "",
+      "minimumWords" : 5,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "    \n  ",
+      "minimumWords" : 3,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "    \n  ",
+      "minimumWords" : 5,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps over the dog.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 39,
+          "location" : 0,
+          "text" : "The quick brown fox jumps over the dog."
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps over the dog.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 39,
+          "location" : 0,
+          "text" : "The quick brown fox jumps over the dog."
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps over it. Another long sentence follows here.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 34,
+          "location" : 0,
+          "text" : "The quick brown fox jumps over it."
+        },
+        {
+          "length" : 35,
+          "location" : 35,
+          "text" : "Another long sentence follows here."
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps over it. Another long sentence follows here.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 34,
+          "location" : 0,
+          "text" : "The quick brown fox jumps over it."
+        },
+        {
+          "length" : 35,
+          "location" : 35,
+          "text" : "Another long sentence follows here."
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps here.    Second long sentence goes here.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 31,
+          "location" : 0,
+          "text" : "The quick brown fox jumps here."
+        },
+        {
+          "length" : 31,
+          "location" : 35,
+          "text" : "Second long sentence goes here."
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps here.    Second long sentence goes here.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 31,
+          "location" : 0,
+          "text" : "The quick brown fox jumps here."
+        },
+        {
+          "length" : 31,
+          "location" : 35,
+          "text" : "Second long sentence goes here."
+        }
+      ]
+    },
+    {
+      "input" : "Thanks!",
+      "minimumWords" : 3,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "Thanks!",
+      "minimumWords" : 5,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "Yes. No. Maybe.",
+      "minimumWords" : 3,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "Yes. No. Maybe.",
+      "minimumWords" : 5,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "One two three.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 14,
+          "location" : 0,
+          "text" : "One two three."
+        }
+      ]
+    },
+    {
+      "input" : "One two three.",
+      "minimumWords" : 5,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "We tested e.g. the login flow and it worked well.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 49,
+          "location" : 0,
+          "text" : "We tested e.g. the login flow and it worked well."
+        }
+      ]
+    },
+    {
+      "input" : "We tested e.g. the login flow and it worked well.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 49,
+          "location" : 0,
+          "text" : "We tested e.g. the login flow and it worked well."
+        }
+      ]
+    },
+    {
+      "input" : "The build takes 3.5 minutes on this machine now.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 48,
+          "location" : 0,
+          "text" : "The build takes 3.5 minutes on this machine now."
+        }
+      ]
+    },
+    {
+      "input" : "The build takes 3.5 minutes on this machine now.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 48,
+          "location" : 0,
+          "text" : "The build takes 3.5 minutes on this machine now."
+        }
+      ]
+    },
+    {
+      "input" : "We should check NSString.length before we index into it.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 56,
+          "location" : 0,
+          "text" : "We should check NSString.length before we index into it."
+        }
+      ]
+    },
+    {
+      "input" : "We should check NSString.length before we index into it.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 56,
+          "location" : 0,
+          "text" : "We should check NSString.length before we index into it."
+        }
+      ]
+    },
+    {
+      "input" : "this is a sentence without a full stop",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 38,
+          "location" : 0,
+          "text" : "this is a sentence without a full stop"
+        }
+      ]
+    },
+    {
+      "input" : "this is a sentence without a full stop",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 38,
+          "location" : 0,
+          "text" : "this is a sentence without a full stop"
+        }
+      ]
+    },
+    {
+      "input" : "😀 The quick brown fox jumps over it.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 37,
+          "location" : 0,
+          "text" : "😀 The quick brown fox jumps over it."
+        }
+      ]
+    },
+    {
+      "input" : "😀 The quick brown fox jumps over it.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 37,
+          "location" : 0,
+          "text" : "😀 The quick brown fox jumps over it."
+        }
+      ]
+    },
+    {
+      "input" : "The first sentence lives here.\nThe second one lives here.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 30,
+          "location" : 0,
+          "text" : "The first sentence lives here."
+        },
+        {
+          "length" : 26,
+          "location" : 31,
+          "text" : "The second one lives here."
+        }
+      ]
+    },
+    {
+      "input" : "The first sentence lives here.\nThe second one lives here.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 30,
+          "location" : 0,
+          "text" : "The first sentence lives here."
+        },
+        {
+          "length" : 26,
+          "location" : 31,
+          "text" : "The second one lives here."
+        }
+      ]
+    },
+    {
+      "input" : "don't split contractions or hyphen-joined words or snake_case names",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 67,
+          "location" : 0,
+          "text" : "don't split contractions or hyphen-joined words or snake_case names"
+        }
+      ]
+    },
+    {
+      "input" : "don't split contractions or hyphen-joined words or snake_case names",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 67,
+          "location" : 0,
+          "text" : "don't split contractions or hyphen-joined words or snake_case names"
+        }
+      ]
+    },
+    {
+      "input" : "देवनागरी में लिखा गया एक वाक्य यहाँ है।",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 39,
+          "location" : 0,
+          "text" : "देवनागरी में लिखा गया एक वाक्य यहाँ है।"
+        }
+      ]
+    },
+    {
+      "input" : "देवनागरी में लिखा गया एक वाक्य यहाँ है।",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 39,
+          "location" : 0,
+          "text" : "देवनागरी में लिखा गया एक वाक्य यहाँ है।"
+        }
+      ]
+    },
+    {
+      "input" : "café naïve résumé coöperate",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 27,
+          "location" : 0,
+          "text" : "café naïve résumé coöperate"
+        }
+      ]
+    },
+    {
+      "input" : "café naïve résumé coöperate",
+      "minimumWords" : 5,
+      "sentences" : [
+
+      ]
+    },
+    {
+      "input" : "Dr. Smith arrived at 3.5 p.m. and left again.",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 45,
+          "location" : 0,
+          "text" : "Dr. Smith arrived at 3.5 p.m. and left again."
+        }
+      ]
+    },
+    {
+      "input" : "Dr. Smith arrived at 3.5 p.m. and left again.",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 45,
+          "location" : 0,
+          "text" : "Dr. Smith arrived at 3.5 p.m. and left again."
+        }
+      ]
+    },
+    {
+      "input" : "áccent combining marks stay attached",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 37,
+          "location" : 0,
+          "text" : "áccent combining marks stay attached"
+        }
+      ]
+    },
+    {
+      "input" : "áccent combining marks stay attached",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 37,
+          "location" : 0,
+          "text" : "áccent combining marks stay attached"
+        }
+      ]
+    },
+    {
+      "input" : "emoji 👨‍👩‍👧‍👦 family sequence splits on surrogates",
+      "minimumWords" : 3,
+      "sentences" : [
+        {
+          "length" : 54,
+          "location" : 0,
+          "text" : "emoji 👨‍👩‍👧‍👦 family sequence splits on surrogates"
+        }
+      ]
+    },
+    {
+      "input" : "emoji 👨‍👩‍👧‍👦 family sequence splits on surrogates",
+      "minimumWords" : 5,
+      "sentences" : [
+        {
+          "length" : 54,
+          "location" : 0,
+          "text" : "emoji 👨‍👩‍👧‍👦 family sequence splits on surrogates"
+        }
+      ]
+    }
+  ],
+  "locale" : "en_IN"
+}
