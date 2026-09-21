@@ -85,16 +85,31 @@ public static class Core
     [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
     public static extern int nib_abi_version();
 
-    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl,
-               CharSet = CharSet.Unicode)]
-    public static extern IntPtr nib_sentences(IntPtr text, int length,
-                                              int minimumWords, string locale);
+    // locale is a C string. Marshalled as UTF-16 it would arrive as
+    // "e\0n\0_\0I\0N\0", which ICU reads as "e" and silently segments with the
+    // wrong locale rather than failing.
+    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr nib_sentences(
+        IntPtr text, int length, int minimumWords,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string locale);
 
     [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
     public static extern int nib_sentence_count(IntPtr list);
 
+    // Returned by value. Eight bytes comes back in a register on both
+    // architectures, which a 12-byte parameter would not have.
+    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
+    public static extern NibRange nib_sentence_range(IntPtr list, int index);
+
     [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
     public static extern void nib_sentence_list_free(IntPtr list);
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct NibRange
+{
+    public int Location;
+    public int Length;
 }
 "@
 
@@ -103,7 +118,7 @@ public static class Core
 Write-Host "probe assembly location: '$([Core].Assembly.Location)'"
 
 $version = [Core]::nib_abi_version()
-if ($version -ne 1) { throw "expected ABI version 1, got $version" }
+if ($version -ne 2) { throw "expected ABI version 2, got $version" }
 Write-Host "libnibcore.dll reports ABI version $version"
 
 # Two sentences, not three. "Dr." must not split, which needs both ICU's data
@@ -115,6 +130,9 @@ $handle = [System.Runtime.InteropServices.GCHandle]::Alloc($chars, 'Pinned')
 try {
     $list = [Core]::nib_sentences($handle.AddrOfPinnedObject(), $text.Length, 5, "en_IN")
     $count = [Core]::nib_sentence_count($list)
+    # Exercised here because a struct returned by value is the other shape
+    # whose ABI differs by architecture, and nothing else tests it on Windows.
+    $first = [Core]::nib_sentence_range($list, 0)
     [Core]::nib_sentence_list_free($list)
 } finally {
     $handle.Free()
@@ -123,6 +141,12 @@ try {
 Write-Host "split into $count sentences"
 if ($count -ne 2) {
     throw "expected 2 sentences, got $count -- ICU data or the abbreviation list is wrong"
+}
+
+# "Dr. Smith arrived here today." is 29 units, from offset 0.
+Write-Host "first sentence: location $($first.Location), length $($first.Length)"
+if ($first.Location -ne 0 -or $first.Length -ne 29) {
+    throw "expected the first sentence at 0 length 29, got $($first.Location)/$($first.Length)"
 }
 
 Write-Host "core probe passed"

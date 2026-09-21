@@ -14,7 +14,6 @@ struct u16view {
 
     u16view() = default;
     u16view(const uint16_t* d, int32_t n) : data(d), size(n) {}
-    explicit u16view(nib_str s) : data(s.data), size(s.length) {}
 
     uint16_t operator[](int32_t i) const { return data[i]; }
     bool empty() const { return size <= 0; }

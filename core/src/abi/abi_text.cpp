@@ -13,11 +13,12 @@ struct nib_sentence_list {
 
 extern "C" {
 
-nib_sentence_list* nib_sentences(nib_str text, int32_t minimum_words,
-                                 const char* locale) {
+nib_sentence_list* nib_sentences(const uint16_t* text, int32_t length,
+                                 int32_t minimum_words, const char* locale) {
     auto* list = new nib_sentence_list();
-    if (text.data != nullptr && text.length > 0) {
-        list->items = nib::sentences(nib::u16view(text), minimum_words, locale);
+    if (text != nullptr && length > 0) {
+        list->items = nib::sentences(nib::u16view(text, length),
+                                     minimum_words, locale);
     }
     return list;
 }

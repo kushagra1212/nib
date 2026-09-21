@@ -5,10 +5,11 @@
 
 namespace {
 
-nib_str str_of(const std::u16string& s) {
-    return nib_str{reinterpret_cast<const uint16_t*>(s.data()),
-                   static_cast<int32_t>(s.size())};
+const uint16_t* ptr_of(const std::u16string& s) {
+    return reinterpret_cast<const uint16_t*>(s.data());
 }
+
+int32_t len_of(const std::u16string& s) { return static_cast<int32_t>(s.size()); }
 
 std::u16string text_at(const nib_sentence_list* list, int32_t index) {
     const int32_t length = nib_sentence_text(list, index, nullptr, 0);
@@ -28,7 +29,7 @@ TEST_CASE("the ABI returns sentences and frees them") {
     const std::u16string text =
         u"The quick brown fox jumps over it. Another long sentence follows here.";
 
-    nib_sentence_list* list = nib_sentences(str_of(text), 5, "en_IN");
+    nib_sentence_list* list = nib_sentences(ptr_of(text), len_of(text), 5, "en_IN");
     REQUIRE(list != nullptr);
     REQUIRE(nib_sentence_count(list) == 2);
 
@@ -52,7 +53,7 @@ TEST_CASE("the list does not borrow the input buffer") {
     {
         const std::u16string scoped =
             u"The quick brown fox jumps over it. Another long sentence follows here.";
-        list = nib_sentences(str_of(scoped), 5, "en_IN");
+        list = nib_sentences(ptr_of(scoped), len_of(scoped), 5, "en_IN");
     }
     REQUIRE(nib_sentence_count(list) == 2);
     CHECK(text_at(list, 0) == u"The quick brown fox jumps over it.");
@@ -61,7 +62,7 @@ TEST_CASE("the list does not borrow the input buffer") {
 
 TEST_CASE("sizing with a null buffer reports the full length") {
     const std::u16string text = u"The quick brown fox jumps over it.";
-    nib_sentence_list* list = nib_sentences(str_of(text), 5, "en_IN");
+    nib_sentence_list* list = nib_sentences(ptr_of(text), len_of(text), 5, "en_IN");
 
     const int32_t length = nib_sentence_text(list, 0, nullptr, 0);
     CHECK(length == 34);
@@ -78,7 +79,7 @@ TEST_CASE("sizing with a null buffer reports the full length") {
 
 TEST_CASE("an out-of-bounds index returns an empty range rather than crashing") {
     const std::u16string text = u"The quick brown fox jumps over it.";
-    nib_sentence_list* list = nib_sentences(str_of(text), 5, "en_IN");
+    nib_sentence_list* list = nib_sentences(ptr_of(text), len_of(text), 5, "en_IN");
 
     const nib_range out = nib_sentence_range(list, 99);
     CHECK(out.location == 0);
@@ -90,7 +91,7 @@ TEST_CASE("an out-of-bounds index returns an empty range rather than crashing") 
 }
 
 TEST_CASE("a null or empty input yields an empty list, not a null handle") {
-    nib_sentence_list* empty = nib_sentences(nib_str{nullptr, 0}, 5, "en_IN");
+    nib_sentence_list* empty = nib_sentences(nullptr, 0, 5, "en_IN");
     REQUIRE(empty != nullptr);
     CHECK(nib_sentence_count(empty) == 0);
     nib_sentence_list_free(empty);

@@ -23,9 +23,13 @@ enum SentenceSplitter {
         guard !units.isEmpty else { return [] }
 
         return units.withUnsafeBufferPointer { buffer -> [Sentence] in
-            let input = nib_str(data: buffer.baseAddress,
-                                length: Int32(buffer.count))
-            guard let list = nib_sentences(input,
+            // Pointer and length, not a struct. The core passes text this way
+            // because {pointer, int32} by value is 12 bytes, which Win64 hands
+            // over by hidden reference and ARM64 puts in two registers -- so a
+            // binding that gets it wrong crashes on one architecture and works
+            // on the other.
+            guard let list = nib_sentences(buffer.baseAddress,
+                                           Int32(buffer.count),
                                            Int32(minimumWords),
                                            Locale.current.identifier)
             else { return [] }

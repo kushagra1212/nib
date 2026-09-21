@@ -233,6 +233,34 @@ is what makes Windows resolve `icuuc78.dll` and `icudt78.dll` from the folder ho
 **This is a harness problem, not a product one.** The C# app ships its DLLs beside the `.exe`,
 and the application directory is searched by default. Phase 2 will not hit it.
 
+### Why the ABI takes a pointer and a length
+
+`nib_sentences` originally took text as a `{const uint16_t*, int32_t}` struct **by value**. That
+is 12 bytes, and the two Windows architectures disagree about how to pass it: Win64 passes any
+struct over 8 bytes by hidden reference, ARM64 puts a 16-byte-or-smaller struct in two
+registers.
+
+A binding that flattens the struct into two arguments therefore lines up by accident on ARM64
+and, on x64, hands the callee a text buffer where it expects a struct. The result:
+
+```
+windows (windows-11-arm, arm64)   success
+windows (windows-latest,  x64)    Fatal error. 0xC0000005
+                                     at Core.nib_sentences(IntPtr, Int32, Int32, System.String)
+```
+
+Both C++ and Swift got it right, so nothing caught it until a real x64 Windows machine ran it.
+An ABI meant for three languages should not have a shape whose incorrect binding is silent on
+one architecture, so text now crosses as an explicit pointer and length. `nib_range` is still
+returned by value — 8 bytes comes back in a register on both — and the probe now exercises that
+too, since it was the one remaining shape nothing tested on Windows.
+
+The same round also fixed `locale`, which the probe marshalled as UTF-16 against a
+`const char*`. ICU would have read `"e\0n\0_\0I\0N\0"` as `"e"` and segmented with the wrong
+locale rather than failing.
+
+**ABI version is 2.** Both bindings assert on it at load, so a stale DLL is a loud failure.
+
 ## Verdicts
 
 | Spike | Result | Consequence |

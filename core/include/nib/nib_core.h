@@ -25,13 +25,19 @@ extern "C" {
 
 /* Every string crossing this boundary is UTF-16, because NSString, LSP
    positions and C# strings all are. Offsets are UTF-16 code units, never
-   graphemes and never bytes. */
-typedef struct {
-    const uint16_t* data;
-    int32_t         length;
-} nib_str;
+   graphemes and never bytes.
 
-/* A half-open range in UTF-16 code units, matching NSRange. */
+   Text is passed as a pointer and a length, never as a struct by value.
+   A struct is the obvious shape and it is a trap: {pointer, int32} is 12
+   bytes, which Win64 passes by hidden reference while ARM64 passes in two
+   registers. A binding that flattens it into two arguments therefore works
+   on ARM64 and crashes on x64 -- which is what happened, and which took a
+   real Windows machine to find, because both C++ and Swift got it right. */
+
+/* A half-open range in UTF-16 code units, matching NSRange.
+
+   Returned by value, which is safe where a parameter would not be: 8 bytes
+   comes back in a register on both architectures. */
 typedef struct {
     int32_t location;
     int32_t length;
@@ -45,14 +51,17 @@ typedef struct nib_sentence_list nib_sentence_list;
 
 /* Splits text into sentences worth a clarity suggestion. Never returns NULL.
 
-   The returned list borrows nothing from `text` -- it owns its own copies, so
-   the caller may free `text` immediately.
+   `text` is UTF-16 and `length` counts code units, not bytes and not
+   characters. The returned list borrows nothing from `text` -- it owns its own
+   copies, so the caller may free `text` immediately.
 
    `locale` names the locale to segment with, as a BCP 47 or ICU identifier
-   such as "en_IN". Foundation's .localized uses the user's locale, so the
-   platform layer passes the user's rather than letting the core guess. NULL
-   takes ICU's default, which is right for a probe and wrong for the app. */
-NIB_API nib_sentence_list* nib_sentences(nib_str text, int32_t minimum_words,
+   such as "en_IN". It is a C string: UTF-8 or ASCII, NUL-terminated, never
+   UTF-16. Foundation's .localized uses the user's locale, so the platform
+   layer passes the user's rather than letting the core guess. NULL takes
+   ICU's default, which is right for a probe and wrong for the app. */
+NIB_API nib_sentence_list* nib_sentences(const uint16_t* text, int32_t length,
+                                         int32_t minimum_words,
                                          const char* locale);
 
 /* Safe on NULL, which reports zero. */
