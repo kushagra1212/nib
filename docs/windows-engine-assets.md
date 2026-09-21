@@ -186,6 +186,36 @@ Nothing to copy, re-path or sign, and zero Homebrew references in the shipped ap
 `bundle.sh` now *refuses* a dynamically linked ICU rather than quietly bundling one, because
 that is the shape a Ventura-breaking release would have taken.
 
+### Loading the DLL from PowerShell
+
+Worth writing down, because the error names nothing useful and cost a CI round trip.
+
+`Add-Type` plus `[DllImport("libnibcore.dll")]` fails on both runners with:
+
+```
+Exception calling "nib_abi_version" with "0" argument(s):
+"Value cannot be null. (Parameter 'path1')"
+```
+
+`nib_abi_version` returns a constant and cannot throw, so this happens during library
+resolution, before any of our code runs. Two facts combine:
+
+1. .NET resolves `DllImport` using the `LOAD_LIBRARY_SEARCH_*` flags, which replace the legacy
+   search order and **exclude `PATH`**. Setting `$env:PATH` therefore does nothing, however
+   obviously right it looks.
+2. Not having found the library, .NET probes the calling assembly's own directory. A type
+   built by `Add-Type -TypeDefinition` lives in an in-memory assembly whose `Location` is `""`,
+   and `Path.GetDirectoryName("")` is `null` — so the not-found path dies inside
+   `Path.Combine` instead of reporting a missing library.
+
+`Scripts/windows/probe-core.ps1` loads by absolute path instead, and calls
+`NativeLibrary.Load` first: with a rooted path that uses `LOAD_WITH_ALTERED_SEARCH_PATH`, which
+is what makes Windows resolve `icuuc78.dll` and `icudt78.dll` from the folder holding
+`libnibcore.dll`. Nothing else puts that directory on the search path.
+
+**This is a harness problem, not a product one.** The C# app ships its DLLs beside the `.exe`,
+and the application directory is searched by default. Phase 2 will not hit it.
+
 ## Verdicts
 
 | Spike | Result | Consequence |

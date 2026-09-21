@@ -16,8 +16,54 @@ $ErrorActionPreference = 'Stop'
 $dir = (Resolve-Path $Directory).Path
 Get-ChildItem $dir | Format-Table Name, Length | Out-String | Write-Host
 
-# icuuc finds icudt beside it, so the directory has to be on the search path.
-$env:PATH = "$dir;$env:PATH"
+# Everything is loaded by absolute path, and none of it relies on PATH.
+#
+# Setting $env:PATH looks like it should work and does nothing. .NET resolves
+# DllImport with the LOAD_LIBRARY_SEARCH_* flags, which replace the legacy
+# search order and deliberately leave PATH out of it. The first version of this
+# script set PATH, the DLL was not found, and .NET then probed the calling
+# assembly's own directory -- which for a type built by Add-Type is an
+# in-memory assembly whose Location is "". Path.GetDirectoryName("") is null,
+# so the not-found path died inside Path.Combine:
+#
+#   Exception calling "nib_abi_version" with "0" argument(s):
+#   "Value cannot be null. (Parameter 'path1')"
+#
+# That error names neither the DLL nor the directory, and says nothing about a
+# library being missing. Hence the absolute paths below, and the checks first.
+$expected = 'libnibcore.dll', 'icuuc78.dll', 'icudt78.dll'
+foreach ($name in $expected) {
+    $path = Join-Path $dir $name
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "missing $name in $dir -- the artifact is incomplete"
+    }
+}
+
+$core = Join-Path $dir 'libnibcore.dll'
+
+# Loaded here, before any P/Invoke, for its side effect on dependency lookup.
+#
+# NativeLibrary.Load with an absolute path uses LOAD_WITH_ALTERED_SEARCH_PATH,
+# which makes Windows resolve libnibcore.dll's own imports -- icuuc78.dll, and
+# in turn icudt78.dll -- from the directory holding it. Nothing else puts that
+# directory on the search path. NativeLibrary lives in a real on-disk assembly,
+# so it is not subject to the Add-Type problem described above.
+try {
+    $handle = [System.Runtime.InteropServices.NativeLibrary]::Load($core)
+    Write-Host "loaded libnibcore.dll (handle 0x$($handle.ToString('X')))"
+} catch {
+    Write-Host "NativeLibrary.Load failed for $core"
+    Write-Host "  $($_.Exception.GetType().FullName): $($_.Exception.Message)"
+    if ($_.Exception.InnerException) {
+        Write-Host "  inner: $($_.Exception.InnerException.Message)"
+    }
+    throw
+}
+
+# Baked into the DllImport rather than passed at run time, because DllImport
+# takes a compile-time constant. A rooted path makes .NET load the file
+# directly instead of probing for it.
+$escaped = $core.Replace('\', '\\')
 
 Add-Type -TypeDefinition @"
 using System;
@@ -25,21 +71,25 @@ using System.Runtime.InteropServices;
 
 public static class Core
 {
-    [DllImport("libnibcore.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
     public static extern int nib_abi_version();
 
-    [DllImport("libnibcore.dll", CallingConvention = CallingConvention.Cdecl,
+    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl,
                CharSet = CharSet.Unicode)]
     public static extern IntPtr nib_sentences(IntPtr text, int length,
                                               int minimumWords, string locale);
 
-    [DllImport("libnibcore.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
     public static extern int nib_sentence_count(IntPtr list);
 
-    [DllImport("libnibcore.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport("$escaped", CallingConvention = CallingConvention.Cdecl)]
     public static extern void nib_sentence_list_free(IntPtr list);
 }
 "@
+
+# Recorded, not merely assumed. An empty Location is what made the previous
+# failure unreadable, so the next person reading a log can see it directly.
+Write-Host "probe assembly location: '$([Core].Assembly.Location)'"
 
 $version = [Core]::nib_abi_version()
 if ($version -ne 1) { throw "expected ABI version 1, got $version" }
