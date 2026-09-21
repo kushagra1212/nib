@@ -152,11 +152,28 @@ libnibcore.dll  PE32+ ARM64        455,680 bytes
 imports (both): KERNEL32.dll, api-ms-win-crt-*.dll, icuuc78.dll
 ```
 
-llvm-mingw's C++ runtime is linked statically, so the imports are only Windows' own UCRT and
-ICU — no `libc++.dll` or `libunwind.dll` for the installer to carry.
+**A fourth wrong turn, found only on a real Windows machine.** llvm-mingw's C++ runtime was
+linked statically into `libnibcore.dll` — and not into ICU. So `icuuc78.dll` imported
+`libc++.dll` and `libunwind.dll`, which are not ICU, not nib, and not on any Windows machine.
+Three DLLs shipped, all three present, none of them able to load:
+
+```
+Unable to load DLL 'D:\a\nib\nib\core-bin\libnibcore.dll' or one of its dependencies:
+The specified module could not be found. (0x8007007E)
+```
+
+That message names the file Windows *did* find and says nothing about the one it did not. ICU
+is now built with `LDFLAGS="-static-libgcc -static-libstdc++"` as well. Plain `-static` does
+not work — it makes the linker look for `libicudt.a` instead of the import library and fails
+with `unable to find library -licudt`.
+
+`Scripts/windows/check-closure.py` now walks every import of every shipped DLL and fails if
+anything is neither a Windows system library nor in the artifact. It runs in CI per
+architecture, and is checked against a negative case: remove `icudt78.dll` and it reports
+`MISSING: icuuc78.dll imports icudt78.dll`.
 
 **The MSI ships three files for the core:** `libnibcore.dll`, `icuuc78.dll`, and `icudt78.dll`
-(33MB, loaded by icuuc at runtime).
+(33MB, loaded by icuuc at runtime). Verified as a closed set rather than assumed to be one.
 
 ### ICU for macOS — PASS
 

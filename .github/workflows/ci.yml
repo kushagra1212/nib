@@ -60,6 +60,15 @@ jobs:
             cp /tmp/build/libnibcore.dll /src/out/ &&
             cp /opt/icu/${{ matrix.arch }}/bin/icuuc78.dll /src/out/ &&
             cp /opt/icu/${{ matrix.arch }}/bin/icudt78.dll /src/out/'
+      # Every import has to be either a Windows system library or a file in the
+      # artifact. The first artifact passed every other check and could not
+      # load: icuuc78.dll was linked against llvm-mingw's libc++.dll, which is
+      # not ICU, not nib, and not on any Windows machine.
+      - name: Check the dependency closure
+        run: |
+          docker run --rm -v "$PWD:/src" nib-core-cross \
+            python3 /src/Scripts/windows/check-closure.py ${{ matrix.arch }} /src/out
+
       # A DLL that links but carries stub ICU data looks identical to a good
       # one until it runs. icudt is 33MB when the data is real and under a
       # kilobyte when the build quietly substituted a stub, so the size is

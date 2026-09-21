@@ -41,23 +41,34 @@ foreach ($name in $expected) {
 
 $core = Join-Path $dir 'libnibcore.dll'
 
-# Loaded here, before any P/Invoke, for its side effect on dependency lookup.
+# Loaded leaf first, by absolute path, rather than letting the loader find
+# them.
 #
-# NativeLibrary.Load with an absolute path uses LOAD_WITH_ALTERED_SEARCH_PATH,
-# which makes Windows resolve libnibcore.dll's own imports -- icuuc78.dll, and
-# in turn icudt78.dll -- from the directory holding it. Nothing else puts that
-# directory on the search path. NativeLibrary lives in a real on-disk assembly,
-# so it is not subject to the Add-Type problem described above.
-try {
-    $handle = [System.Runtime.InteropServices.NativeLibrary]::Load($core)
-    Write-Host "loaded libnibcore.dll (handle 0x$($handle.ToString('X')))"
-} catch {
-    Write-Host "NativeLibrary.Load failed for $core"
-    Write-Host "  $($_.Exception.GetType().FullName): $($_.Exception.Message)"
-    if ($_.Exception.InnerException) {
-        Write-Host "  inner: $($_.Exception.InnerException.Message)"
+# .NET calls SetDefaultDllDirectories at startup, which replaces the legacy
+# search order with the LOAD_LIBRARY_SEARCH_* one. Under that, the directory
+# holding a DLL is not searched for its dependencies, so loading
+# libnibcore.dll by absolute path still leaves icuuc78.dll unfindable. Once a
+# module is in the process under its own name the loader matches it by name
+# and does not search at all, so loading in dependency order sidesteps the
+# question entirely.
+$order = 'icudt78.dll', 'icuuc78.dll', 'libnibcore.dll'
+foreach ($name in $order) {
+    $path = Join-Path $dir $name
+    try {
+        $handle = [System.Runtime.InteropServices.NativeLibrary]::Load($path)
+        Write-Host "loaded $name (handle 0x$($handle.ToString('X')))"
+    } catch {
+        Write-Host "NativeLibrary.Load failed for $path"
+        Write-Host "  $($_.Exception.GetType().FullName): $($_.Exception.Message)"
+        if ($_.Exception.InnerException) {
+            Write-Host "  inner: $($_.Exception.InnerException.Message)"
+        }
+        # 0x8007007E names the file it did find, never the dependency it did
+        # not. Scripts/windows/check-closure.py answers that question directly.
+        Write-Host "  if this is 0x8007007E, a dependency is missing rather"
+        Write-Host "  than this file -- run check-closure.py over the artifact"
+        throw
     }
-    throw
 }
 
 # Baked into the DllImport rather than passed at run time, because DllImport

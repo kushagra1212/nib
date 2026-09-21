@@ -42,7 +42,16 @@ ENV PATH="/opt/llvm-mingw/bin:${PATH}"
 # it has just built to generate data, so a native build has to exist first and
 # be handed to the cross builds with --with-cross-build.
 #
-# Shared, not static, and with tools enabled.
+# Its own C++ runtime is linked in statically, the same as libnibcore's.
+#
+# Left shared, icuuc78.dll imports libc++.dll and libunwind.dll -- llvm-mingw's
+# runtime -- and those are not ICU, not nib, and not on any Windows machine.
+# The first artifact shipped three DLLs and none of them could load, because
+# the loader could not find a fourth nobody had thought about. Windows reports
+# that as "The specified module could not be found" while naming the file it
+# did find, which is a long way from saying libc++.dll is missing.
+#
+# Shared, not static, for ICU itself.
 #
 # The static route builds and then fails at runtime. --enable-static needs
 # --disable-tools to get past a link error in ICU's own makeconv, and
@@ -77,7 +86,8 @@ RUN set -eux; \
         --disable-tests --disable-samples --disable-extras \
         CC="$arch-w64-mingw32-clang" \
         CXX="$arch-w64-mingw32-clang++" \
-        AR=llvm-ar RANLIB=llvm-ranlib >/dev/null; \
+        AR=llvm-ar RANLIB=llvm-ranlib \
+        LDFLAGS="-static-libgcc -static-libstdc++" >/dev/null; \
       make -j"$(nproc)" >/dev/null; \
       # ICU installs the static data library into $prefix/bin for Windows
       # targets -- where a DLL would go -- and does not create the directory
