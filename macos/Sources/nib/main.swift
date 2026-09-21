@@ -425,7 +425,8 @@ if args.first == "--help" || args.first == "-h" {
 
 // No arguments: run as the menu bar app.
 let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
+// Accessory until a window opens; ActivationPolicy owns the switching.
+app.setActivationPolicy(ActivationPolicy.desired(openWindows: 0))
 let delegate = AppDelegate()
 app.delegate = delegate
 app.run()

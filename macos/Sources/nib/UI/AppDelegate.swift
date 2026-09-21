@@ -5,6 +5,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Built on first use, not at init: HealthWindow is main-actor isolated
     /// and a stored property would construct it before the actor exists.
     private var health: HealthWindow?
+    /// nib's window. Same reason as `health` for being built on first use.
+    private var controlPanel: ControlPanelWindow?
     /// What each feature reported last time it failed. An error that actually
     /// happened beats one inferred from which files are on disk.
     private var lastFailures: [Feature: String] = [:]
@@ -799,10 +801,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Above the two Diagnose items because it answers the question that
         // sends people to them: which part is broken. The Diagnose items go
         // deep on one subsystem each; this says which subsystem to look at.
-        let statusEntry = NSMenuItem(title: "Status…", action: #selector(showHealth),
-                                     keyEquivalent: "")
-        statusEntry.target = self
-        menu.insertItem(statusEntry, at: menu.index(of: liveDiagnose) - 1)
+        //
+        // ⌘, because this is where a Mac user looks for an app's own window,
+        // and nib had nowhere for that reflex to land.
+        let openEntry = NSMenuItem(title: "Open nib…",
+                                   action: #selector(showControlPanel),
+                                   keyEquivalent: ",")
+        openEntry.keyEquivalentModifierMask = [.command]
+        openEntry.target = self
+        menu.insertItem(openEntry, at: menu.index(of: liveDiagnose) - 1)
 
         menu.addItem(withTitle: "Dictation Words…",
                      action: #selector(editVocabulary),
@@ -1039,6 +1046,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: - Status
+
+    /// nib's window. Built on first use, then kept: it holds section views
+    /// whose scroll position and state should survive being closed.
+    @MainActor
+    @objc private func showControlPanel() {
+        let panel = controlPanel ?? ControlPanelWindow()
+        controlPanel = panel
+        panel.status.context = { [weak self] in self?.healthContext() ?? .empty() }
+        panel.status.onRestart = { [weak self] in self?.restart($0) }
+        panel.status.onRestartApp = { [weak self] in self?.restartApp() }
+        panel.status.onFix = { [weak self] feature in
+            switch feature {
+            case .rewrite: self?.showModelSetup()
+            case .speech: self?.showVoiceSetup()
+            case .dictation: self?.offerSpeechModel()
+            default: break
+            }
+        }
+        panel.show()
+
+        // Asked after showing rather than before, so the window appears at once
+        // and corrects itself a moment later instead of waiting on the actor.
+        Task { [weak self] in
+            let awake = await self?.rewriter?.isLoaded ?? false
+            await MainActor.run {
+                self?.rewriterAwake = awake
+                self?.controlPanel?.status.refresh()
+            }
+        }
+    }
+
+    /// Clicking nib in Finder or the Dock while it is already running.
+    ///
+    /// An accessory app receives this and, having no windows, does nothing
+    /// visible -- which is what made nib look broken. It was running the whole
+    /// time, in the menu bar, with no way to say so.
+    /// Annotated rather than left to inference. Implementing this protocol
+    /// requirement without it makes Swift infer the whole delegate nonisolated,
+    /// and every existing main-actor call in the class stops compiling.
+    @MainActor
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows: Bool) -> Bool {
+        showControlPanel()
+        return true
+    }
 
     @MainActor
     @objc private func showHealth() {
