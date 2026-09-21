@@ -1,7 +1,13 @@
 .DS_Store
-.build/
-.swiftpm/
-vendor/
+macos/.build/
+macos/.swiftpm/
+macos/vendor/
+core/build/
+windows/**/bin/
+windows/**/obj/
+Scripts/spike/**/bin/
+Scripts/spike/**/obj/
 dist/
 *.app
 models/
+.cache/

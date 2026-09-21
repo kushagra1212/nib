@@ -6,43 +6,152 @@ on:
   pull_request:
 
 jobs:
-  test:
+  # The core's logic is identical on every target, so it is tested once on the
+  # cheapest runner rather than three times.
+  #
+  # Run inside the cross image rather than on the bare runner, because the ICU
+  # version has to match what macOS and Windows use. Ubuntu 24.04 packages ICU
+  # 74; the goldens record sentence boundaries produced by 78, and checking one
+  # against the other fails for a reason that has nothing to do with the code.
+  core:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the cross image
+        run: docker build -f docker/core-cross.Dockerfile -t nib-core-cross .
+      - name: Build and test the core
+        run: |
+          docker run --rm -v "$PWD:/src" -e LD_LIBRARY_PATH=/opt/icu/native/lib \
+            nib-core-cross sh -c '
+              cmake -S core -B /tmp/native -G Ninja -DICU_ROOT=/opt/icu/native &&
+              cmake --build /tmp/native &&
+              /tmp/native/nibcore_tests'
+
+  # Produces the DLLs that actually ship, and hands them to the Windows jobs.
+  #
+  # Building the core natively on a Windows runner would test a different
+  # artifact than the one users get, and would need ICU built there too. This
+  # way the thing that is loaded on Windows is the thing the release contains.
+  core-cross:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            label: x64
+          - arch: aarch64
+            label: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the cross image
+        run: docker build -f docker/core-cross.Dockerfile -t nib-core-cross .
+      - name: Cross-compile the core
+        run: |
+          docker run --rm -v "$PWD:/src" nib-core-cross sh -c '
+            cmake -S core -B /tmp/build -G Ninja -DNIB_CORE_TESTS=OFF \
+              -DCMAKE_SYSTEM_NAME=Windows \
+              -DICU_ROOT=/opt/icu/${{ matrix.arch }} \
+              -DCMAKE_C_COMPILER=${{ matrix.arch }}-w64-mingw32-clang \
+              -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-w64-mingw32-clang++ \
+              -DCMAKE_RC_COMPILER=${{ matrix.arch }}-w64-mingw32-windres &&
+            cmake --build /tmp/build &&
+            mkdir -p /src/out &&
+            cp /tmp/build/libnibcore.dll /src/out/ &&
+            cp /opt/icu/${{ matrix.arch }}/bin/icuuc78.dll /src/out/ &&
+            cp /opt/icu/${{ matrix.arch }}/bin/icudt78.dll /src/out/'
+      # A DLL that links but carries stub ICU data looks identical to a good
+      # one until it runs. icudt is 33MB when the data is real and under a
+      # kilobyte when the build quietly substituted a stub, so the size is
+      # checked here rather than discovered on someone's machine.
+      - name: Refuse stub ICU data
+        run: |
+          size=$(stat -c%s out/icudt78.dll)
+          echo "icudt78.dll is $size bytes"
+          if [ "$size" -lt 20000000 ]; then
+            echo "::error title=ICU data is a stub::icudt78.dll is only $size bytes."\
+                 "A real build is around 33MB. pkgdata was probably skipped, and the"\
+                 "core would load with no break-iterator rules."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-${{ matrix.label }}
+          path: out/
+
+  macos:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-
+      - name: Install Ninja
+        run: brew install ninja
+      # Built, not brewed. Homebrew's icu4c@78 targets macOS 15 and nib
+      # supports Ventura 13, so its dylibs would link here and refuse to load
+      # there -- and CI is the one place that would never notice.
+      - name: Build ICU for the supported macOS
+        run: Scripts/build-icu.sh
+      - name: Build the core
+        run: |
+          cmake -S core -B core/build -G Ninja
+          cmake --build core/build
+      - name: Core tests
+        run: ./core/build/nibcore_tests
+      # bundle.sh refuses a dynamically linked ICU, so this also proves the
+      # vendored static build is what got used.
+      - name: Confirm the core carries no dynamic ICU
+        run: |
+          if otool -L core/build/libnibcore.dylib | grep -q libicu; then
+            echo "::error title=Core links ICU dynamically::The vendored static"\
+                 "build was not used, so the dylib would not load on Ventura."
+            exit 1
+          fi
+          echo "libnibcore.dylib links no ICU dylibs"
       - name: Fetch harper-ls
         run: Scripts/fetch-harper.sh
-
-      # Both binaries, and before the tests rather than before the packaging
-      # step that needs them: one test walks otool over vendor/llama to check
-      # that every library llama-server loads was fetched, and it skips itself
-      # when the directory is absent. Fetching afterwards would leave that
-      # test permanently skipped on CI, which is the one place it matters.
       - name: Fetch llama-server
         run: Scripts/fetch-llama.sh
-
-      # Not only for packaging: Package.swift declares the XCFramework as a
-      # binaryTarget, so nothing builds at all until it is on disk.
       - name: Fetch whisper
         run: Scripts/fetch-whisper.sh
-
       - name: Fetch espeak-ng
         run: Scripts/fetch-espeak.sh
-
       - name: Fetch ONNX Runtime
         run: Scripts/fetch-onnx.sh
-
       - name: Test
-        run: swift test
-
+        run: swift test --package-path macos
       - name: Build release
-        run: swift build -c release
-
-      # Catches a broken bundle or icon script before a tag depends on them.
+        run: swift build -c release --package-path macos
       - name: Package
         run: |
           swift Scripts/make-icon.swift
-          iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
+          iconutil -c icns macos/Resources/AppIcon.iconset -o macos/Resources/AppIcon.icns
           Scripts/bundle.sh
           Scripts/make-dmg.sh
+
+  # Real Windows, loading the artifact that would ship.
+  #
+  # This phase only proves the DLL loads, reports its ABI version and splits a
+  # sentence. Phase 2 grows it into the app's suite.
+  windows:
+    needs: core-cross
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            label: x64
+          - runner: windows-11-arm
+            label: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: core-${{ matrix.label }}
+          path: core-bin
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Scripts/windows
+          sparse-checkout-cone-mode: false
+          path: repo
+      - name: Load the core and split a sentence
+        shell: pwsh
+        run: pwsh repo/Scripts/windows/probe-core.ps1 -Directory core-bin

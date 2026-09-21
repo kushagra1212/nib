@@ -6,7 +6,8 @@ set -euo pipefail
 
 VERSION="${HARPER_VERSION:-2.8.0}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$ROOT/vendor"
+MACOS="$ROOT/macos"
+DEST="$MACOS/vendor"
 ARCH="$(uname -m)"
 
 case "$ARCH" in

@@ -20,7 +20,8 @@ set -euo pipefail
 BUILD="${LLAMA_BUILD:-b10400}"
 SHA256="bb0172e886c7b6ece52edf04db03bc692ffc28e096728351c0343e4c75bb5374"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$ROOT/vendor/llama"
+MACOS="$ROOT/macos"
+DEST="$MACOS/vendor/llama"
 ARCH="$(uname -m)"
 
 if [[ "$ARCH" != "arm64" ]]; then

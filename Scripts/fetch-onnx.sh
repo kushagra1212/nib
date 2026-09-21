@@ -20,7 +20,8 @@ URL="https://github.com/microsoft/onnxruntime/releases/download/v${VERSION}/${AS
 SHA256="d0706fc34f315d8c88639d0a8c81f2e09e815f282cabed3493c06a054352cf92"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="$ROOT/vendor/onnx"
+MACOS="$ROOT/macos"
+DEST="$MACOS/vendor/onnx"
 LIB="$DEST/libonnxruntime.dylib"
 
 if [[ "$(uname -m)" != "arm64" ]]; then

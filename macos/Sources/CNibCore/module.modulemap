@@ -1,0 +1,9 @@
+// Swift's view of the shared core's ABI.
+//
+// The header is the one the Windows build compiles against too. Pointing at it
+// rather than copying it means a change to the boundary is a compile error
+// here on the next build, instead of a mismatch discovered at runtime.
+module CNibCore {
+    header "../../../core/include/nib/nib_core.h"
+    export *
+}

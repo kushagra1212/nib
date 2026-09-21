@@ -1,0 +1,792 @@
+{
+  "cases" : [
+    {
+      "input" : "",
+      "tokens" : [
+
+      ]
+    },
+    {
+      "input" : "    \n  ",
+      "tokens" : [
+
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps over the dog.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "The"
+        },
+        {
+          "length" : 5,
+          "location" : 4,
+          "text" : "quick"
+        },
+        {
+          "length" : 5,
+          "location" : 10,
+          "text" : "brown"
+        },
+        {
+          "length" : 3,
+          "location" : 16,
+          "text" : "fox"
+        },
+        {
+          "length" : 5,
+          "location" : 20,
+          "text" : "jumps"
+        },
+        {
+          "length" : 4,
+          "location" : 26,
+          "text" : "over"
+        },
+        {
+          "length" : 3,
+          "location" : 31,
+          "text" : "the"
+        },
+        {
+          "length" : 3,
+          "location" : 35,
+          "text" : "dog"
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps over it. Another long sentence follows here.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "The"
+        },
+        {
+          "length" : 5,
+          "location" : 4,
+          "text" : "quick"
+        },
+        {
+          "length" : 5,
+          "location" : 10,
+          "text" : "brown"
+        },
+        {
+          "length" : 3,
+          "location" : 16,
+          "text" : "fox"
+        },
+        {
+          "length" : 5,
+          "location" : 20,
+          "text" : "jumps"
+        },
+        {
+          "length" : 4,
+          "location" : 26,
+          "text" : "over"
+        },
+        {
+          "length" : 2,
+          "location" : 31,
+          "text" : "it"
+        },
+        {
+          "length" : 7,
+          "location" : 35,
+          "text" : "Another"
+        },
+        {
+          "length" : 4,
+          "location" : 43,
+          "text" : "long"
+        },
+        {
+          "length" : 8,
+          "location" : 48,
+          "text" : "sentence"
+        },
+        {
+          "length" : 7,
+          "location" : 57,
+          "text" : "follows"
+        },
+        {
+          "length" : 4,
+          "location" : 65,
+          "text" : "here"
+        }
+      ]
+    },
+    {
+      "input" : "The quick brown fox jumps here.    Second long sentence goes here.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "The"
+        },
+        {
+          "length" : 5,
+          "location" : 4,
+          "text" : "quick"
+        },
+        {
+          "length" : 5,
+          "location" : 10,
+          "text" : "brown"
+        },
+        {
+          "length" : 3,
+          "location" : 16,
+          "text" : "fox"
+        },
+        {
+          "length" : 5,
+          "location" : 20,
+          "text" : "jumps"
+        },
+        {
+          "length" : 4,
+          "location" : 26,
+          "text" : "here"
+        },
+        {
+          "length" : 6,
+          "location" : 35,
+          "text" : "Second"
+        },
+        {
+          "length" : 4,
+          "location" : 42,
+          "text" : "long"
+        },
+        {
+          "length" : 8,
+          "location" : 47,
+          "text" : "sentence"
+        },
+        {
+          "length" : 4,
+          "location" : 56,
+          "text" : "goes"
+        },
+        {
+          "length" : 4,
+          "location" : 61,
+          "text" : "here"
+        }
+      ]
+    },
+    {
+      "input" : "Thanks!",
+      "tokens" : [
+        {
+          "length" : 6,
+          "location" : 0,
+          "text" : "Thanks"
+        }
+      ]
+    },
+    {
+      "input" : "Yes. No. Maybe.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "Yes"
+        },
+        {
+          "length" : 2,
+          "location" : 5,
+          "text" : "No"
+        },
+        {
+          "length" : 5,
+          "location" : 9,
+          "text" : "Maybe"
+        }
+      ]
+    },
+    {
+      "input" : "One two three.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "One"
+        },
+        {
+          "length" : 3,
+          "location" : 4,
+          "text" : "two"
+        },
+        {
+          "length" : 5,
+          "location" : 8,
+          "text" : "three"
+        }
+      ]
+    },
+    {
+      "input" : "We tested e.g. the login flow and it worked well.",
+      "tokens" : [
+        {
+          "length" : 2,
+          "location" : 0,
+          "text" : "We"
+        },
+        {
+          "length" : 6,
+          "location" : 3,
+          "text" : "tested"
+        },
+        {
+          "length" : 1,
+          "location" : 10,
+          "text" : "e"
+        },
+        {
+          "length" : 1,
+          "location" : 12,
+          "text" : "g"
+        },
+        {
+          "length" : 3,
+          "location" : 15,
+          "text" : "the"
+        },
+        {
+          "length" : 5,
+          "location" : 19,
+          "text" : "login"
+        },
+        {
+          "length" : 4,
+          "location" : 25,
+          "text" : "flow"
+        },
+        {
+          "length" : 3,
+          "location" : 30,
+          "text" : "and"
+        },
+        {
+          "length" : 2,
+          "location" : 34,
+          "text" : "it"
+        },
+        {
+          "length" : 6,
+          "location" : 37,
+          "text" : "worked"
+        },
+        {
+          "length" : 4,
+          "location" : 44,
+          "text" : "well"
+        }
+      ]
+    },
+    {
+      "input" : "The build takes 3.5 minutes on this machine now.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "The"
+        },
+        {
+          "length" : 5,
+          "location" : 4,
+          "text" : "build"
+        },
+        {
+          "length" : 5,
+          "location" : 10,
+          "text" : "takes"
+        },
+        {
+          "length" : 1,
+          "location" : 16,
+          "text" : "3"
+        },
+        {
+          "length" : 1,
+          "location" : 18,
+          "text" : "5"
+        },
+        {
+          "length" : 7,
+          "location" : 20,
+          "text" : "minutes"
+        },
+        {
+          "length" : 2,
+          "location" : 28,
+          "text" : "on"
+        },
+        {
+          "length" : 4,
+          "location" : 31,
+          "text" : "this"
+        },
+        {
+          "length" : 7,
+          "location" : 36,
+          "text" : "machine"
+        },
+        {
+          "length" : 3,
+          "location" : 44,
+          "text" : "now"
+        }
+      ]
+    },
+    {
+      "input" : "We should check NSString.length before we index into it.",
+      "tokens" : [
+        {
+          "length" : 2,
+          "location" : 0,
+          "text" : "We"
+        },
+        {
+          "length" : 6,
+          "location" : 3,
+          "text" : "should"
+        },
+        {
+          "length" : 5,
+          "location" : 10,
+          "text" : "check"
+        },
+        {
+          "length" : 8,
+          "location" : 16,
+          "text" : "NSString"
+        },
+        {
+          "length" : 6,
+          "location" : 25,
+          "text" : "length"
+        },
+        {
+          "length" : 6,
+          "location" : 32,
+          "text" : "before"
+        },
+        {
+          "length" : 2,
+          "location" : 39,
+          "text" : "we"
+        },
+        {
+          "length" : 5,
+          "location" : 42,
+          "text" : "index"
+        },
+        {
+          "length" : 4,
+          "location" : 48,
+          "text" : "into"
+        },
+        {
+          "length" : 2,
+          "location" : 53,
+          "text" : "it"
+        }
+      ]
+    },
+    {
+      "input" : "this is a sentence without a full stop",
+      "tokens" : [
+        {
+          "length" : 4,
+          "location" : 0,
+          "text" : "this"
+        },
+        {
+          "length" : 2,
+          "location" : 5,
+          "text" : "is"
+        },
+        {
+          "length" : 1,
+          "location" : 8,
+          "text" : "a"
+        },
+        {
+          "length" : 8,
+          "location" : 10,
+          "text" : "sentence"
+        },
+        {
+          "length" : 7,
+          "location" : 19,
+          "text" : "without"
+        },
+        {
+          "length" : 1,
+          "location" : 27,
+          "text" : "a"
+        },
+        {
+          "length" : 4,
+          "location" : 29,
+          "text" : "full"
+        },
+        {
+          "length" : 4,
+          "location" : 34,
+          "text" : "stop"
+        }
+      ]
+    },
+    {
+      "input" : "😀 The quick brown fox jumps over it.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 3,
+          "text" : "The"
+        },
+        {
+          "length" : 5,
+          "location" : 7,
+          "text" : "quick"
+        },
+        {
+          "length" : 5,
+          "location" : 13,
+          "text" : "brown"
+        },
+        {
+          "length" : 3,
+          "location" : 19,
+          "text" : "fox"
+        },
+        {
+          "length" : 5,
+          "location" : 23,
+          "text" : "jumps"
+        },
+        {
+          "length" : 4,
+          "location" : 29,
+          "text" : "over"
+        },
+        {
+          "length" : 2,
+          "location" : 34,
+          "text" : "it"
+        }
+      ]
+    },
+    {
+      "input" : "The first sentence lives here.\nThe second one lives here.",
+      "tokens" : [
+        {
+          "length" : 3,
+          "location" : 0,
+          "text" : "The"
+        },
+        {
+          "length" : 5,
+          "location" : 4,
+          "text" : "first"
+        },
+        {
+          "length" : 8,
+          "location" : 10,
+          "text" : "sentence"
+        },
+        {
+          "length" : 5,
+          "location" : 19,
+          "text" : "lives"
+        },
+        {
+          "length" : 4,
+          "location" : 25,
+          "text" : "here"
+        },
+        {
+          "length" : 3,
+          "location" : 31,
+          "text" : "The"
+        },
+        {
+          "length" : 6,
+          "location" : 35,
+          "text" : "second"
+        },
+        {
+          "length" : 3,
+          "location" : 42,
+          "text" : "one"
+        },
+        {
+          "length" : 5,
+          "location" : 46,
+          "text" : "lives"
+        },
+        {
+          "length" : 4,
+          "location" : 52,
+          "text" : "here"
+        }
+      ]
+    },
+    {
+      "input" : "don't split contractions or hyphen-joined words or snake_case names",
+      "tokens" : [
+        {
+          "length" : 5,
+          "location" : 0,
+          "text" : "don't"
+        },
+        {
+          "length" : 5,
+          "location" : 6,
+          "text" : "split"
+        },
+        {
+          "length" : 12,
+          "location" : 12,
+          "text" : "contractions"
+        },
+        {
+          "length" : 2,
+          "location" : 25,
+          "text" : "or"
+        },
+        {
+          "length" : 13,
+          "location" : 28,
+          "text" : "hyphen-joined"
+        },
+        {
+          "length" : 5,
+          "location" : 42,
+          "text" : "words"
+        },
+        {
+          "length" : 2,
+          "location" : 48,
+          "text" : "or"
+        },
+        {
+          "length" : 10,
+          "location" : 51,
+          "text" : "snake_case"
+        },
+        {
+          "length" : 5,
+          "location" : 62,
+          "text" : "names"
+        }
+      ]
+    },
+    {
+      "input" : "देवनागरी में लिखा गया एक वाक्य यहाँ है।",
+      "tokens" : [
+        {
+          "length" : 8,
+          "location" : 0,
+          "text" : "देवनागरी"
+        },
+        {
+          "length" : 3,
+          "location" : 9,
+          "text" : "में"
+        },
+        {
+          "length" : 4,
+          "location" : 13,
+          "text" : "लिखा"
+        },
+        {
+          "length" : 3,
+          "location" : 18,
+          "text" : "गया"
+        },
+        {
+          "length" : 2,
+          "location" : 22,
+          "text" : "एक"
+        },
+        {
+          "length" : 5,
+          "location" : 25,
+          "text" : "वाक्य"
+        },
+        {
+          "length" : 4,
+          "location" : 31,
+          "text" : "यहाँ"
+        },
+        {
+          "length" : 2,
+          "location" : 36,
+          "text" : "है"
+        }
+      ]
+    },
+    {
+      "input" : "café naïve résumé coöperate",
+      "tokens" : [
+        {
+          "length" : 4,
+          "location" : 0,
+          "text" : "café"
+        },
+        {
+          "length" : 5,
+          "location" : 5,
+          "text" : "naïve"
+        },
+        {
+          "length" : 6,
+          "location" : 11,
+          "text" : "résumé"
+        },
+        {
+          "length" : 9,
+          "location" : 18,
+          "text" : "coöperate"
+        }
+      ]
+    },
+    {
+      "input" : "Dr. Smith arrived at 3.5 p.m. and left again.",
+      "tokens" : [
+        {
+          "length" : 2,
+          "location" : 0,
+          "text" : "Dr"
+        },
+        {
+          "length" : 5,
+          "location" : 4,
+          "text" : "Smith"
+        },
+        {
+          "length" : 7,
+          "location" : 10,
+          "text" : "arrived"
+        },
+        {
+          "length" : 2,
+          "location" : 18,
+          "text" : "at"
+        },
+        {
+          "length" : 1,
+          "location" : 21,
+          "text" : "3"
+        },
+        {
+          "length" : 1,
+          "location" : 23,
+          "text" : "5"
+        },
+        {
+          "length" : 1,
+          "location" : 25,
+          "text" : "p"
+        },
+        {
+          "length" : 1,
+          "location" : 27,
+          "text" : "m"
+        },
+        {
+          "length" : 3,
+          "location" : 30,
+          "text" : "and"
+        },
+        {
+          "length" : 4,
+          "location" : 34,
+          "text" : "left"
+        },
+        {
+          "length" : 5,
+          "location" : 39,
+          "text" : "again"
+        }
+      ]
+    },
+    {
+      "input" : "áccent combining marks stay attached",
+      "tokens" : [
+        {
+          "length" : 7,
+          "location" : 0,
+          "text" : "áccent"
+        },
+        {
+          "length" : 9,
+          "location" : 8,
+          "text" : "combining"
+        },
+        {
+          "length" : 5,
+          "location" : 18,
+          "text" : "marks"
+        },
+        {
+          "length" : 4,
+          "location" : 24,
+          "text" : "stay"
+        },
+        {
+          "length" : 8,
+          "location" : 29,
+          "text" : "attached"
+        }
+      ]
+    },
+    {
+      "input" : "emoji 👨‍👩‍👧‍👦 family sequence splits on surrogates",
+      "tokens" : [
+        {
+          "length" : 5,
+          "location" : 0,
+          "text" : "emoji"
+        },
+        {
+          "length" : 6,
+          "location" : 18,
+          "text" : "family"
+        },
+        {
+          "length" : 8,
+          "location" : 25,
+          "text" : "sequence"
+        },
+        {
+          "length" : 6,
+          "location" : 34,
+          "text" : "splits"
+        },
+        {
+          "length" : 2,
+          "location" : 41,
+          "text" : "on"
+        },
+        {
+          "length" : 10,
+          "location" : 44,
+          "text" : "surrogates"
+        }
+      ]
+    }
+  ],
+  "locale" : "en_IN"
+}

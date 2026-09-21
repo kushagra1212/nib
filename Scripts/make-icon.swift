@@ -4,14 +4,16 @@
 // Generated rather than committed as binary art so it can be tweaked in a diff
 // and rebuilt reproducibly.
 //
-//   swift Scripts/make-icon.swift && iconutil -c icns Resources/AppIcon.iconset
+//   swift Scripts/make-icon.swift && iconutil -c icns macos/Resources/AppIcon.iconset
 
 import AppKit
 import Foundation
 
 let sizes = [16, 32, 64, 128, 256, 512, 1024]
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let iconset = root.appendingPathComponent("Resources/AppIcon.iconset")
+// The icon belongs to the macOS app, which lives under macos/. Run from the
+// repository root, as the line above shows.
+let iconset = root.appendingPathComponent("macos/Resources/AppIcon.iconset")
 try? FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
 /// Draws a pen nib on a rounded ink-coloured tile.

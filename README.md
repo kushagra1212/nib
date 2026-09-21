@@ -108,6 +108,9 @@ nib --speak "testing one two three"     # read aloud, printing every stage
 nib --speak-silent "one two three"      # the same, without playing it
 nib --whisper-probe                     # report the speech engine and GPU
 nib --whisper-probe model.bin audio.wav # transcribe a file, no microphone
+nib --rehearse                          # record yourself, report how you spoke
+nib --rehearse 90                       # stop on its own after 90 seconds
+nib --rehearse take.wav                 # analyse a recording made elsewhere
 nib --model-bench 5                     # time model load, first call, warm calls
 nib --bench 2000                        # measure lint latency
 nib --ax-probe 5                        # report what the focused field exposes
@@ -120,6 +123,40 @@ Handy once installed:
 ```sh
 alias nib=/Applications/nib.app/Contents/MacOS/nib
 ```
+
+---
+
+## Practice
+
+Press **⌃⌥P**, answer a question out loud, press it again. nib records the take,
+transcribes it locally, and writes both files to `~/Documents/nib/practice`: a
+WAV to play back, and a markdown report of how you actually sounded.
+
+Also under **Practice Take** in the menu bar.
+
+```
+| Length           | 1:42                        |
+| Pace             | **136 wpm** -- comfortable  |
+| Fillers          | **7** (4.1/min)             |
+| Pauses over 2s   | 3                           |
+| Longest sentence | 41 words -- too long to follow spoken |
+| Ending           | **trails off**              |
+```
+
+It measures the things you cannot hear in your own voice while producing them.
+People underestimate their own filler and overestimate their own pace, which is
+why practising without a recording mostly rehearses the mistakes.
+
+**Pauses come from the audio, not the transcript.** After transcription a four
+second silence and a comma look identical; the samples still have both.
+
+**Filler is counted by position, not just by word.** `um` and `uh` are filler
+everywhere. `so`, `basically` and `right` are filler only when they open a
+sentence -- "so that the index is used" is a conjunction doing its job, and
+flagging it would report a problem you do not have.
+
+It does not grade content. Whether the answer was any good is a judgement; this
+is the part a machine can count.
 
 ---
 
@@ -358,15 +395,32 @@ cd nib
 Scripts/fetch-harper.sh          # prebuilt harper-ls, no Rust toolchain needed
 Scripts/fetch-llama.sh           # llama-server and the libraries it loads
 Scripts/fetch-whisper.sh         # the speech engine; required before any build
-swift build -c release
-swift test
+Scripts/build-icu.sh             # ICU, built for the macOS version nib supports
+
+cmake -S core -B core/build -G Ninja   # the shared C++ core
+cmake --build core/build
+./core/build/nibcore_tests
+
+swift build -c release --package-path macos
+swift test --package-path macos
 
 swift Scripts/make-icon.swift
-iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
+iconutil -c icns macos/Resources/AppIcon.iconset -o macos/Resources/AppIcon.icns
 Scripts/bundle.sh                # dist/nib.app
 Scripts/install.sh               # move it to /Applications, leaving one copy
 Scripts/make-dmg.sh              # dist/nib-<version>.dmg
 ```
+
+The app lives under `macos/`, and the logic it shares with the Windows build
+lives in `core/`. The core is built by CMake rather than SwiftPM because the
+same source has to produce a Windows DLL from a Linux container, which SwiftPM
+cannot do. Build it before `swift build`; the Swift side links it.
+
+`Scripts/build-icu.sh` builds ICU rather than downloading it. Homebrew's
+`icu4c@78` is compiled for macOS 15 while nib supports Ventura 13, and a dylib
+built for a newer system links without complaint and then refuses to load on the
+older one. `brew install icu4c` works for a quick local build — pass
+`-DICU_ROOT="$(brew --prefix icu4c)"` — but do not ship what it produces.
 
 `install.sh` rather than copying by hand. macOS ties Accessibility and
 microphone permission to one specific app, identified by its code signature, so
