@@ -28,11 +28,24 @@ include(FetchContent)
 # would mean nib underlining different sentences on the two platforms for
 # reasons no one could see in the source, so the Windows build vendors its own
 # copy rather than linking the system's.
+#
+# macOS vendors one too, for a different reason: Homebrew's icu4c@78 is built
+# for macOS 15 and nib supports Ventura 13, so its dylibs link here and refuse
+# to load there. Scripts/build-icu.sh produces the vendored copy; Homebrew's
+# still works for a quick local build, with a deployment target that will not
+# ship.
+if(APPLE AND NOT DEFINED ICU_ROOT
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../macos/vendor/icu/lib/libicuuc.a")
+    set(ICU_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../macos/vendor/icu")
+    message(STATUS "Using the vendored ICU at ${ICU_ROOT}")
+endif()
+
 find_package(ICU 76 COMPONENTS uc i18n data QUIET)
 if(NOT ICU_FOUND)
     message(FATAL_ERROR
-        "ICU 76+ not found. macOS: brew install icu4c and configure with "
-        "-DICU_ROOT=$(brew --prefix icu4c). Container: apt-get install libicu-dev.")
+        "ICU 76+ not found. macOS: run Scripts/build-icu.sh, which builds it "
+        "for the macOS version nib supports. Container: it is built into the "
+        "image by docker/core-cross.Dockerfile.")
 endif()
 
 # The implementation is an object library, and the shared library is a thin

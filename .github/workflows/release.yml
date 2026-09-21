@@ -43,6 +43,28 @@ jobs:
       - name: Fetch ONNX Runtime
         run: Scripts/fetch-onnx.sh
 
+      # The core, before anything Swift. The app links it, so nothing compiles
+      # until it is built.
+      #
+      # ICU is built rather than brewed: Homebrew's icu4c@78 targets macOS 15
+      # and this release has to run on the Ventura the README promises. A
+      # release built against Homebrew's would link here, pass every test on
+      # this runner, and fail to launch for the users on the oldest supported
+      # system -- the one group who would have no idea why.
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Build ICU for the supported macOS
+        run: Scripts/build-icu.sh
+
+      - name: Build the core
+        run: |
+          cmake -S core -B core/build -G Ninja
+          cmake --build core/build
+
+      - name: Core tests
+        run: ./core/build/nibcore_tests
+
       - name: Test
         run: swift test --package-path macos
 

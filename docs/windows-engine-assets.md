@@ -158,15 +158,33 @@ ICU — no `libc++.dll` or `libunwind.dll` for the installer to carry.
 **The MSI ships three files for the core:** `libnibcore.dll`, `icuuc78.dll`, and `icudt78.dll`
 (33MB, loaded by icuuc at runtime).
 
-### Still open: ICU for macOS
+### ICU for macOS — PASS
 
-The same problem, unsolved on the other side. Homebrew's `icu4c@78` is built for **macOS 15.0**
-and nib supports **Ventura 13**, so the bundled app works on a modern Mac and would fail on the
-oldest one the README promises. `bundle.sh` copies the three dylibs and rewrites their paths,
-which is correct mechanically and does not fix the deployment target.
+The same problem on the other side, and now solved. Homebrew's `icu4c@78` is built for
+**macOS 15.0** while nib supports **Ventura 13**, so a bundle linking it works on a modern Mac
+and refuses to load on the oldest one the README promises — and CI, running on macos-14, is the
+last place that would notice.
 
-The fix is to build ICU for macOS the way this image builds it for Windows, with
-`CMAKE_OSX_DEPLOYMENT_TARGET=13.0`. One recipe would then serve all three targets.
+`Scripts/build-icu.sh` builds ICU 78.3 from source with
+`-mmacosx-version-min=13.0`, into `macos/vendor/icu`, and CMake prefers it over Homebrew
+automatically when it is present.
+
+**Static here, shared on Windows**, and the asymmetry is deliberate. Static loses ICU's data on
+Windows because `--enable-static` needs `--disable-tools` to link and `pkgdata` is a tool. That
+is a cross-compilation problem: building natively on macOS keeps the tools, so the data is
+real — 31MB of it, checked by the script, which refuses anything under 20MB.
+
+The payoff is that the bundle carries no ICU at all:
+
+```
+dist/nib.app/Contents/Frameworks/  libnibcore.dylib  whisper.framework
+otool -L libnibcore.dylib       →  /usr/lib/libc++.1.dylib, /usr/lib/libSystem.B.dylib
+minos                           →  13.0
+```
+
+Nothing to copy, re-path or sign, and zero Homebrew references in the shipped app.
+`bundle.sh` now *refuses* a dynamically linked ICU rather than quietly bundling one, because
+that is the shape a Ventura-breaking release would have taken.
 
 ## Verdicts
 

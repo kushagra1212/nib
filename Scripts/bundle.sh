@@ -115,27 +115,27 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" \
 # both. A shipped app is the one build whose layout is fixed, so the name is
 # rewritten here to @rpath and the dylib travels in Frameworks.
 #
-# ICU comes along because libnibcore records Homebrew's absolute paths, which
-# exist on no one else's machine.
+# ICU is inside it, not beside it. Scripts/build-icu.sh produces static
+# libraries, so the dylib carries its own copy and the bundle needs no ICU
+# files of its own.
+DYNAMIC_ICU="$(otool -L "$CORE_DYLIB" | awk '/libicu/ {print $1}')"
+if [[ -n "$DYNAMIC_ICU" ]]; then
+  echo "libnibcore links ICU dynamically:" >&2
+  echo "$DYNAMIC_ICU" | sed 's/^/    /' >&2
+  echo "  That is a Homebrew build, which targets macOS 15 -- nib supports" >&2
+  echo "  Ventura 13, so it would refuse to load there. Rebuild against the" >&2
+  echo "  vendored copy:" >&2
+  echo "    Scripts/build-icu.sh" >&2
+  echo "    rm -rf core/build && cmake -S core -B core/build -G Ninja" >&2
+  echo "    cmake --build core/build" >&2
+  exit 1
+fi
+
 cp "$CORE_DYLIB" "$APP/Contents/Frameworks/libnibcore.dylib"
 install_name_tool -id "@rpath/libnibcore.dylib" \
   "$APP/Contents/Frameworks/libnibcore.dylib"
 install_name_tool -change "$CORE_DYLIB" "@rpath/libnibcore.dylib" \
   "$APP/Contents/MacOS/nib"
-
-for icu in $(otool -L "$CORE_DYLIB" | awk '/libicu/ {print $1}'); do
-  name="$(basename "$icu")"
-  cp "$icu" "$APP/Contents/Frameworks/$name"
-  chmod u+w "$APP/Contents/Frameworks/$name"
-  install_name_tool -id "@rpath/$name" "$APP/Contents/Frameworks/$name"
-  install_name_tool -change "$icu" "@rpath/$name" \
-    "$APP/Contents/Frameworks/libnibcore.dylib"
-  # ICU's own libraries reference each other by the same absolute paths.
-  for other in $(otool -L "$CORE_DYLIB" | awk '/libicu/ {print $1}'); do
-    install_name_tool -change "$other" "@rpath/$(basename "$other")" \
-      "$APP/Contents/Frameworks/$name" 2>/dev/null || true
-  done
-done
 
 cp "$MACOS/vendor/harper-ls" "$APP/Contents/Resources/harper-ls"
 

@@ -83,14 +83,29 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - name: Install ICU and Ninja
-        run: brew install icu4c ninja
+      - name: Install Ninja
+        run: brew install ninja
+      # Built, not brewed. Homebrew's icu4c@78 targets macOS 15 and nib
+      # supports Ventura 13, so its dylibs would link here and refuse to load
+      # there -- and CI is the one place that would never notice.
+      - name: Build ICU for the supported macOS
+        run: Scripts/build-icu.sh
       - name: Build the core
         run: |
-          cmake -S core -B core/build -G Ninja -DICU_ROOT="$(brew --prefix icu4c)"
+          cmake -S core -B core/build -G Ninja
           cmake --build core/build
       - name: Core tests
         run: ./core/build/nibcore_tests
+      # bundle.sh refuses a dynamically linked ICU, so this also proves the
+      # vendored static build is what got used.
+      - name: Confirm the core carries no dynamic ICU
+        run: |
+          if otool -L core/build/libnibcore.dylib | grep -q libicu; then
+            echo "::error title=Core links ICU dynamically::The vendored static"\
+                 "build was not used, so the dylib would not load on Ventura."
+            exit 1
+          fi
+          echo "libnibcore.dylib links no ICU dylibs"
       - name: Fetch harper-ls
         run: Scripts/fetch-harper.sh
       - name: Fetch llama-server
