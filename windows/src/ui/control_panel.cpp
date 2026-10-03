@@ -81,6 +81,19 @@ ControlPanel::ControlPanel(Host host) : Surface(Kind::window), host_(std::move(h
         sidebar_.add(std::move(b));
         y += 36;
     }
+    // The licences of everything nib ships, beside nib.exe in an install.
+    Button licences;
+    licences.label = L"Licences";
+    licences.emphasis = Button::Emphasis::plain;
+    licences.rect = {12, y + 12, sidebar_width - 12, y + 44};
+    licences.on_click = [] {
+        const auto installed = platform::paths::executable_dir() / L"THIRD-PARTY-LICENSES.txt";
+        std::error_code ec;
+        ui::open(std::filesystem::exists(installed, ec)
+                     ? installed.wstring()
+                     : L"https://github.com/kushagra1212/nib/blob/main/THIRD-PARTY-LICENSES.txt");
+    };
+    sidebar_.add(std::move(licences));
 }
 
 ControlPanel::~ControlPanel() {
@@ -144,7 +157,7 @@ void ControlPanel::select(Section s) {
         }
         SetWindowTextW(words_edit_, crlf.c_str());
     }
-    for (size_t i = 0; i < sidebar_.items().size(); ++i) {
+    for (size_t i = 0; i < 5; ++i) {
         auto& b = sidebar_.items()[i];
         b.emphasis = static_cast<int>(i) == static_cast<int>(s) ? Button::Emphasis::secondary : Button::Emphasis::plain;
     }

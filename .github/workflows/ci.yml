@@ -164,3 +164,42 @@ jobs:
       - name: Load the core and split a sentence
         shell: pwsh
         run: pwsh repo/Scripts/windows/probe-core.ps1 -Directory core-bin
+
+  # The Windows app itself, built and tested natively on each architecture:
+  # the core suite (including harper-ls, espeak-ng and the voice pack where
+  # fetched), every CLI probe that needs no model, and the packaged MSI.
+  windows-app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+          - runner: windows-11-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja
+        shell: pwsh
+        run: choco install ninja -y --no-progress
+      - name: Build and test
+        shell: pwsh
+        run: ./Scripts/windows/build.ps1 -Arch ${{ matrix.arch }}
+      - name: Probe the app
+        shell: pwsh
+        run: |
+          $exe = "windows/build-${{ matrix.arch }}/nib.exe"
+          $out = & cmd /c "`"$exe`" --lint `"Their is many erors here.`" 2>&1"
+          $out
+          if (-not ($out -match 'erors')) { throw 'the CLI lint did not flag erors' }
+      - name: Package
+        shell: pwsh
+        run: ./Scripts/windows/package.ps1 -Arch ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nib-windows-${{ matrix.arch }}
+          path: |
+            dist/*.msi
+            dist/*.zip
+            dist/*.sha256

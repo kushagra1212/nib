@@ -14,7 +14,9 @@ if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-project(nib VERSION 1.1.0 LANGUAGES CXX RC)
+# The release version, set from the tag by CI: -DNIB_RELEASE_VERSION=1.2.0.
+set(NIB_RELEASE_VERSION "1.1.0" CACHE STRING "nib version")
+project(nib VERSION ${NIB_RELEASE_VERSION} LANGUAGES CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,7 +70,8 @@ target_link_libraries(nib PRIVATE nibcore_static
     uiautomationcore oleaut32 ole32 shell32 shlwapi user32 gdi32 advapi32
     winmm version wtsapi32 psapi)
 target_compile_definitions(nib PRIVATE UNICODE _UNICODE NOMINMAX
-    NIB_VERSION="${PROJECT_VERSION}" NIB_VERSION_W=L"${PROJECT_VERSION}")
+    NIB_VERSION="${PROJECT_VERSION}" NIB_VERSION_W=L"${PROJECT_VERSION}"
+    NIB_VERSION_COMMA=${PROJECT_VERSION_MAJOR},${PROJECT_VERSION_MINOR},${PROJECT_VERSION_PATCH},0)
 if(MSVC)
     target_compile_options(nib PRIVATE /utf-8 /permissive- /W3)
     # The manifest in the .rc declares DPI awareness and common controls v6;

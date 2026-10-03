@@ -4,8 +4,8 @@
 1 RT_MANIFEST "nib.manifest"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,1,0,0
- PRODUCTVERSION 1,1,0,0
+ FILEVERSION NIB_VERSION_COMMA
+ PRODUCTVERSION NIB_VERSION_COMMA
  FILEOS VOS_NT_WINDOWS32
  FILETYPE VFT_APP
 BEGIN
@@ -15,12 +15,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "nib"
       VALUE "FileDescription", "nib - offline writing assistant"
-      VALUE "FileVersion", "1.1.0"
+      VALUE "FileVersion", NIB_VERSION
       VALUE "InternalName", "nib"
       VALUE "LegalCopyright", "GPL-3.0"
       VALUE "OriginalFilename", "nib.exe"
       VALUE "ProductName", "nib"
-      VALUE "ProductVersion", "1.1.0"
+      VALUE "ProductVersion", NIB_VERSION
     END
   END
   BLOCK "VarFileInfo"
