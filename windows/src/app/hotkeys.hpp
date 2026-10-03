@@ -34,6 +34,11 @@ public:
     // is harmless; missing one leaves the keys dead for the day.
     void reregister();
     void unregister_all();
+    // Tries again for the combinations another app held at startup. Windows
+    // sends no notice when that app lets go, so the owner asks now and then.
+    // True when anything was gained.
+    bool claim_missing();
+    bool all_registered() const;
 
     // Call from the owner's window procedure for WM_HOTKEY.
     void fired(WPARAM id);
