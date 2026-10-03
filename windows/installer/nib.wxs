@@ -18,7 +18,11 @@
            Compressed="yes"
            Language="1033">
     <SummaryInformation Description="nib, an offline writing assistant" />
-    <MajorUpgrade DowngradeErrorMessage="A newer nib is already installed." />
+    <!-- Same-version upgrades too: a rebuilt MSI of one version otherwise
+         installs beside the first, and keeps its nib.exe, since Windows
+         Installer leaves a file of equal version where it is. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer nib is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <Icon Id="nib.ico" SourceFile="$(sys.SOURCEFILEDIR)..\resources\nib.ico" />
     <Property Id="ARPPRODUCTICON" Value="nib.ico" />

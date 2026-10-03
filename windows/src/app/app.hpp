@@ -45,6 +45,7 @@ private:
     void start_live();
     void stop_live();
     void register_hotkeys();
+    void claim_hotkeys_later();
     void show_menu();
     std::vector<MenuItem> menu();
     std::wstring status_line();

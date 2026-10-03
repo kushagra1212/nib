@@ -249,6 +249,20 @@ void App::register_hotkeys() {
     hotkeys_->add(Hotkeys::Action::practice, [this] { practice_->toggle(); });
     hotkeys_->add(Hotkeys::Action::speak, [this] { speech_->toggle(); });
     hotkeys_->add(Hotkeys::Action::hush, [this] { speech_->hush(); });
+    claim_hotkeys_later();
+}
+
+void App::claim_hotkeys_later() {
+    // Whatever held a combination at startup -- often an older nib still
+    // running -- may quit at any time. Until every key is ours, ask again
+    // every ten seconds; once they are, stop asking.
+    if (hotkeys_->all_registered()) return;
+    after(10000, [this] {
+        if (hotkeys_->claim_missing() && live_ && hotkeys_->registered(Hotkeys::Action::panel)) {
+            live_->hotkey_label = hotkeys_->label(Hotkeys::Action::panel);
+        }
+        claim_hotkeys_later();
+    });
 }
 
 LRESULT CALLBACK App::proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {

@@ -57,6 +57,26 @@ void Hotkeys::reregister() {
     log::write("hotkeys re-registered: " + (back.empty() ? std::string("none") : back));
 }
 
+bool Hotkeys::claim_missing() {
+    bool gained = false;
+    for (auto& [action, e] : entries_) {
+        if (e.active) continue;
+        e.active = RegisterHotKey(owner_, static_cast<int>(action) + 1, e.combo.modifiers, e.combo.key) != FALSE;
+        if (e.active) {
+            log::write(narrow(name(action)) + " hotkey registered on " + narrow(e.combo.label) + ", now free");
+            gained = true;
+        }
+    }
+    return gained;
+}
+
+bool Hotkeys::all_registered() const {
+    for (const auto& [action, e] : entries_) {
+        if (!e.active) return false;
+    }
+    return true;
+}
+
 void Hotkeys::unregister_all() {
     for (auto& [action, e] : entries_) {
         UnregisterHotKey(owner_, static_cast<int>(action) + 1);
