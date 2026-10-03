@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: kushagra1212.nib
+PackageVersion: ${VERSION}
+PackageLocale: en-US
+Publisher: kushagra1212
+PublisherUrl: https://github.com/kushagra1212
+PackageName: nib
+PackageUrl: https://github.com/kushagra1212/nib
+License: GPL-3.0-or-later
+LicenseUrl: https://github.com/kushagra1212/nib/blob/main/LICENSE
+ShortDescription: An offline writing assistant. Underlines mistakes in any app, rewrites what you select, types what you say.
+Description: |-
+  nib checks spelling and grammar as you type in any app, rewrites a selection with a local model, dictates with whisper and reads text aloud -- all on your machine. Nothing you write or say is sent anywhere.
+Tags:
+  - grammar
+  - spelling
+  - writing
+  - dictation
+  - offline
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

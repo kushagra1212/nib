@@ -4,7 +4,7 @@
 
 # nib
 
-**An offline writing assistant for macOS.**
+**An offline writing assistant for macOS and Windows.**
 Underlines mistakes in any app, rewrites what you select, types what you say —
 and never sends any of it anywhere.
 
@@ -19,6 +19,10 @@ and never sends any of it anywhere.
 ---
 
 ## Install
+
+**Windows:** download `nib-<version>-windows-x64.msi` from the
+[latest release](https://github.com/kushagra1212/nib/releases/latest) and run
+it — see [Windows](#windows) below. **macOS:**
 
 ```sh
 brew install --cask kushagra1212/tap/nib
@@ -386,6 +390,64 @@ The only time nib touches the network is when you download a model yourself.
 
 ---
 
+## Windows
+
+The same nib, written natively for Windows: one 1.8 MB `nib.exe` in Win32 and
+Direct2D over the shared C++ core, with no .NET, no framework and no runtime to
+install. Every feature above works, with these keys:
+
+| | macOS | Windows |
+|---|---|---|
+| Check selection (the panel) | ⌥Space | **Ctrl+Alt+Space** |
+| Dictate | ⌃⌥D | **Ctrl+Alt+D** |
+| Practice take | ⌃⌥P | **Ctrl+Alt+P** |
+| Read aloud | ⌃⌘N | **Ctrl+Alt+N** |
+| Stop reading | ⌃⇧H | **Ctrl+Alt+H** |
+
+**Install.** Run the MSI. It installs for you alone, into
+`%LOCALAPPDATA%\Programs\nib`, with **no administrator prompt**, adds nib to the
+Start menu and starts it in the notification area. The `.zip` is the same app,
+portable: unzip anywhere and run `nib.exe`.
+
+The installer is not code-signed yet, so SmartScreen may say *Windows protected
+your PC*. Choose **More info**, then **Run anyway**.
+
+**No permission to grant.** Windows lets nib read and edit text through UI
+Automation without asking. The one wall is integrity: an app running **as
+administrator** is out of reach unless nib runs as administrator too, and nib
+says so instead of failing silently.
+
+**Where things live.** Models, voices, the dictation vocabulary and history and
+the settings are under `%LOCALAPPDATA%\nib`; practice takes under
+`Documents\nib\practice`. Clicking the tray icon opens the menu; double-click,
+or launching nib again, opens the window — Status, Models, Voices, Dictation
+Words and Diagnostics, with a **Test** button per feature.
+
+**Command line.** Every probe above exists on Windows too, plus
+`--field-probe` for what the focused field exposes:
+
+```bat
+"%LOCALAPPDATA%\Programs\nib\nib.exe" --lint "Their is many erors" | more
+```
+
+`| more` (or redirecting to a file) because `nib.exe` is a GUI program and the
+console prompt otherwise returns before it prints.
+
+### Windows, as measured on an x64 laptop
+
+| | |
+|---|---|
+| nib idle | ~30 MB, harper-ls ~95 MB, nothing else until used |
+| Lint, 2000 words | 126 ms warm |
+| Rewrite, Qwen3 0.6B on CPU | 0.7 – 2.4 s per mode |
+| Read aloud | 1.9x real time on four threads |
+
+Speech runs on a quarter of the cores (two to four threads): on Apple silicon
+two threads were 3.5x real time, on an x64 laptop they were 1.1x — barely ahead
+of playback — and four were 1.9x.
+
+---
+
 ## Build from source
 
 ```sh
@@ -445,6 +507,19 @@ Needs Swift 5.9+ and Xcode command line tools.
 > open dist/nib.app
 > ```
 
+### Windows
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Scripts\windows\build.ps1     # fetches ICU and the engines, builds nib.exe, runs the core suite
+powershell -ExecutionPolicy Bypass -File Scripts\windows\package.ps1   # dist\nib-<version>-windows-x64.zip and .msi
+```
+
+Needs Visual Studio 2022 (or its Build Tools) with the C++ workload, CMake and
+Ninja; the MSI step installs the WiX v5 .NET tool. `-Arch arm64` cross-compiles
+when the MSVC ARM64 build tools are installed. `Scripts\windows\fetch-engines.ps1`
+puts each engine under `windows\vendor\<arch>\`, which is where a development
+build of `nib.exe` finds them; an install keeps them under `engines\` beside it.
+
 ### Layout
 
 ```
@@ -485,6 +560,18 @@ Sources/nib/
 - **No Developer ID signature yet.** Every rebuild changes the ad-hoc signature,
   and macOS ties Accessibility and microphone permission to it, so both must be
   granted again after an update.
+
+### On Windows
+
+- **Underlines need the app to report text positions** through UI Automation.
+  Classic edit controls, Notepad and Chromium-based apps do; where an app does
+  not, nib shows a count badge and Ctrl+Alt+Space opens the fixes.
+- **Apps running as administrator** cannot be read or typed into.
+- **CPU only.** The bundled llama.cpp, whisper and ONNX Runtime builds are the
+  CPU ones; the 4B model takes a few seconds per rewrite on a laptop CPU.
+- **ARM64**: built and tested in CI on `windows-11-arm`; dictation is not in the
+  ARM64 build yet, because whisper.cpp publishes no ARM64 Windows binary.
+- **Not code-signed**, so SmartScreen warns on the installer.
 
 ## Credits
 

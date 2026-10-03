@@ -1,0 +1,30 @@
+Third-party software in nib for Windows
+=======================================
+
+Beyond harper-ls, llama.cpp and whisper.cpp (licensed above), the Windows build
+ships these, unmodified, from each project's own release build. Every licence
+is compatible with combining into a GPL-3.0 work.
+
+ICU 78.3  --  Unicode License v3
+  Sentence segmentation and Unicode properties. engines\..\icu*.dll
+  https://github.com/unicode-org/icu
+  Licence: icu\LICENSE, reproduced below.
+
+ONNX Runtime 1.29.0  --  MIT License
+  Runs the Kokoro voice. engines\onnx\onnxruntime.dll
+  https://github.com/microsoft/onnxruntime
+  Licence: reproduced below.
+
+espeak-ng (from espeakng-loader 0.2.4)  --  GPL-3.0-or-later
+  Turns text into phonemes for read-aloud. engines\espeak\
+  https://github.com/espeak-ng/espeak-ng
+  Licence: the GNU GPL version 3, the same text as nib's own LICENSE.
+
+nlohmann/json 3.11.3  --  MIT License
+  Compiled into nib.exe. Copyright (c) 2013-2022 Niels Lohmann.
+  https://github.com/nlohmann/json
+
+The Kokoro model and voices (Apache-2.0, hexgrad/Kokoro-82M via
+thewh1teagle/kokoro-onnx), the whisper models (MIT, OpenAI) and the Qwen3
+models (Apache-2.0, Alibaba) are not shipped: nib downloads them only when
+you ask, from their own publishers.

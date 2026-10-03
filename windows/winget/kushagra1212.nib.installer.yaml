@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: kushagra1212.nib
+PackageVersion: ${VERSION}
+InstallerType: wix
+Scope: user
+InstallModes:
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/kushagra1212/nib/releases/download/v${VERSION}/nib-${VERSION}-windows-x64.msi
+    InstallerSha256: ${SHA256_X64}
+  - Architecture: arm64
+    InstallerUrl: https://github.com/kushagra1212/nib/releases/download/v${VERSION}/nib-${VERSION}-windows-arm64.msi
+    InstallerSha256: ${SHA256_ARM64}
+ManifestType: installer
+ManifestVersion: 1.6.0
