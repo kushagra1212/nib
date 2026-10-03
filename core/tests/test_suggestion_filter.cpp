@@ -93,6 +93,15 @@ TEST_CASE("SuggestionFilter: surrounding code") {
     CHECK_FALSE(kept(u"Done.teh cat", u"teh", u"the"));
 }
 
+TEST_CASE("SuggestionFilter: a sentence's own full stop is not code") {
+    // The miss this was written for: harper flagged "eror", and the filter
+    // threw it away because a full stop followed it.
+    CHECK(kept(u"There is an eror.", u"eror", u"error"));
+    CHECK(kept(u"Is this an eror? Yes.", u"eror", u"error"));
+    CHECK(kept(u"First. Seperate the rest", u"Seperate", u"Separate"));
+    CHECK_FALSE(kept(u"see NSString.lenght here", u"lenght", u"length"));
+}
+
 TEST_CASE("SuggestionFilter: plausibility") {
     CHECK(plausible(u"erors", u"errors"));
     CHECK(plausible(u"their", u"there"));

@@ -230,13 +230,29 @@ bool is_surrounded_by_code(nib_range range, const std::u16string& text) {
     if (range.location < 0 || range_end(range) > n) return false;
 
     static constexpr std::u16string_view adjacent = u"._/\\@#$(){}[]<>";
-    if (range.location > 0
-        && adjacent.find(text[static_cast<size_t>(range.location - 1)]) != std::u16string_view::npos) {
-        return true;
+    auto word_char = [&](int32_t i) {
+        if (i < 0 || i >= n) return false;
+        const char16_t c = text[static_cast<size_t>(i)];
+        return is_letter(c) || is_decimal_digit(c);
+    };
+    // A dot only joins code when there is more word on its far side:
+    // "NSString.length", "teh.property". The full stop ending a sentence has
+    // nothing after it, and treating it as code meant a misspelling right
+    // before one -- "there is an eror." -- was never marked. (macOS nib has
+    // the same rule without this exception, and the same miss.)
+    if (range.location > 0) {
+        const char16_t before = text[static_cast<size_t>(range.location - 1)];
+        if (adjacent.find(before) != std::u16string_view::npos
+            && (before != u'.' || word_char(range.location - 2))) {
+            return true;
+        }
     }
-    if (range_end(range) < n
-        && adjacent.find(text[static_cast<size_t>(range_end(range))]) != std::u16string_view::npos) {
-        return true;
+    if (range_end(range) < n) {
+        const char16_t after = text[static_cast<size_t>(range_end(range))];
+        if (adjacent.find(after) != std::u16string_view::npos
+            && (after != u'.' || word_char(range_end(range) + 1))) {
+            return true;
+        }
     }
     return is_inside_backticks(range, text);
 }
