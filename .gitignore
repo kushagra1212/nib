@@ -11,3 +11,6 @@ dist/
 *.app
 models/
 .cache/
+windows/vendor/
+core/build-*/
+windows/build*/
