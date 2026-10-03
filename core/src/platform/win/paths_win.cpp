@@ -39,6 +39,18 @@ fs::path executable_dir() {
     return fs::path(buffer).parent_path();
 }
 
+namespace {
+
+// The vendor folder is per architecture, so an x64 checkout that also fetched
+// ARM64 engines never hands an x64 nib an ARM64 DLL.
+#if defined(_M_ARM64)
+constexpr const wchar_t* arch = L"arm64";
+#else
+constexpr const wchar_t* arch = L"x64";
+#endif
+
+}  // namespace
+
 std::optional<fs::path> locate_engine(const fs::path& relative) {
     std::error_code ec;
     const fs::path base = executable_dir();
@@ -48,10 +60,8 @@ std::optional<fs::path> locate_engine(const fs::path& relative) {
     // Development: build output is several levels below the repo root.
     fs::path dir = base;
     for (int i = 0; i < 7 && !dir.empty(); ++i) {
-        const fs::path candidate = dir / L"windows" / L"vendor" / relative;
+        const fs::path candidate = dir / L"windows" / L"vendor" / arch / relative;
         if (fs::is_regular_file(candidate, ec)) return candidate;
-        const fs::path sibling = dir / L"vendor" / relative;
-        if (fs::is_regular_file(sibling, ec)) return sibling;
         if (dir == dir.parent_path()) break;
         dir = dir.parent_path();
     }

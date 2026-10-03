@@ -104,8 +104,15 @@ std::u16string RewriteEngine::rewrite(const std::u16string& text, RewriteMode mo
         try {
             response = platform::http::post_json(base_url(port) + "/v1/chat/completions",
                                                  body.dump(), 120'000);
-        } catch (const std::exception& e) {
-            throw RewriteException({RewriteError::Kind::server_failed, utf8_to_utf16(e.what()), 0});
+        } catch (const platform::http::HttpError& e) {
+            // A timeout and a dropped connection are not a missing model, and
+            // reporting them as one sent people to reinstall a model that was
+            // sitting right there.
+            using K = platform::http::HttpError::Kind;
+            const auto kind = e.kind == K::timed_out ? RewriteError::Kind::timed_out
+                              : e.kind == K::other   ? RewriteError::Kind::server_failed
+                                                     : RewriteError::Kind::connection_lost;
+            throw RewriteException({kind, utf8_to_utf16(e.what()), 0});
         }
 
         if (response.status < 200 || response.status >= 300) {

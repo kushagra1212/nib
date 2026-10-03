@@ -41,7 +41,15 @@ std::wstring widen(const std::string& s) {
 }
 
 [[noreturn]] void fail(const char* what) {
-    throw HttpError(std::string(what) + " (WinHTTP error " + std::to_string(GetLastError()) + ")");
+    const DWORD code = GetLastError();
+    HttpError::Kind kind = HttpError::Kind::other;
+    switch (code) {
+    case ERROR_WINHTTP_TIMEOUT: kind = HttpError::Kind::timed_out; break;
+    case ERROR_WINHTTP_CANNOT_CONNECT: kind = HttpError::Kind::cannot_connect; break;
+    case ERROR_WINHTTP_CONNECTION_ERROR: kind = HttpError::Kind::connection_lost; break;
+    default: break;
+    }
+    throw HttpError(std::string(what) + " (WinHTTP error " + std::to_string(code) + ")", kind);
 }
 
 struct Url {

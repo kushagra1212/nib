@@ -10,7 +10,9 @@
 namespace nib::platform::http {
 
 struct HttpError : std::runtime_error {
-    using std::runtime_error::runtime_error;
+    enum class Kind { timed_out, cannot_connect, connection_lost, other };
+    Kind kind = Kind::other;
+    HttpError(const std::string& what, Kind k = Kind::other) : std::runtime_error(what), kind(k) {}
 };
 
 struct Response {

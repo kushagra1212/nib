@@ -17,6 +17,8 @@ struct RewriteError {
         rejected,       // the server answered, and said no
         out_of_memory,  // the GPU or RAM could not hold the model
         truncated,      // ran out of tokens twice: selection too long
+        timed_out,      // the server took too long -- often a cold start
+        connection_lost,// the server went away mid-request
     };
     Kind           kind = Kind::bad_response;
     std::u16string detail;  // path, reason, or server message

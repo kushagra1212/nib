@@ -21,6 +21,10 @@ std::u16string RewriteError::description() const {
                u"or close some apps";
     case Kind::truncated:
         return u"the selection is too long to rewrite in one pass";
+    case Kind::timed_out:
+        return u"llama-server took too long to answer";
+    case Kind::connection_lost:
+        return u"lost the connection to llama-server";
     }
     return {};
 }

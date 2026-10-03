@@ -58,6 +58,20 @@ if(APPLE AND NOT DEFINED ICU_ROOT
     message(STATUS "Using the vendored ICU at ${ICU_ROOT}")
 endif()
 
+# Windows: Scripts/windows/fetch-engines.ps1 puts the official MSVC build of
+# the same ICU version beside the other engines, per architecture.
+if(WIN32 AND NOT DEFINED ICU_ROOT)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|arm64|aarch64" OR CMAKE_GENERATOR_PLATFORM MATCHES "ARM64")
+        set(_nib_arch arm64)
+    else()
+        set(_nib_arch x64)
+    endif()
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../windows/vendor/${_nib_arch}/icu/include")
+        set(ICU_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../windows/vendor/${_nib_arch}/icu")
+        message(STATUS "Using the vendored ICU at ${ICU_ROOT}")
+    endif()
+endif()
+
 find_package(ICU 76 COMPONENTS uc i18n data QUIET)
 
 # The ICU DLLs a Windows binary needs beside it. FindICU makes imported
@@ -107,6 +121,13 @@ add_library(nibcore_obj OBJECT
     src/lint/message_framer.cpp
     src/rewrite/rewrite_mode.cpp
     src/rewrite/rewrite_text.cpp
+    src/present/presentation.cpp
+    src/speech/kokoro_vocab.cpp
+    src/speech/speech_text.cpp
+    src/speech/voice_pack.cpp
+    src/speech/speech_state.cpp
+    src/speech/practice.cpp
+    src/speech/audio.cpp
 )
 
 # The engines are driven through processes, HTTP and the filesystem. Only the
@@ -124,6 +145,9 @@ if(WIN32)
         src/rewrite/rewrite_engine.cpp
         src/rewrite/model_checker.cpp
         src/rewrite/model_catalog.cpp
+        src/speech/speech_catalog.cpp
+        src/speech/dictation_text.cpp
+        src/speech/engines.cpp
     )
     target_link_libraries(nibcore_obj PUBLIC winhttp ws2_32 shell32 ole32)
 endif()
@@ -131,6 +155,7 @@ endif()
 target_include_directories(nibcore_obj
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
             ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 target_compile_definitions(nibcore_obj PRIVATE NIB_CORE_BUILDING)
 target_link_libraries(nibcore_obj PUBLIC ICU::uc ICU::i18n ICU::data nlohmann_json::nlohmann_json)
@@ -191,9 +216,12 @@ if(NIB_CORE_TESTS AND NOT CMAKE_CROSSCOMPILING)
         tests/test_edit_planner.cpp
         tests/test_suggestion_filter.cpp
         tests/test_message_framer.cpp
+        tests/test_presentation.cpp
     )
+    # The speech suites read the same fixtures the Swift suite does.
     if(WIN32)
-        target_sources(nibcore_tests PRIVATE tests/test_rewrite.cpp)
+        target_sources(nibcore_tests PRIVATE tests/test_rewrite.cpp tests/test_engines.cpp
+                                             tests/test_speech.cpp)
     endif()
     target_link_libraries(nibcore_tests
         PRIVATE nibcore_obj Catch2::Catch2WithMain nlohmann_json::nlohmann_json
