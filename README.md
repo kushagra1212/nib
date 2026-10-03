@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Resources/AppIcon.iconset/icon_256x256.png" width="128" alt="nib">
+<img src="macos/Resources/AppIcon.iconset/icon_256x256.png" width="128" alt="nib">
 
 # nib
 
@@ -403,6 +403,52 @@ install. Every feature above works, with these keys:
 | Practice take | ⌃⌥P | **Ctrl+Alt+P** |
 | Read aloud | ⌃⌘N | **Ctrl+Alt+N** |
 | Stop reading | ⌃⇧H | **Ctrl+Alt+H** |
+
+### How it looks, and how to use it
+
+**As you type.** Write anywhere — Notepad, a browser, a chat box. Pause, and
+mistakes are underlined. Point at one for the fix; **Accept** types it in, so
+Ctrl+Z takes it back. Esc hides everything nib shows.
+
+<p align="center">
+<img src="media/windows-live.gif" width="720" alt="nib on Windows underlining three mistakes in Notepad as a sentence is typed, then fixing one from the card that opens under the pointer">
+</p>
+
+**On a selection.** Select text and a bar offers the AI's fix with one click
+(✓), and the other modes — Clearer, Shorter, Native — beside it. Press
+**Ctrl+Alt+Space** for the full panel by the pointer: every mistake with its
+replacements, the same modes, and **Replace** (or Return) to put the result
+back.
+
+<p align="center">
+<img src="media/windows-panel.gif" width="720" alt="Selecting a sentence in Notepad shows nib's bar; Ctrl+Alt+Space opens the panel, a replacement is clicked, and Replace writes the corrected sentence back">
+</p>
+
+**Dictation.** Press **Ctrl+Alt+D** in any text box and speak; a small bar at
+the bottom of the screen shows the level. Press it again: nib transcribes on
+your machine and types the words where the cursor is.
+
+**Read aloud.** Select text and press **Ctrl+Alt+N**; press it again, or
+**Ctrl+Alt+H**, to stop. With nothing selected it reads the clipboard.
+
+**The window.** Double-click the tray icon, or launch nib again. **Status**
+shows each part with a **Test** button; **Models** and **Voices** download what
+the optional features need; **Diagnostics** keeps a log of lengths and counts,
+never your text.
+
+<p align="center">
+<img src="media/windows-control-panel.png" width="640" alt="nib's window on Windows: the Status page with reading text, grammar checking, AI rewrite, dictation and speech, each with a Test button">
+</p>
+
+**Mouse buttons.** Any tool that maps a button to a key combination works. With
+[X-Mouse Button Control](https://www.highrez.co.uk/downloads/XMouseButtonControl.htm),
+set a side button to *Simulated Keys* `{CTRL}{ALT}D` (dictation) or
+`{CTRL}{ALT}N` (read aloud), in *pressed* mode. Mapping in the software rather
+than in the mouse keeps the buttons unchanged on a Mac.
+
+**A key does nothing?** Windows gives each combination to one app. If another
+holds it when nib starts — an older nib still running, say — the Status page
+says so, and nib takes the key as soon as that app lets it go.
 
 **Install.** Run the MSI. It installs for you alone, into
 `%LOCALAPPDATA%\Programs\nib`, with **no administrator prompt**, adds nib to the
