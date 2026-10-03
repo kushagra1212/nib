@@ -143,6 +143,11 @@ struct Kokoro::Impl {
     }
 };
 
+int Kokoro::default_threads() {
+    if (const char* over = std::getenv("NIB_KOKORO_THREADS"); over && std::atoi(over) > 0) return std::atoi(over);
+    return std::clamp(static_cast<int>(platform::processor_count() / 4), 2, 4);
+}
+
 std::optional<fs::path> Kokoro::runtime() {
     if (const char* over = std::getenv("NIB_ONNX_RUNTIME"); over && *over) return fs::u8path(over);
     return platform::paths::locate_engine(fs::path(L"onnx") / L"onnxruntime.dll");

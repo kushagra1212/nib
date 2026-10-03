@@ -1,6 +1,11 @@
 #include "lint/harper_engine.hpp"
 
+#include <cctype>
 #include <chrono>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include "platform/paths.hpp"
 #include "lint/suggestion_filter.hpp"
 #include "support/log.hpp"
 #include "text/unicode.hpp"
@@ -10,15 +15,46 @@ namespace {
 
 using json = nlohmann::json;
 
-// harper-ls keys documents by URI. nib only ever lints one scratch buffer,
-// which never exists on disk.
-constexpr const char* document_uri = "file:///C:/nib/nib-buffer.md";
-constexpr const char* root_uri = "file:///C:/nib";
+// harper-ls keys documents by URI. nib only ever lints one scratch buffer. It
+// is a real, empty file in nib's own folder: harper looks for the document on
+// disk, and a path that does not exist is an error in its log on every start.
+std::string file_uri(const std::filesystem::path& p) {
+    const auto u8 = p.generic_u8string();
+    const std::string s(u8.begin(), u8.end());
+    std::string out = "file:///";
+    for (unsigned char c : s) {
+        if (std::isalnum(c) || c == '/' || c == '-' || c == '_' || c == '.' || c == '~' || c == ':') {
+            out.push_back(static_cast<char>(c));
+        } else {
+            char buf[4];
+            std::snprintf(buf, sizeof buf, "%%%02X", c);
+            out += buf;
+        }
+    }
+    return out;
+}
+
+const std::string& root_uri() {
+    static const std::string uri = file_uri(platform::paths::data_dir() / L"harper");
+    return uri;
+}
+
+const std::string& document_uri_string() {
+    static const std::string uri = [] {
+        const auto file = platform::paths::data_dir() / L"harper" / L"buffer.md";
+        std::error_code ec;
+        std::filesystem::create_directories(file.parent_path(), ec);
+        if (!std::filesystem::exists(file, ec)) std::ofstream(file).close();
+        return file_uri(file);
+    }();
+    return uri;
+}
+
 
 }  // namespace
 
 json HarperEngine::Settings::payload() const {
-    return {
+    json out = {
         {"linters", json::object()},
         {"codeActions", {{"forceStable", false}}},
         {"markdown", {{"IgnoreLinkTitle", false}}},
@@ -27,10 +63,22 @@ json HarperEngine::Settings::payload() const {
         {"isolateEnglish", isolate_english},
         {"maxFileLength", max_file_length},
     };
+    if (!user_dictionary.empty()) out["userDictPath"] = user_dictionary;
+    if (!file_dictionaries.empty()) out["fileDictPath"] = file_dictionaries;
+    return out;
 }
 
 HarperEngine::HarperEngine(std::u16string executable, Settings settings)
     : executable_(std::move(executable)), settings_(std::move(settings)) {
+    if (settings_.user_dictionary.empty()) {
+        const auto dir = platform::paths::data_dir() / L"harper";
+        std::error_code ec;
+        std::filesystem::create_directories(dir / L"file-dictionaries", ec);
+        const auto user = dir / L"dictionary.txt";
+        if (!std::filesystem::exists(user, ec)) std::ofstream(user).close();
+        settings_.user_dictionary = user.string();
+        settings_.file_dictionaries = (dir / L"file-dictionaries").string();
+    }
     client_.on_request = [this](const std::string& method, const json&) -> json {
         // One settings object per requested item; harper only ever asks for
         // one, but answering per item keeps nib spec-correct.
@@ -41,7 +89,7 @@ HarperEngine::HarperEngine(std::u16string executable, Settings settings)
     };
     client_.on_notification = [this](const std::string& method, const json& params) {
         if (method != "textDocument/publishDiagnostics" || !params.is_object()) return;
-        if (params.value("uri", std::string()) != document_uri) return;
+        if (params.value("uri", std::string()) != document_uri_string()) return;
         const auto diagnostics = params.find("diagnostics");
         if (diagnostics == params.end() || !diagnostics->is_array()) return;
         const auto version = params.find("version");
@@ -69,8 +117,8 @@ void HarperEngine::start() {
 
     client_.request("initialize", {
         {"processId", platform::current_pid()},
-        {"rootUri", root_uri},
-        {"workspaceFolders", json::array({{{"uri", root_uri}, {"name", "nib"}}})},
+        {"rootUri", root_uri()},
+        {"workspaceFolders", json::array({{{"uri", root_uri()}, {"name", "nib"}}})},
         {"capabilities", {
             {"textDocument", {
                 {"publishDiagnostics", json::object()},
@@ -90,7 +138,7 @@ void HarperEngine::start() {
     try {
         await_diagnostics(5'000, [&] {
             client_.notify("textDocument/didOpen", {
-                {"textDocument", {{"uri", document_uri}, {"languageId", "markdown"},
+                {"textDocument", {{"uri", document_uri_string()}, {"languageId", "markdown"},
                                   {"version", 0}, {"text", ""}}},
             });
         });
@@ -112,7 +160,7 @@ std::vector<Suggestion> HarperEngine::lint(const std::u16string& text, int32_t t
     const std::string utf8 = utf16_to_utf8(text);
     const json diagnostics = await_diagnostics(timeout_ms, [&] {
         client_.notify("textDocument/didChange", {
-            {"textDocument", {{"uri", document_uri}, {"version", version_}}},
+            {"textDocument", {{"uri", document_uri_string()}, {"version", version_}}},
             {"contentChanges", json::array({{{"text", utf8}}})},
         });
     });
@@ -155,7 +203,7 @@ std::vector<std::u16string> HarperEngine::replacements(const Suggestion& suggest
     json response;
     try {
         response = client_.request("textDocument/codeAction", {
-            {"textDocument", {{"uri", document_uri}}},
+            {"textDocument", {{"uri", document_uri_string()}}},
             {"range", entry.second},
             {"context", {{"diagnostics", json::array({entry.first})}}},
         }, 5'000);
@@ -172,7 +220,7 @@ std::vector<std::u16string> HarperEngine::replacements(const Suggestion& suggest
         if (edit == action.end() || !edit->is_object()) continue;
         const auto changes = edit->find("changes");
         if (changes == edit->end() || !changes->is_object()) continue;
-        const auto edits = changes->find(document_uri);
+        const auto edits = changes->find(document_uri_string());
         if (edits == changes->end() || !edits->is_array() || edits->size() != 1) continue;
         const auto text = (*edits)[0].find("newText");
         if (text == (*edits)[0].end() || !text->is_string()) continue;

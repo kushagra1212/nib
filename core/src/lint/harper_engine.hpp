@@ -27,6 +27,12 @@ public:
         std::string diagnostic_severity = "hint";
         bool        isolate_english = false;
         int32_t     max_file_length = 120'000;
+        // Where harper keeps words added to its dictionary. Its defaults are
+        // under the roaming profile and do not exist until written, which it
+        // reports as an error on every start; nib points them at its own
+        // folder and creates them.
+        std::string user_dictionary;
+        std::string file_dictionaries;
         nlohmann::json payload() const;
     };
 

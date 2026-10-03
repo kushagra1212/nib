@@ -221,7 +221,7 @@ if(NIB_CORE_TESTS AND NOT CMAKE_CROSSCOMPILING)
     # The speech suites read the same fixtures the Swift suite does.
     if(WIN32)
         target_sources(nibcore_tests PRIVATE tests/test_rewrite.cpp tests/test_engines.cpp
-                                             tests/test_speech.cpp)
+                                             tests/test_speech.cpp tests/test_speech_engines.cpp)
     endif()
     target_link_libraries(nibcore_tests
         PRIVATE nibcore_obj Catch2::Catch2WithMain nlohmann_json::nlohmann_json

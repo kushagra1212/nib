@@ -19,8 +19,10 @@ const std::vector<CatalogModel>& all();
 // 574MB to find out whether you like dictating at all.
 const CatalogModel& recommended();
 std::filesystem::path install_directory();
-// The installed model, largest first -- for whisper size tracks accuracy.
+// The installed model: the one chosen in the Models section when it is still
+// there, otherwise the largest -- for whisper, size tracks accuracy.
 std::optional<std::filesystem::path> installed();
+void prefer(const std::string& filename);
 }  // namespace whisper_catalog
 
 namespace voice_catalog {

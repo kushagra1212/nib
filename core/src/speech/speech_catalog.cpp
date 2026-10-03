@@ -32,8 +32,21 @@ const CatalogModel& recommended() { return all()[1]; }
 
 fs::path install_directory() { return platform::paths::speech_dir(); }
 
+namespace {
+std::string& preferred() {
+    static std::string name;
+    return name;
+}
+}  // namespace
+
+void prefer(const std::string& filename) { preferred() = filename; }
+
 std::optional<fs::path> installed() {
     std::error_code ec;
+    if (!preferred().empty()) {
+        const auto chosen = install_directory() / fs::u8path(preferred());
+        if (fs::is_regular_file(chosen, ec)) return chosen;
+    }
     std::optional<fs::path> best;
     uintmax_t best_size = 0;
     for (const auto& e : fs::directory_iterator(install_directory(), ec)) {

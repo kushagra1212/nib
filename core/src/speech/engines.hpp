@@ -46,11 +46,17 @@ public:
     // little, and nib leaves the rest of the machine alone. It also decides
     // the exact samples, which the audio fixture records.
     static constexpr int threads = 2;
+    // What nib actually uses. Two on Apple silicon was 3.5x real time; on an
+    // x64 laptop two threads measured 1.1x -- barely ahead of playback, so a
+    // long paragraph could stall mid-sentence. A quarter of the logical cores,
+    // two to four, keeps synthesis well ahead and still leaves the machine
+    // alone. NIB_KOKORO_THREADS overrides it.
+    static int default_threads();
 
     static std::optional<std::filesystem::path> runtime();
 
     // Throws SpeechError.
-    Kokoro(const std::filesystem::path& model, const std::filesystem::path& runtime, int threads = threads);
+    Kokoro(const std::filesystem::path& model, const std::filesystem::path& runtime, int threads = default_threads());
     ~Kokoro();
 
     // Samples at 24kHz for one batch of tokens. The padding zeros the model
